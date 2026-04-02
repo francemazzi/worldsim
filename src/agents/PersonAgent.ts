@@ -9,6 +9,7 @@ import type { AgentConfig, AgentAction, AgentMessage } from "../types/AgentTypes
 import type { WorldContext } from "../types/WorldTypes.js";
 import type { RulesContext } from "../types/RulesTypes.js";
 import type { AgentTool } from "../types/PluginTypes.js";
+import type { RelationshipUpsert } from "../types/GraphTypes.js";
 
 export class PersonAgent extends BaseAgent {
   private iterationsPerTick: number;
@@ -34,6 +35,21 @@ export class PersonAgent extends BaseAgent {
 
   async tick(ctx: WorldContext, rules: RulesContext): Promise<AgentAction[]> {
     if (this.shouldSkipTick(ctx.tickCount)) return [];
+
+    // Idle agent optimization: skip LLM call if no stimulus
+    if (!this.config.alwaysThink && this.isIdle(ctx.tickCount)) {
+      this.updateInternalState({ energy: Math.min(100, this.internalState.energy + 5) });
+      const restAction: AgentAction = {
+        agentId: this.id,
+        actionType: "observe",
+        payload: { status: "resting" },
+        tick: ctx.tickCount,
+      };
+      if (this.activityScheduler) {
+        this.activityScheduler.recordAction(this.id, ctx.tickCount);
+      }
+      return [restAction];
+    }
 
     // Reset per-tick token counter
     if (this.tokenBudgetTracker) {
@@ -136,37 +152,64 @@ export class PersonAgent extends BaseAgent {
   }
 
   private async gatherTickContext(): Promise<TickContext> {
+    const degraded = this.isDegraded();
+    const memoryLimit = degraded ? 5 : 20;
+    const relLimit = degraded ? 3 : 10;
+
     if (this.brainMemory) {
       const currentSituation = this.describeCurrentSituation();
       const [recallResult, relationships] = await Promise.all([
         this.brainMemory.recall({
           agentId: this.id,
-          recentLimit: 20,
+          recentLimit: memoryLimit,
           semanticQuery: currentSituation,
-          semanticTopK: 5,
-          includeKnowledge: true,
+          semanticTopK: degraded ? 0 : 5,
+          includeKnowledge: !degraded,
         }),
         this.graphStore
-          ? this.graphStore.getRelationships({ agentId: this.id, limit: 10 })
+          ? this.graphStore.getRelationships({ agentId: this.id, limit: relLimit })
           : Promise.resolve([]),
       ]);
 
       return {
         memories: recallResult.memories,
         relationships,
-        knowledge: recallResult.knowledge,
+        knowledge: degraded ? undefined : recallResult.knowledge,
       };
     }
 
     const [memories, relationships] = await Promise.all([
       this.memoryStore
-        ? this.memoryStore.getRecent(this.id, 20)
+        ? this.memoryStore.getRecent(this.id, memoryLimit)
         : Promise.resolve([]),
       this.graphStore
-        ? this.graphStore.getRelationships({ agentId: this.id, limit: 10 })
+        ? this.graphStore.getRelationships({ agentId: this.id, limit: relLimit })
         : Promise.resolve([]),
     ]);
     return { memories, relationships };
+  }
+
+  /**
+   * Lightweight check: does this agent have any stimulus worth an LLM call?
+   * If idle, we skip the expensive LLM call and return a "rest" action.
+   */
+  private isIdle(tick: number): boolean {
+    // Has incoming messages? (O(1) with recipient index)
+    if (this.bus.getMessageCount(this.id, tick) > 0) return false;
+
+    // Has active goals?
+    if (this.internalState.goals.length > 0) return false;
+
+    // Has enough energy to be active?
+    if (this.internalState.energy > 30) return false;
+
+    // Is in an active conversation?
+    if (this.conversationManager) {
+      const conv = this.conversationManager.getConversationForAgent(this.id);
+      if (conv) return false;
+    }
+
+    return true;
   }
 
   private describeCurrentSituation(): string {
@@ -205,14 +248,31 @@ export class PersonAgent extends BaseAgent {
   private async updateRelationships(ctx: WorldContext): Promise<void> {
     if (!this.graphStore) return;
 
-    const allMessages = this.bus.getAllMessagesForTick(ctx.tickCount);
+    // Use indexed getMessages (O(1)) instead of getAllMessagesForTick (O(n))
+    const myMessages = this.bus.getMessages(this.id, ctx.tickCount);
     const senders = new Set<string>();
-    for (const msg of allMessages) {
-      if (msg.from !== this.id && (msg.to === "*" || msg.to === this.id) && msg.type === "speak") {
+    for (const msg of myMessages) {
+      if (msg.from !== this.id && msg.type === "speak") {
         senders.add(msg.from);
       }
     }
 
+    if (senders.size === 0) return;
+
+    // Prefer batch upsert if available (single DB call)
+    if (this.graphStore.upsertRelationshipBatch) {
+      const upserts: RelationshipUpsert[] = Array.from(senders).map((senderId) => ({
+        from: this.id,
+        to: senderId,
+        type: "knows",
+        strengthIncrement: 0.1,
+        tick: ctx.tickCount,
+      }));
+      await this.graphStore.upsertRelationshipBatch(upserts);
+      return;
+    }
+
+    // Fallback: sequential (backward-compatible)
     for (const senderId of senders) {
       const existing = await this.graphStore.getRelationship(
         this.id,

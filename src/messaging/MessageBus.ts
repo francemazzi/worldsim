@@ -15,6 +15,8 @@ export function createMessageId(): string {
 export class MessageBus {
   private emitter: Emitter<BusEvents> = mitt<BusEvents>();
   private tickMessages: Map<number, Message[]> = new Map();
+  private recipientIndex: Map<number, Map<string, Message[]>> = new Map();
+  private broadcastMessages: Map<number, Message[]> = new Map();
   private _currentTick = 0;
 
   get currentTick(): number {
@@ -23,8 +25,12 @@ export class MessageBus {
 
   newTick(tick: number): void {
     this.tickMessages.delete(this._currentTick);
+    this.recipientIndex.delete(this._currentTick);
+    this.broadcastMessages.delete(this._currentTick);
     this._currentTick = tick;
     this.tickMessages.set(tick, []);
+    this.recipientIndex.set(tick, new Map());
+    this.broadcastMessages.set(tick, []);
   }
 
   publish(message: Message): void {
@@ -34,6 +40,27 @@ export class MessageBus {
     } else {
       this.tickMessages.set(this._currentTick, [message]);
     }
+
+    // Maintain secondary indexes
+    if (message.to === "*") {
+      const bcasts = this.broadcastMessages.get(this._currentTick);
+      if (bcasts) {
+        bcasts.push(message);
+      } else {
+        this.broadcastMessages.set(this._currentTick, [message]);
+      }
+    } else {
+      const tickIdx = this.recipientIndex.get(this._currentTick);
+      if (tickIdx) {
+        const arr = tickIdx.get(message.to);
+        if (arr) {
+          arr.push(message);
+        } else {
+          tickIdx.set(message.to, [message]);
+        }
+      }
+    }
+
     this.emitter.emit("message", message);
   }
 
@@ -50,9 +77,26 @@ export class MessageBus {
     return () => this.emitter.off("message", wrappedHandler);
   }
 
+  /**
+   * Returns messages for a specific agent on a given tick.
+   * O(1) lookup via recipient index + broadcast merge.
+   */
   getMessages(agentId: string, tick: number): Message[] {
-    const msgs = this.tickMessages.get(tick) ?? [];
-    return msgs.filter((m) => m.to === agentId || m.to === "*");
+    const directed = this.recipientIndex.get(tick)?.get(agentId) ?? [];
+    const broadcasts = this.broadcastMessages.get(tick) ?? [];
+    if (directed.length === 0) return broadcasts;
+    if (broadcasts.length === 0) return directed;
+    return [...directed, ...broadcasts];
+  }
+
+  /**
+   * Returns message count for a specific agent on a given tick.
+   * O(1) without materializing arrays.
+   */
+  getMessageCount(agentId: string, tick: number): number {
+    const directedCount = this.recipientIndex.get(tick)?.get(agentId)?.length ?? 0;
+    const broadcastCount = this.broadcastMessages.get(tick)?.length ?? 0;
+    return directedCount + broadcastCount;
   }
 
   broadcast(message: Omit<Message, "to">): void {
@@ -75,6 +119,8 @@ export class MessageBus {
 
   clear(): void {
     this.tickMessages.clear();
+    this.recipientIndex.clear();
+    this.broadcastMessages.clear();
     this._currentTick = 0;
     this.emitter.all.clear();
   }

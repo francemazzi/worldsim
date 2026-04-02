@@ -81,4 +81,60 @@ describe("MessageBus", () => {
     bus.publish(makeMsg({ to: "agent-a", tick: 1 }));
     expect(handler).toHaveBeenCalledOnce();
   });
+
+  describe("recipient index", () => {
+    it("getMessages() returns directed + broadcast messages", () => {
+      const bus = new MessageBus();
+      bus.newTick(1);
+      bus.publish(makeMsg({ to: "agent-b", tick: 1, content: "direct" }));
+      bus.publish(makeMsg({ to: "*", tick: 1, content: "broadcast" }));
+      bus.publish(makeMsg({ to: "agent-c", tick: 1, content: "other" }));
+
+      const msgs = bus.getMessages("agent-b", 1);
+      expect(msgs).toHaveLength(2);
+      expect(msgs.map((m) => m.content).sort()).toEqual(["broadcast", "direct"]);
+    });
+
+    it("getMessageCount() returns correct count without materializing", () => {
+      const bus = new MessageBus();
+      bus.newTick(1);
+      bus.publish(makeMsg({ to: "agent-b", tick: 1 }));
+      bus.publish(makeMsg({ to: "agent-b", tick: 1 }));
+      bus.publish(makeMsg({ to: "*", tick: 1 }));
+      bus.publish(makeMsg({ to: "agent-c", tick: 1 }));
+
+      expect(bus.getMessageCount("agent-b", 1)).toBe(3); // 2 directed + 1 broadcast
+      expect(bus.getMessageCount("agent-c", 1)).toBe(2); // 1 directed + 1 broadcast
+      expect(bus.getMessageCount("agent-d", 1)).toBe(1); // 0 directed + 1 broadcast
+    });
+
+    it("getMessageCount() returns 0 for unknown tick", () => {
+      const bus = new MessageBus();
+      expect(bus.getMessageCount("agent-a", 99)).toBe(0);
+    });
+
+    it("publishToGroup() indexes each recipient correctly", () => {
+      const bus = new MessageBus();
+      bus.newTick(1);
+      bus.publishToGroup(
+        { id: createMessageId(), from: "sender", type: "speak", content: "hi", tick: 1 },
+        ["agent-a", "agent-b"],
+      );
+
+      expect(bus.getMessageCount("agent-a", 1)).toBe(1);
+      expect(bus.getMessageCount("agent-b", 1)).toBe(1);
+      expect(bus.getMessageCount("agent-c", 1)).toBe(0);
+    });
+
+    it("indexes are cleared on newTick()", () => {
+      const bus = new MessageBus();
+      bus.newTick(1);
+      bus.publish(makeMsg({ to: "agent-b", tick: 1 }));
+      expect(bus.getMessageCount("agent-b", 1)).toBe(1);
+
+      bus.newTick(2);
+      expect(bus.getMessageCount("agent-b", 1)).toBe(0);
+      expect(bus.getMessageCount("agent-b", 2)).toBe(0);
+    });
+  });
 });

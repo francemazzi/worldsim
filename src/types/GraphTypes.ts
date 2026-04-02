@@ -17,6 +17,14 @@ export interface GraphQuery {
   limit?: number;
 }
 
+export interface RelationshipUpsert {
+  from: string;
+  to: string;
+  type: string;
+  strengthIncrement: number;
+  tick: number;
+}
+
 export interface GraphStore {
   addRelationship(rel: Relationship): Promise<void>;
   updateRelationship(
@@ -33,4 +41,11 @@ export interface GraphStore {
   ): Promise<Relationship | null>;
   removeRelationship(from: string, to: string, type: string): Promise<void>;
   getConnectedAgents(agentId: string): Promise<string[]>;
+
+  /**
+   * Optional batch upsert: for each entry, create the relationship if it doesn't exist
+   * or increment strength and update lastInteraction if it does.
+   * Implementations should handle this in a single DB round-trip where possible.
+   */
+  upsertRelationshipBatch?(upserts: RelationshipUpsert[]): Promise<void>;
 }

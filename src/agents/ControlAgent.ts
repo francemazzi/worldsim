@@ -117,6 +117,9 @@ export class ControlAgent extends BaseAgent {
     ];
   }
 
+  private static readonly EVAL_CHUNK_SIZE = 20;
+  private static readonly SAFE_ACTION_TYPES: Set<string> = new Set(["observe", "finish"]);
+
   async evaluateActions(
     actions: AgentAction[],
     ctx: WorldContext,
@@ -141,10 +144,47 @@ export class ControlAgent extends BaseAgent {
       }));
     }
 
+    // Pre-filter: auto-approve safe action types (observe, finish)
+    const safeResults: EvaluationResult[] = [];
+    const actionsToEvaluate: AgentAction[] = [];
+
+    for (const action of actions) {
+      if (ControlAgent.SAFE_ACTION_TYPES.has(action.actionType)) {
+        safeResults.push({
+          agentId: action.agentId,
+          actionType: action.actionType,
+          verdict: "approved",
+        });
+      } else {
+        actionsToEvaluate.push(action);
+      }
+    }
+
+    if (actionsToEvaluate.length === 0) return safeResults;
+
     const rulesStr = allHardRules
       .map((r) => `[${r.id}] ${r.instruction}`)
       .join("\n");
 
+    // Chunk remaining actions for parallel evaluation
+    const chunks: AgentAction[][] = [];
+    for (let i = 0; i < actionsToEvaluate.length; i += ControlAgent.EVAL_CHUNK_SIZE) {
+      chunks.push(actionsToEvaluate.slice(i, i + ControlAgent.EVAL_CHUNK_SIZE));
+    }
+
+    const chunkPromises = chunks.map((chunk) =>
+      this.evaluateChunk(chunk, ctx, rulesStr),
+    );
+    const chunkResults = await Promise.all(chunkPromises);
+
+    return [...safeResults, ...chunkResults.flat()];
+  }
+
+  private async evaluateChunk(
+    actions: AgentAction[],
+    ctx: WorldContext,
+    rulesStr: string,
+  ): Promise<EvaluationResult[]> {
     const actionsStr = actions
       .map(
         (a) =>

@@ -54,6 +54,8 @@ export interface AgentConfig {
     maxContacts?: number | undefined;
     groups?: string[] | undefined;
   } | undefined;
+  /** If true, agent always makes LLM call even when idle. Default false. */
+  alwaysThink?: boolean | undefined;
 }
 
 export interface AgentState {

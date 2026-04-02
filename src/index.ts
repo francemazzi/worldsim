@@ -34,6 +34,7 @@ export type {
   GraphStore,
   Relationship,
   GraphQuery,
+  RelationshipUpsert,
 } from "./types/GraphTypes.js";
 export type {
   LLMAdapter,

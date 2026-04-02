@@ -426,8 +426,8 @@ export class WorldEngine {
     const activePersonAgents = this.personAgents
       .filter((a) => a.isActive)
       .sort((a, b) => {
-        const aMsgs = this.messageBus.getMessages(a.id, tick).length;
-        const bMsgs = this.messageBus.getMessages(b.id, tick).length;
+        const aMsgs = this.messageBus.getMessageCount(a.id, tick);
+        const bMsgs = this.messageBus.getMessageCount(b.id, tick);
         return bMsgs - aMsgs; // More messages = higher priority
       });
 
