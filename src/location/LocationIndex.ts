@@ -73,6 +73,7 @@ export class LocationIndex {
 /**
  * Calculates the distance in kilometers between two geographic points
  * using the Haversine formula.
+ * TODO: maybe we need to refactor this using leaflet or library with map and evaluation correct real radius
  */
 function haversineDistance(a: GeoLocation, b: GeoLocation): number {
   const R = 6371; // Earth's radius in km
