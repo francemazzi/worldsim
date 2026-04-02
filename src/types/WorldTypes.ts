@@ -1,3 +1,6 @@
+import type { MemoryStore } from "./MemoryTypes.js";
+import type { GraphStore } from "./GraphTypes.js";
+
 export interface WorldContext {
   worldId: string;
   tickCount: number;
@@ -15,6 +18,8 @@ export interface WorldConfig {
     json?: string[] | undefined;
     pdf?: string[] | undefined;
   } | undefined;
+  memoryStore?: MemoryStore | undefined;
+  graphStore?: GraphStore | undefined;
 }
 
 export interface LLMConfig {

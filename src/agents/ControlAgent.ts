@@ -1,4 +1,5 @@
 import { BaseAgent } from "./BaseAgent.js";
+import type { AgentStoreOptions } from "./BaseAgent.js";
 import { buildControlGraph } from "../graph/ControlGraph.js";
 import { createMessageId } from "../messaging/MessageBus.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
@@ -23,8 +24,13 @@ export interface EvaluationResult {
 export class ControlAgent extends BaseAgent {
   private watchPatterns: string[] = [];
 
-  constructor(config: AgentConfig, llm: LLMAdapter, bus: MessageBus) {
-    super(config, llm, bus);
+  constructor(
+    config: AgentConfig,
+    llm: LLMAdapter,
+    bus: MessageBus,
+    options?: AgentStoreOptions,
+  ) {
+    super(config, llm, bus, options);
   }
 
   private buildControlAgentTool(): AgentTool {

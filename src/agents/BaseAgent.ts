@@ -1,4 +1,10 @@
 import { AgentLifecycle } from "./AgentLifecycle.js";
+import {
+  buildProfilePrompt,
+  buildStatePrompt,
+  buildMemoryPrompt,
+  buildRelationshipPrompt,
+} from "./ProfilePromptBuilder.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
 import { createMessageId } from "../messaging/MessageBus.js";
 import type { LLMAdapter } from "../llm/LLMAdapter.js";
@@ -8,21 +14,58 @@ import type {
   AgentStatus,
   AgentControlEvent,
   AgentMessage,
+  AgentProfile,
+  AgentInternalState,
 } from "../types/AgentTypes.js";
 import type { WorldContext, WorldEvent } from "../types/WorldTypes.js";
 import type { RulesContext, Rule } from "../types/RulesTypes.js";
+import type { MemoryStore, MemoryEntry } from "../types/MemoryTypes.js";
+import type { GraphStore, Relationship } from "../types/GraphTypes.js";
 import type { Message } from "../messaging/Message.js";
+
+export interface AgentStoreOptions {
+  memoryStore?: MemoryStore | undefined;
+  graphStore?: GraphStore | undefined;
+}
+
+export interface TickContext {
+  memories: MemoryEntry[];
+  relationships: Relationship[];
+}
+
+const DEFAULT_INTERNAL_STATE: AgentInternalState = {
+  mood: "neutral",
+  energy: 100,
+  goals: [],
+  beliefs: {},
+  knowledge: {},
+  custom: {},
+};
 
 export abstract class BaseAgent {
   protected config: AgentConfig;
   protected llm: LLMAdapter;
   protected bus: MessageBus;
+  protected memoryStore?: MemoryStore | undefined;
+  protected graphStore?: GraphStore | undefined;
+  protected internalState: AgentInternalState;
   private lifecycle: AgentLifecycle = new AgentLifecycle();
 
-  constructor(config: AgentConfig, llm: LLMAdapter, bus: MessageBus) {
+  constructor(
+    config: AgentConfig,
+    llm: LLMAdapter,
+    bus: MessageBus,
+    options?: AgentStoreOptions,
+  ) {
     this.config = config;
     this.llm = llm;
     this.bus = bus;
+    this.memoryStore = options?.memoryStore;
+    this.graphStore = options?.graphStore;
+    this.internalState = {
+      ...DEFAULT_INTERNAL_STATE,
+      ...config.initialState,
+    };
   }
 
   get id(): string {
@@ -41,8 +84,30 @@ export abstract class BaseAgent {
     return this.lifecycle.isActive;
   }
 
+  getProfile(): AgentProfile | undefined {
+    return this.config.profile;
+  }
+
+  getInternalState(): Readonly<AgentInternalState> {
+    return this.internalState;
+  }
+
+  updateInternalState(updates: Partial<AgentInternalState>): void {
+    if (updates.mood != null) this.internalState.mood = updates.mood;
+    if (updates.energy != null) this.internalState.energy = updates.energy;
+    if (updates.goals) this.internalState.goals = updates.goals;
+    if (updates.beliefs) {
+      Object.assign(this.internalState.beliefs, updates.beliefs);
+    }
+    if (updates.knowledge) {
+      Object.assign(this.internalState.knowledge, updates.knowledge);
+    }
+    if (updates.custom) {
+      Object.assign(this.internalState.custom, updates.custom);
+    }
+  }
+
   start(tick = 0): void {
-    const oldStatus = this.lifecycle.current;
     if (this.lifecycle.transition("start")) {
       this.emitLifecycleEvent("agent:start", "world-engine", tick);
     }
@@ -72,7 +137,30 @@ export abstract class BaseAgent {
 
   abstract tick(ctx: WorldContext, rules: RulesContext): Promise<AgentAction[]>;
 
-  protected buildSystemPrompt(rules: RulesContext): string {
+  protected buildSystemPrompt(
+    rules: RulesContext,
+    tickContext?: TickContext,
+  ): string {
+    const sections: string[] = [];
+
+    if (this.config.profile) {
+      sections.push(buildProfilePrompt(this.config.profile));
+    }
+
+    if (this.config.systemPrompt) {
+      sections.push(this.config.systemPrompt);
+    }
+
+    sections.push(buildStatePrompt(this.internalState));
+
+    if (tickContext) {
+      const memorySection = buildMemoryPrompt(tickContext.memories);
+      if (memorySection) sections.push(memorySection);
+
+      const relSection = buildRelationshipPrompt(tickContext.relationships);
+      if (relSection) sections.push(relSection);
+    }
+
     const scopeRules = rules.getRulesForScope(
       this.config.role === "control" ? "control" : "person",
     );
@@ -88,7 +176,9 @@ export abstract class BaseAgent {
       .map((r) => `[${r.enforcement.toUpperCase()}] ${r.instruction}`)
       .join("\n");
 
-    return `${this.config.systemPrompt}\n\n--- RULES ---\n${rulesText}`;
+    sections.push(`--- RULES ---\n${rulesText}`);
+
+    return sections.join("\n\n");
   }
 
   protected emit(event: WorldEvent): void {

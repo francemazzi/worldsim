@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { BaseAgent } from "./BaseAgent.js";
+import type { AgentStoreOptions, TickContext } from "./BaseAgent.js";
 import { buildPersonGraph } from "../graph/PersonGraph.js";
 import { createMessageId } from "../messaging/MessageBus.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
@@ -12,25 +14,41 @@ export class PersonAgent extends BaseAgent {
   private iterationsPerTick: number;
   private externalTools: AgentTool[] = [];
 
-  constructor(config: AgentConfig, llm: LLMAdapter, bus: MessageBus) {
-    super(config, llm, bus);
+  constructor(
+    config: AgentConfig,
+    llm: LLMAdapter,
+    bus: MessageBus,
+    options?: AgentStoreOptions,
+  ) {
+    super(config, llm, bus, options);
     this.iterationsPerTick = config.iterationsPerTick ?? 1;
   }
 
-  setTools(tools: AgentTool[]): void {
-    this.externalTools = tools;
+  setTools(pluginTools: AgentTool[]): void {
+    const configTools = this.config.tools ?? [];
+    const toolMap = new Map<string, AgentTool>();
+    for (const t of pluginTools) toolMap.set(t.name, t);
+    for (const t of configTools) toolMap.set(t.name, t);
+    this.externalTools = Array.from(toolMap.values());
   }
 
   async tick(ctx: WorldContext, rules: RulesContext): Promise<AgentAction[]> {
     if (this.shouldSkipTick()) return [];
 
+    const tickContext = await this.gatherTickContext();
     const actions: AgentAction[] = [];
 
     for (let i = 0; i < this.iterationsPerTick; i++) {
       if (!this.isActive) break;
 
       const incomingMessages = this.bus.getMessages(this.id, ctx.tickCount);
-      const action = await this.singleIteration(ctx, rules, incomingMessages, i);
+      const action = await this.singleIteration(
+        ctx,
+        rules,
+        incomingMessages,
+        i,
+        tickContext,
+      );
       actions.push(action);
 
       this.bus.publish({
@@ -43,7 +61,39 @@ export class PersonAgent extends BaseAgent {
       });
     }
 
+    await this.persistActions(actions, ctx);
+
     return actions;
+  }
+
+  private async gatherTickContext(): Promise<TickContext> {
+    const [memories, relationships] = await Promise.all([
+      this.memoryStore
+        ? this.memoryStore.getRecent(this.id, 20)
+        : Promise.resolve([]),
+      this.graphStore
+        ? this.graphStore.getRelationships({ agentId: this.id, limit: 10 })
+        : Promise.resolve([]),
+    ]);
+    return { memories, relationships };
+  }
+
+  private async persistActions(
+    actions: AgentAction[],
+    ctx: WorldContext,
+  ): Promise<void> {
+    if (!this.memoryStore || actions.length === 0) return;
+
+    const entries = actions.map((a) => ({
+      id: randomUUID(),
+      agentId: this.id,
+      tick: ctx.tickCount,
+      type: "action" as const,
+      content: JSON.stringify(a.payload),
+      timestamp: new Date(),
+    }));
+
+    await this.memoryStore.saveBatch(entries);
   }
 
   private async singleIteration(
@@ -51,8 +101,9 @@ export class PersonAgent extends BaseAgent {
     rules: RulesContext,
     incomingMessages: { content: string; from: string }[],
     iterationIndex: number,
+    tickContext: TickContext,
   ): Promise<AgentAction> {
-    const systemPrompt = this.buildSystemPrompt(rules);
+    const systemPrompt = this.buildSystemPrompt(rules, tickContext);
 
     const observedContent = incomingMessages
       .map((m) => `[${m.from}]: ${m.content}`)
@@ -71,7 +122,7 @@ export class PersonAgent extends BaseAgent {
 
     messages.push({
       role: "user",
-      content: `Sei al tick ${ctx.tickCount}, iterazione ${iterationIndex + 1}/${this.iterationsPerTick}. Scegli un'azione: speak (comunica qualcosa), observe (osserva il mondo), interact (interagisci con un altro agente), o finish (concludi il turno). Rispondi con JSON: {"actionType": "speak"|"observe"|"interact"|"finish", "content": "..."}`,
+      content: `Sei al tick ${ctx.tickCount}, iterazione ${iterationIndex + 1}/${this.iterationsPerTick}. Scegli un'azione: speak (comunica qualcosa), observe (osserva il mondo), interact (interagisci con un altro agente), o finish (concludi il turno). Rispondi con JSON: {"actionType": "speak"|"observe"|"interact"|"finish", "content": "...", "stateUpdate"?: {"mood"?: string, "energy"?: number, "goals"?: string[]}}`,
     });
 
     const graph = buildPersonGraph({
@@ -93,6 +144,11 @@ export class PersonAgent extends BaseAgent {
         const parsed = JSON.parse(jsonMatch[0]) as {
           actionType?: string;
           content?: string;
+          stateUpdate?: {
+            mood?: string;
+            energy?: number;
+            goals?: string[];
+          };
         };
         if (
           parsed.actionType &&
@@ -103,6 +159,10 @@ export class PersonAgent extends BaseAgent {
           actionType = parsed.actionType as AgentAction["actionType"];
         }
         payload = parsed.content ?? parsed;
+
+        if (parsed.stateUpdate) {
+          this.updateInternalState(parsed.stateUpdate);
+        }
       }
     } catch {
       payload = lastMsg?.content ?? "";

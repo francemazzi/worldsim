@@ -85,17 +85,32 @@ export class WorldEngine {
     );
     await this.pluginRegistry.runHook("onRulesLoaded", this.rulesContext);
 
+    const storeOptions = {
+      memoryStore: this.config.memoryStore,
+      graphStore: this.config.graphStore,
+    };
+
     for (const agentConfig of this.pendingAgentConfigs) {
       if (agentConfig.role === "control") {
-        const agent = new ControlAgent(agentConfig, this.llm, this.messageBus);
+        const agent = new ControlAgent(
+          agentConfig,
+          this.llm,
+          this.messageBus,
+          storeOptions,
+        );
         this.controlAgents.push(agent);
         this.agentRegistry.add(agent);
       } else {
-        const agent = new PersonAgent(agentConfig, this.llm, this.messageBus);
-        const tools = agentConfig.toolNames
+        const agent = new PersonAgent(
+          agentConfig,
+          this.llm,
+          this.messageBus,
+          storeOptions,
+        );
+        const pluginTools = agentConfig.toolNames
           ? this.pluginRegistry.getToolsByNames(agentConfig.toolNames)
           : this.pluginRegistry.getAllTools();
-        agent.setTools(tools);
+        agent.setTools(pluginTools);
         this.personAgents.push(agent);
         this.agentRegistry.add(agent);
       }
