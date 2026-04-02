@@ -22,6 +22,11 @@
     "test:docker:up": "docker compose -f docker-compose.test.yml up -d",
     "test:docker:down": "docker compose -f docker-compose.test.yml down",
     "test:all": "npm run test && npm run test:integration && npm run test:prompts",
+    "bench": "vitest bench benchmarks/synthetic.bench.ts",
+    "bench:synthetic": "vitest bench benchmarks/synthetic.bench.ts",
+    "bench:e2e": "dotenv -e .env -- vitest bench benchmarks/e2e.bench.ts",
+    "bench:report": "npx tsx benchmarks/run.ts",
+    "bench:report:full": "dotenv -e .env -- npx tsx benchmarks/run.ts --e2e",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build && npm run test"
