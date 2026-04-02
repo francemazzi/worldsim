@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "name": "Base World Rules",
+  "rules": [
+    {
+      "id": "rule-001",
+      "priority": 1,
+      "scope": "all",
+      "instruction": "Gli agenti devono sempre comunicare in modo rispettoso e costruttivo.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "rule-002",
+      "priority": 10,
+      "scope": "person",
+      "instruction": "Gli agenti persona devono contribuire almeno una idea originale ogni 5 tick.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "rule-003",
+      "priority": 5,
+      "scope": "control",
+      "instruction": "Segnala immediatamente qualsiasi comportamento che violi le regole di priority 1-5.",
+      "enforcement": "hard"
+    }
+  ]
+}
