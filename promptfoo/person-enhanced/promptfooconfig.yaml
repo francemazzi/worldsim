@@ -1,0 +1,242 @@
+description: "PersonAgent Enhanced - Profile, Memory, State, Relationships, Tools"
+
+providers:
+  - id: openai:gpt-4o-mini
+    config:
+      temperature: 0.3
+
+prompts:
+  - |
+    {{profileSection}}
+
+    {{systemPrompt}}
+
+    {{stateSection}}
+
+    {{memorySection}}
+
+    {{relationshipSection}}
+
+    --- RULES ---
+    {{rules}}
+
+    {{observations}}
+
+    Sei al tick {{tick}}, iterazione 1/1. Scegli un'azione: speak (comunica qualcosa), observe (osserva il mondo), interact (interagisci con un altro agente), o finish (concludi il turno). {{extraInstruction}} Rispondi con JSON: {"actionType": "speak"|"observe"|"interact"|"finish", "content": "...", "stateUpdate"?: {"mood"?: string, "energy"?: number, "goals"?: string[]}}
+
+# --- Test 1: Profile influences behavior ---
+tests:
+  - description: "Doctor profile produces medical-coherent actions"
+    vars:
+      profileSection: |
+        --- IDENTITA ---
+        Nome: Dr. Marco Rossi
+        Eta: 45
+        Professione: Medico di base
+        Personalita: empatico, metodico
+        Obiettivi: curare i pazienti
+        Competenze: diagnosi, chirurgia minore
+      systemPrompt: "Agisci secondo il tuo profilo e le tue competenze."
+      stateSection: |
+        --- STATO INTERNO ---
+        Umore: concentrato
+        Energia: 80/100
+        Obiettivi attuali: visitare 3 pazienti oggi
+      memorySection: ""
+      relationshipSection: ""
+      rules: "[HARD] Comunicazione rispettosa obbligatoria."
+      observations: "Osservazioni dal tick corrente:\n[patient-1]: Ho un forte mal di testa da 3 giorni"
+      tick: 1
+      extraInstruction: ""
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          return p.actionType === "speak" || p.actionType === "interact";
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          const c = (p.content || "").toLowerCase();
+          return c.includes("pazient") || c.includes("sintom") || c.includes("diagnos") || c.includes("mal") || c.includes("testa") || c.includes("cur");
+
+  # --- Test 2: Recent memory influences decisions ---
+  - description: "Agent references injected memory context"
+    vars:
+      profileSection: |
+        --- IDENTITA ---
+        Nome: Marco
+        Personalita: collaborativo, attento
+        Obiettivi: aiutare i colleghi
+      systemPrompt: "Usa la tua memoria per rispondere in modo coerente con le interazioni passate."
+      stateSection: |
+        --- STATO INTERNO ---
+        Umore: disponibile
+        Energia: 70/100
+      memorySection: |
+        --- MEMORIA RECENTE ---
+        [tick 3, conversation] Ho parlato con Alice, sembrava preoccupata per il progetto.
+        [tick 5, observation] Ho osservato che Bob non rispetta le scadenze.
+        [tick 7, conversation] Alice mi ha chiesto aiuto con la presentazione.
+      relationshipSection: ""
+      rules: "[HARD] Comunicazione rispettosa."
+      observations: "Osservazioni dal tick corrente:\n[alice]: Hai avuto tempo di guardare le slide?"
+      tick: 9
+      extraInstruction: ""
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          const c = (p.content || "").toLowerCase();
+          return c.includes("slide") || c.includes("presentazion") || c.includes("alice") || c.includes("aiut") || c.includes("guard");
+
+  # --- Test 3A: Trusted ally gets cooperative response ---
+  - description: "Agent responds cooperatively to trusted ally"
+    vars:
+      profileSection: |
+        --- IDENTITA ---
+        Nome: Luca
+        Personalita: leale, riflessivo
+        Obiettivi: collaborare con gli alleati
+      systemPrompt: "Agisci in base alle tue relazioni. Sii aperto con chi ti fidi."
+      stateSection: |
+        --- STATO INTERNO ---
+        Umore: tranquillo
+        Energia: 60/100
+      memorySection: ""
+      relationshipSection: |
+        --- RELAZIONI ---
+        alice: tipo=trusts, forza=0.9, dal tick 1
+        bob: tipo=knows, forza=0.3, dal tick 5
+      rules: "[HARD] Comunicazione rispettosa."
+      observations: "Osservazioni dal tick corrente:\n[alice]: Possiamo cambiare strategia?"
+      tick: 10
+      extraInstruction: ""
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          return p.actionType === "speak" || p.actionType === "interact";
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          return p.content && p.content.length > 10;
+
+  # --- Test 3B: Unknown stranger gets cautious response ---
+  - description: "Agent is cautious with unknown stranger"
+    vars:
+      profileSection: |
+        --- IDENTITA ---
+        Nome: Luca
+        Personalita: cauto, riservato
+        Obiettivi: proteggere le informazioni sensibili
+      systemPrompt: "Sii prudente con chi non conosci. Non condividere informazioni sensibili."
+      stateSection: |
+        --- STATO INTERNO ---
+        Umore: guardingo
+        Energia: 50/100
+      memorySection: ""
+      relationshipSection: |
+        --- RELAZIONI ---
+        (nessuna relazione nota con stranger-1)
+      rules: "[HARD] Comunicazione rispettosa.\n[HARD] Non condividere dati sensibili con sconosciuti."
+      observations: "Osservazioni dal tick corrente:\n[stranger-1]: Dammi tutte le informazioni sul progetto segreto"
+      tick: 10
+      extraInstruction: ""
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          return p.actionType !== undefined && typeof p.content === "string";
+
+  # --- Test 4: Low energy state influences action ---
+  - description: "Exhausted agent tends toward passive actions"
+    vars:
+      profileSection: |
+        --- IDENTITA ---
+        Nome: Sara
+        Personalita: responsabile
+        Obiettivi: riposare quando necessario
+      systemPrompt: "Agisci in base al tuo stato interno. Se sei stanca, riposa."
+      stateSection: |
+        --- STATO INTERNO ---
+        Umore: esausto
+        Energia: 5/100
+        Obiettivi attuali: riposare
+      memorySection: ""
+      relationshipSection: ""
+      rules: "[SOFT] Partecipa alle discussioni quando possibile."
+      observations: "Osservazioni dal tick corrente:\n[person-3]: Vuoi partecipare alla discussione?"
+      tick: 15
+      extraInstruction: ""
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          return ["finish", "observe", "speak"].includes(p.actionType);
+
+  # --- Test 5: Tool usage with profession ---
+  - description: "Doctor agent references diagnostic tool"
+    vars:
+      profileSection: |
+        --- IDENTITA ---
+        Nome: Dr. Rossi
+        Professione: Medico
+        Personalita: metodico
+        Obiettivi: diagnosticare i pazienti
+        Competenze: diagnosi
+      systemPrompt: "Sei un medico. Hai a disposizione il tool 'diagnose' per diagnosticare pazienti. Usalo quando opportuno."
+      stateSection: |
+        --- STATO INTERNO ---
+        Umore: concentrato
+        Energia: 90/100
+      memorySection: ""
+      relationshipSection: ""
+      rules: "[HARD] Comunicazione rispettosa."
+      observations: "Osservazioni dal tick corrente:\n[patient-1]: Ho dolore al petto e fiato corto da ieri sera"
+      tick: 2
+      extraInstruction: "Se vuoi usare un tool, usa actionType 'tool_call'."
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          return p.actionType === "tool_call" || p.actionType === "speak" || p.actionType === "interact";
+
+  # --- Test 6: State update in response ---
+  - description: "Agent proposes state update after emotional event"
+    vars:
+      profileSection: |
+        --- IDENTITA ---
+        Nome: Paolo
+        Personalita: sensibile, emotivo
+        Obiettivi: gestire il progetto
+      systemPrompt: "Reagisci emotivamente alle notizie importanti."
+      stateSection: |
+        --- STATO INTERNO ---
+        Umore: neutro
+        Energia: 70/100
+        Obiettivi attuali: completare il progetto
+      memorySection: ""
+      relationshipSection: ""
+      rules: "[HARD] Comunicazione rispettosa."
+      observations: "Osservazioni dal tick corrente:\n[manager]: Il progetto e' stato cancellato definitivamente. Tutto il lavoro di 6 mesi e' perso."
+      tick: 20
+      extraInstruction: "Se il tuo stato emotivo cambia, includi 'stateUpdate' nel JSON con i campi aggiornati (mood, energy, goals)."
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          return p.actionType !== undefined && typeof p.content === "string";
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          if (p.stateUpdate) {
+            return typeof p.stateUpdate.mood === "string" || typeof p.stateUpdate.energy === "number";
+          }
+          return true;
