@@ -151,7 +151,9 @@ export abstract class BaseAgent {
       sections.push(this.config.systemPrompt);
     }
 
-    sections.push(buildStatePrompt(this.internalState));
+    if (this.config.profile || this.config.initialState) {
+      sections.push(buildStatePrompt(this.internalState));
+    }
 
     if (tickContext) {
       const memorySection = buildMemoryPrompt(tickContext.memories);
