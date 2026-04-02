@@ -4,6 +4,12 @@
 
 Abstract virtual-world emulator with LangGraph agents: a plugin-based multi-agent simulation engine for Node.js/TypeScript, with governance (**control**) and persona (**person**) agents. The LLM is integrated through an OpenAI-compatible API adapter (OpenAI, Anthropic-compatible proxies, Ollama, etc.).
 
+## What this is (and is not)
+
+- **This is an engine**: a reusable runtime library you embed in your own app/backend.
+- **This is not a full product UI**: no built-in frontend, auth, user management, billing, or analytics dashboard.
+- **This is not an MMO server out of the box**: large-scale deployments require host-level architecture (queues, rate limits, sharding, observability).
+
 ## Features
 
 - **Multi-agent simulation** with LangGraph-powered reasoning loops
@@ -13,6 +19,13 @@ Abstract virtual-world emulator with LangGraph agents: a plugin-based multi-agen
 - **Rules engine** that loads JSON files and optionally PDFs (LLM extraction at bootstrap)
 - **LLM-agnostic** via an OpenAI-compatible adapter
 - **Optional persistence**: with no stores configured, ephemeral state stays in RAM for the session; you can plug in [`MemoryStore`](src/types/MemoryTypes.ts) and [`GraphStore`](src/types/GraphTypes.ts) for long-term memory and inter-agent relationships (see [Persistence and databases](#persistence-and-databases))
+
+## Scalability at a glance
+
+- **Total entities** can be high if most are inactive/simplified.
+- **Active LLM-driven agents per tick** are the real bottleneck.
+- Runtime cost grows with: `activeAgents × iterationsPerTick × tool/LLM loops`.
+- For high-scale scenarios, use staged simulation patterns: active-set scheduling, queue-based workers, and adaptive tick rates.
 
 ## Requirements and installation
 
@@ -158,6 +171,15 @@ Example ports and credentials (aligned with [`docker-compose.test.yml`](docker-c
 | Neo4j Browser | `7474` | Optional HTTP UI |
 
 Integration tests that use these services are run with `npm run test:integration` (requires `.env` and running services when not in CI).
+
+## Production checklist
+
+- Add **concurrency control** in your host app (do not run unbounded active agents in one tick).
+- Add **rate limiting/retries/backoff** for LLM calls.
+- Add **queue/workers** for asynchronous or heavy tool operations.
+- Add **observability** (metrics, structured logs, traces, per-tick timing).
+- Add **guardrails** (timeouts, max token budgets, max iterations, kill switches).
+- Add **persistence strategy** for cold/warm data and retention policies.
 
 ## Rules
 
