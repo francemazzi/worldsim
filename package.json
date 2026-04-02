@@ -1,0 +1,56 @@
+{
+  "name": "@worldsim/core",
+  "version": "0.1.0",
+  "description": "Abstract virtual world emulator with LangGraph agents",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "dotenv -e .env -- vitest run --config vitest.integration.config.ts",
+    "test:prompts": "dotenv -e .env -- promptfoo eval --config promptfoo/pdf-extraction/promptfooconfig.yaml && dotenv -e .env -- promptfoo eval --config promptfoo/control-agent/promptfooconfig.yaml && dotenv -e .env -- promptfoo eval --config promptfoo/person-agent/promptfooconfig.yaml",
+    "test:all": "npm run test && npm run test:integration && npm run test:prompts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "keywords": [
+    "agents",
+    "multi-agent",
+    "langgraph",
+    "simulation",
+    "ai",
+    "swarm"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@langchain/core": "^1.1.38",
+    "@langchain/langgraph": "^1.2.6",
+    "mitt": "^3.0.1",
+    "openai": "^6.33.0",
+    "pdf-parse": "^2.4.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "dotenv": "^17.4.0",
+    "dotenv-cli": "^11.0.0",
+    "eslint": "^10.1.0",
+    "promptfoo": "^0.121.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  }
+}
