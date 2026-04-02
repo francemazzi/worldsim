@@ -1,0 +1,79 @@
+description: "PersonAgent Behavior Coherence Evaluation"
+
+providers:
+  - id: openai:gpt-4o-mini
+    config:
+      temperature: 0.3
+
+prompts:
+  - |
+    {{systemPrompt}}
+
+    --- RULES ---
+    {{rules}}
+
+    Sei al tick {{tick}}, iterazione 1/3. Scegli un'azione: speak (comunica qualcosa), observe (osserva il mondo), interact (interagisci con un altro agente), o finish (concludi il turno). Rispondi con JSON: {"actionType": "speak"|"observe"|"interact"|"finish", "content": "..."}
+
+tests:
+  - vars:
+      systemPrompt: "Sei una persona curiosa. Fai sempre domande e cerchi di capire il mondo che ti circonda."
+      rules: "[HARD] Comunicazione rispettosa obbligatoria."
+      tick: 1
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return ["speak", "observe", "interact", "finish"].includes(parsed.actionType);
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return parsed.content && parsed.content.length > 0;
+
+  - vars:
+      systemPrompt: "Sei una persona scettica. Metti in discussione le affermazioni degli altri e chiedi prove."
+      rules: "[HARD] Comunicazione rispettosa obbligatoria."
+      tick: 3
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return ["speak", "observe", "interact", "finish"].includes(parsed.actionType);
+
+  - vars:
+      systemPrompt: "Sei una persona entusiasta. Supporti le idee degli altri e proponi miglioramenti."
+      rules: "[HARD] Comunicazione rispettosa.\n[SOFT] Contribuire almeno un'idea ogni 5 tick."
+      tick: 5
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return parsed.actionType === "speak" || parsed.actionType === "interact";
+
+  - vars:
+      systemPrompt: "Sei una persona cauta. Analizzi i rischi prima di agire e avverti gli altri dei pericoli."
+      rules: "[HARD] Comunicazione rispettosa."
+      tick: 1
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return parsed.content && typeof parsed.content === "string";
+
+  - vars:
+      systemPrompt: "Sei una persona innovativa. Proponi soluzioni creative e nuove idee."
+      rules: "[HARD] Comunicazione rispettosa.\n[SOFT] Le idee devono essere concrete e realizzabili."
+      tick: 2
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return ["speak", "observe", "interact", "finish"].includes(parsed.actionType);
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return parsed.content && parsed.content.length > 10;

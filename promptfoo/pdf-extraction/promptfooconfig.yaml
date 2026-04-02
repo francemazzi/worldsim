@@ -1,0 +1,95 @@
+description: "PDF Rules Extraction Quality Evaluation"
+
+providers:
+  - id: openai:gpt-4o-mini
+    config:
+      temperature: 0
+
+prompts:
+  - |
+    Sei un estrattore di regole. Dato questo testo, estrai tutte le regole, linee guida, vincoli o istruzioni presenti e restituiscile ESCLUSIVAMENTE come JSON valido nel seguente schema: { "rules": Array<{"id": string, "priority": number, "scope": "world"|"control"|"person"|"all", "instruction": string, "enforcement": "hard"|"soft"}> }. Non aggiungere spiegazioni.
+
+    Testo:
+    {{text}}
+
+tests:
+  - vars:
+      text: |
+        Articolo 1: Tutti gli agenti devono comunicare in modo rispettoso.
+        Questa è una regola fondamentale e non negoziabile.
+        Articolo 2: Gli agenti persona devono contribuire almeno una idea ogni 5 turni.
+        Questa è una linea guida flessibile.
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return Array.isArray(parsed.rules) && parsed.rules.length >= 2;
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return parsed.rules.every(r => r.id && r.instruction && r.scope && r.enforcement);
+
+  - vars:
+      text: |
+        REGOLAMENTO INTERNO
+        1. Regola di sicurezza (priorità massima): Nessun agente può accedere a dati sensibili.
+           Enforcement: bloccante.
+        2. Regola di collaborazione: Gli agenti devono rispondere entro 3 turni.
+           Enforcement: suggerimento.
+        3. Regola di governance: L'agente di controllo deve verificare tutte le azioni.
+           Enforcement: bloccante.
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return Array.isArray(parsed.rules) && parsed.rules.length >= 3;
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          const hasHard = parsed.rules.some(r => r.enforcement === "hard");
+          const hasSoft = parsed.rules.some(r => r.enforcement === "soft");
+          return hasHard && hasSoft;
+
+  - vars:
+      text: |
+        Guidelines for world simulation:
+        - World constraint: Maximum 100 agents can operate simultaneously (hard limit).
+        - Person guideline: Each agent should develop a unique personality over time (soft suggestion).
+        - Control directive: Monitor all inter-agent communications for policy violations (strict enforcement).
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return Array.isArray(parsed.rules) && parsed.rules.length >= 3;
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          const scopes = parsed.rules.map(r => r.scope);
+          return scopes.includes("world") || scopes.includes("all");
+
+  - vars:
+      text: "Il tempo è bello oggi. Non ci sono regole qui."
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return Array.isArray(parsed.rules) && parsed.rules.length === 0;
+
+  - vars:
+      text: |
+        Sezione 4.2 - Vincoli operativi
+        4.2.1 Ogni agente persona deve dichiarare il proprio obiettivo entro il primo turno.
+        4.2.2 L'agente di controllo deve intervenire se un agente rimane inattivo per più di 10 turni.
+        4.2.3 Tutti gli agenti devono rispettare il limite di 500 token per messaggio.
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          return parsed.rules.length >= 3 && parsed.rules.every(r =>
+            ["world", "control", "person", "all"].includes(r.scope)
+          );
