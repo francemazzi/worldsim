@@ -1,4 +1,7 @@
 import type { AgentTool } from "./PluginTypes.js";
+import type { ActivitySchedule, TokenBudget } from "./ScheduleTypes.js";
+import type { LocationConfig } from "./LocationTypes.js";
+import type { LLMConfig } from "./WorldTypes.js";
 
 export type AgentRole = "control" | "person";
 
@@ -21,6 +24,7 @@ export interface AgentProfile {
   backstory?: string | undefined;
   skills?: string[] | undefined;
   customFields?: Record<string, unknown> | undefined;
+  location?: LocationConfig | undefined;
 }
 
 export interface AgentInternalState {
@@ -43,6 +47,13 @@ export interface AgentConfig {
   tools?: AgentTool[] | undefined;
   initialState?: Partial<AgentInternalState> | undefined;
   toolNames?: string[] | undefined;
+  schedule?: ActivitySchedule | undefined;
+  tokenBudget?: TokenBudget | undefined;
+  llm?: Partial<LLMConfig> | undefined;
+  neighborhood?: {
+    maxContacts?: number | undefined;
+    groups?: string[] | undefined;
+  } | undefined;
 }
 
 export interface AgentState {

@@ -59,6 +59,16 @@ export class MessageBus {
     this.publish({ ...message, to: "*" });
   }
 
+  /**
+   * Publishes a message to a specific set of recipients.
+   * Creates one message per recipient with the same content.
+   */
+  publishToGroup(message: Omit<Message, "to">, recipientIds: string[]): void {
+    for (const recipientId of recipientIds) {
+      this.publish({ ...message, to: recipientId });
+    }
+  }
+
   getAllMessagesForTick(tick: number): Message[] {
     return this.tickMessages.get(tick) ?? [];
   }

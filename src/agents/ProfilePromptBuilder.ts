@@ -2,6 +2,7 @@ import type { AgentProfile, AgentInternalState } from "../types/AgentTypes.js";
 import type { MemoryEntry } from "../types/MemoryTypes.js";
 import type { Relationship } from "../types/GraphTypes.js";
 import type { ConsolidatedKnowledge } from "../types/PersistenceTypes.js";
+import type { LocationConfig } from "../types/LocationTypes.js";
 
 export function buildProfilePrompt(profile: AgentProfile): string {
   const sections: string[] = [];
@@ -18,6 +19,10 @@ export function buildProfilePrompt(profile: AgentProfile): string {
     for (const [key, value] of Object.entries(profile.customFields)) {
       sections.push(`${key}: ${String(value)}`);
     }
+  }
+  if (profile.location) {
+    const locSection = buildLocationPrompt(profile.location);
+    if (locSection) sections.push(locSection);
   }
   return `--- IDENTITA ---\n${sections.join("\n")}`;
 }
@@ -72,6 +77,20 @@ export function buildKnowledgePrompt(
       `[${k.category ?? "generale"}, importanza ${k.importance.toFixed(1)}] ${k.summary}`,
   );
   return `--- CONOSCENZE CONSOLIDATE ---\n${lines.join("\n")}`;
+}
+
+export function buildLocationPrompt(location: LocationConfig): string {
+  const parts: string[] = [];
+  if (location.home) {
+    const label = location.home.label ? ` (${location.home.label})` : "";
+    parts.push(`Casa: ${location.home.latitude}, ${location.home.longitude}${label}`);
+  }
+  if (location.current) {
+    const label = location.current.label ? ` (${location.current.label})` : "";
+    parts.push(`Posizione attuale: ${location.current.latitude}, ${location.current.longitude}${label}`);
+  }
+  if (parts.length === 0) return "";
+  return `Posizione: ${parts.join(" | ")}`;
 }
 
 export function buildSemanticMemoryPrompt(

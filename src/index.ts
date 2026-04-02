@@ -60,3 +60,29 @@ export type {
   ConsolidationResult,
   ImportanceScore,
 } from "./types/ConsolidationTypes.js";
+
+// Scalability modules
+export { ActivityScheduler } from "./scheduling/ActivityScheduler.js";
+export { TokenBudgetTracker } from "./scheduling/TokenBudgetTracker.js";
+export type { TokenBudgetResult } from "./scheduling/TokenBudgetTracker.js";
+export { BatchExecutor } from "./engine/BatchExecutor.js";
+export { LLMAdapterPool } from "./llm/LLMAdapterPool.js";
+export { LocationIndex } from "./location/LocationIndex.js";
+export type { NearbyResult } from "./location/LocationIndex.js";
+export { ConversationManager } from "./messaging/ConversationManager.js";
+export type { CanSpeakResult } from "./messaging/ConversationManager.js";
+export { NeighborhoodManager } from "./graph/NeighborhoodManager.js";
+export type { NeighborhoodConfig } from "./graph/NeighborhoodManager.js";
+export type {
+  ActivitySchedule,
+  TokenBudget,
+  TokenUsage,
+} from "./types/ScheduleTypes.js";
+export type {
+  GeoLocation,
+  LocationConfig,
+} from "./types/LocationTypes.js";
+export type {
+  Conversation,
+  ConversationTurn,
+} from "./types/ConversationTypes.js";

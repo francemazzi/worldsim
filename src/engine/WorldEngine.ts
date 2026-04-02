@@ -7,8 +7,15 @@ import { PersonAgent } from "../agents/PersonAgent.js";
 import { MessageBus } from "../messaging/MessageBus.js";
 import { RulesLoader, buildRulesContext } from "../rules/RulesLoader.js";
 import { PluginRegistry } from "../plugins/PluginRegistry.js";
-import { OpenAICompatAdapter } from "../llm/OpenAICompatAdapter.js";
+import { LLMAdapterPool } from "../llm/LLMAdapterPool.js";
 import type { LLMAdapter } from "../llm/LLMAdapter.js";
+import { BatchExecutor } from "./BatchExecutor.js";
+import { ActivityScheduler } from "../scheduling/ActivityScheduler.js";
+import { TokenBudgetTracker } from "../scheduling/TokenBudgetTracker.js";
+import { NeighborhoodManager } from "../graph/NeighborhoodManager.js";
+import { ConversationManager } from "../messaging/ConversationManager.js";
+import { LocationIndex } from "../location/LocationIndex.js";
+import type { Conversation } from "../types/ConversationTypes.js";
 import type {
   WorldConfig,
   WorldContext,
@@ -42,7 +49,7 @@ export class WorldEngine {
   private messageBus: MessageBus = new MessageBus();
   private rulesContext: RulesContext | null = null;
   private pluginRegistry: PluginRegistry = new PluginRegistry();
-  private llm: LLMAdapter;
+  private llmPool: LLMAdapterPool;
   private clock: WorldClock = new WorldClock();
   private controlAgents: ControlAgent[] = [];
   private personAgents: PersonAgent[] = [];
@@ -50,11 +57,23 @@ export class WorldEngine {
   private pendingAgentConfigs: AgentConfig[] = [];
   private tickHandlers: TickHandler[] = [];
   private brainMemory?: BrainMemory | undefined;
+  private batchExecutor: BatchExecutor;
+  private activityScheduler: ActivityScheduler = new ActivityScheduler();
+  private tokenBudgetTracker: TokenBudgetTracker = new TokenBudgetTracker();
+  private neighborhoodManager: NeighborhoodManager = new NeighborhoodManager();
+  private conversationManager: ConversationManager = new ConversationManager();
+  private locationIndex: LocationIndex = new LocationIndex();
 
   constructor(config: WorldConfig) {
     this.config = config;
     this.context = createWorldContext(config.worldId ?? randomUUID());
-    this.llm = new OpenAICompatAdapter(config.llm);
+    this.llmPool = new LLMAdapterPool(config.llm);
+    this.batchExecutor = new BatchExecutor(config.maxConcurrentAgents);
+  }
+
+  /** @deprecated Use llmPool.getWorldAdapter() internally. Kept for backward compatibility. */
+  private get llm(): LLMAdapter {
+    return this.llmPool.getWorldAdapter();
   }
 
   use(plugin: WorldSimPlugin): this {
@@ -105,20 +124,26 @@ export class WorldEngine {
       });
     }
 
-    const storeOptions: AgentStoreOptions = {
-      memoryStore: this.config.memoryStore,
-      graphStore: this.config.graphStore,
-      vectorStore: this.config.vectorStore,
-      persistenceStore: this.config.persistenceStore,
-      embeddingAdapter: this.config.embeddingAdapter,
-      brainMemory: this.brainMemory,
-    };
-
     for (const agentConfig of this.pendingAgentConfigs) {
+      const agentLlm = this.llmPool.getAdapter(agentConfig);
+
+      const storeOptions: AgentStoreOptions = {
+        memoryStore: this.config.memoryStore,
+        graphStore: this.config.graphStore,
+        vectorStore: this.config.vectorStore,
+        persistenceStore: this.config.persistenceStore,
+        embeddingAdapter: this.config.embeddingAdapter,
+        brainMemory: this.brainMemory,
+        activityScheduler: this.activityScheduler,
+        tokenBudgetTracker: this.tokenBudgetTracker,
+        neighborhoodManager: this.neighborhoodManager,
+        conversationManager: this.conversationManager,
+      };
+
       if (agentConfig.role === "control") {
         const agent = new ControlAgent(
           agentConfig,
-          this.llm,
+          agentLlm,
           this.messageBus,
           storeOptions,
         );
@@ -127,7 +152,7 @@ export class WorldEngine {
       } else {
         const agent = new PersonAgent(
           agentConfig,
-          this.llm,
+          agentLlm,
           this.messageBus,
           storeOptions,
         );
@@ -137,6 +162,26 @@ export class WorldEngine {
         agent.setTools(pluginTools);
         this.personAgents.push(agent);
         this.agentRegistry.add(agent);
+
+        // Configure neighborhood if specified
+        if (agentConfig.neighborhood) {
+          const nhConfig: Record<string, unknown> = {};
+          if (agentConfig.neighborhood.maxContacts != null) {
+            nhConfig.maxContacts = agentConfig.neighborhood.maxContacts;
+          }
+          if (agentConfig.neighborhood.groups != null) {
+            nhConfig.groups = agentConfig.neighborhood.groups;
+          }
+          this.neighborhoodManager.configure(agent.id, nhConfig as Partial<import("../graph/NeighborhoodManager.js").NeighborhoodConfig>);
+        }
+
+        // Register location if specified
+        if (agentConfig.profile?.location) {
+          const loc = agentConfig.profile.location.current ?? agentConfig.profile.location.home;
+          if (loc) {
+            this.locationIndex.update(agent.id, loc);
+          }
+        }
       }
     }
 
@@ -293,6 +338,50 @@ export class WorldEngine {
     return results;
   }
 
+  /**
+   * Creates a structured conversation between agents with turn-taking.
+   */
+  createConversation(
+    initiatorId: string,
+    participantIds: string[],
+    topic?: string,
+  ): Conversation {
+    return this.conversationManager.startConversation(
+      initiatorId,
+      participantIds,
+      topic,
+      this.clock.current(),
+    );
+  }
+
+  /**
+   * Ends an active conversation.
+   */
+  endConversation(conversationId: string): void {
+    this.conversationManager.endConversation(conversationId);
+  }
+
+  /**
+   * Returns the location index for spatial queries.
+   */
+  getLocationIndex(): LocationIndex {
+    return this.locationIndex;
+  }
+
+  /**
+   * Returns the neighborhood manager.
+   */
+  getNeighborhoodManager(): NeighborhoodManager {
+    return this.neighborhoodManager;
+  }
+
+  /**
+   * Returns the conversation manager.
+   */
+  getConversationManager(): ConversationManager {
+    return this.conversationManager;
+  }
+
   private async runLoop(): Promise<void> {
     const maxTicks = this.config.maxTicks ?? Infinity;
     const interval = this.config.tickIntervalMs ?? 0;
@@ -327,15 +416,32 @@ export class WorldEngine {
       }
     }
 
-    const activePersonAgents = this.personAgents.filter((a) => a.isActive);
+    // Reset per-tick token counters
+    this.tokenBudgetTracker.resetAllTicks(tick);
+
+    // Cleanup stale conversations
+    this.conversationManager.tickCleanup(tick);
+
+    // Filter active agents and sort by priority (agents with pending messages first)
+    const activePersonAgents = this.personAgents
+      .filter((a) => a.isActive)
+      .sort((a, b) => {
+        const aMsgs = this.messageBus.getMessages(a.id, tick).length;
+        const bMsgs = this.messageBus.getMessages(b.id, tick).length;
+        return bMsgs - aMsgs; // More messages = higher priority
+      });
+
     const allActions: AgentAction[] = [];
 
-    const tickPromises = activePersonAgents.map(async (agent) => {
-      const actions = await agent.tick(this.context, this.rulesContext!);
-      return actions;
+    // Execute agents through batch executor with concurrency limit
+    const tasks = activePersonAgents.map((agent) => {
+      return async () => {
+        const actions = await agent.tick(this.context, this.rulesContext!);
+        return actions;
+      };
     });
 
-    const results = await Promise.all(tickPromises);
+    const results = await this.batchExecutor.execute(tasks);
     for (const actions of results) {
       allActions.push(...actions);
     }

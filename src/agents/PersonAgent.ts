@@ -33,13 +33,33 @@ export class PersonAgent extends BaseAgent {
   }
 
   async tick(ctx: WorldContext, rules: RulesContext): Promise<AgentAction[]> {
-    if (this.shouldSkipTick()) return [];
+    if (this.shouldSkipTick(ctx.tickCount)) return [];
+
+    // Reset per-tick token counter
+    if (this.tokenBudgetTracker) {
+      this.tokenBudgetTracker.resetTick(this.id, ctx.tickCount);
+    }
 
     const tickContext = await this.gatherTickContext();
     const actions: AgentAction[] = [];
 
     for (let i = 0; i < this.iterationsPerTick; i++) {
       if (!this.isActive) break;
+
+      // Check token budget before each iteration
+      if (this.tokenBudgetTracker && i > 0) {
+        const budgetResult = this.tokenBudgetTracker.canProceed(this.id, this.config.tokenBudget);
+        if (!budgetResult.allowed) break;
+      }
+
+      // Check conversation turn-taking
+      if (this.conversationManager) {
+        const canSpeakResult = this.conversationManager.canSpeak(this.id);
+        if (!canSpeakResult.allowed) {
+          // Agent is in a conversation but it's not their turn — skip speaking
+          break;
+        }
+      }
 
       const incomingMessages = this.bus.getMessages(this.id, ctx.tickCount);
       const action = await this.singleIteration(
@@ -51,20 +71,68 @@ export class PersonAgent extends BaseAgent {
       );
       actions.push(action);
 
-      this.bus.publish({
-        id: createMessageId(),
-        from: this.id,
-        to: "*",
-        type: "speak",
-        content: JSON.stringify(action.payload),
-        tick: ctx.tickCount,
-      });
+      // Publish to neighbors or broadcast
+      await this.publishAction(action, ctx);
+
+      // Advance conversation turn if applicable
+      if (this.conversationManager) {
+        const conv = this.conversationManager.getConversationForAgent(this.id);
+        if (conv) {
+          this.conversationManager.advanceTurn(conv.id, this.id, ctx.tickCount);
+        }
+      }
+    }
+
+    // Record action in activity scheduler
+    if (this.activityScheduler && actions.length > 0) {
+      this.activityScheduler.recordAction(this.id, ctx.tickCount);
     }
 
     await this.persistActions(actions, ctx);
     await this.updateRelationships(ctx);
 
+    // Decay and prune relationships via neighborhood manager
+    if (this.neighborhoodManager && this.graphStore) {
+      await this.neighborhoodManager.decayRelationships(this.id, ctx.tickCount, this.graphStore);
+      await this.neighborhoodManager.pruneToMax(this.id, this.graphStore);
+    }
+
     return actions;
+  }
+
+  /**
+   * Publishes action to neighbors (if neighborhood configured) or broadcasts to all.
+   */
+  private async publishAction(action: AgentAction, ctx: WorldContext): Promise<void> {
+    const msg = {
+      id: createMessageId(),
+      from: this.id,
+      type: "speak" as const,
+      content: JSON.stringify(action.payload),
+      tick: ctx.tickCount,
+    };
+
+    // If in a conversation, send only to conversation participants
+    if (this.conversationManager) {
+      const conv = this.conversationManager.getConversationForAgent(this.id);
+      if (conv) {
+        const recipients = conv.participantIds.filter((id) => id !== this.id);
+        this.bus.publishToGroup(msg, recipients);
+        return;
+      }
+    }
+
+    // If neighborhood is configured, send only to neighbors
+    if (this.neighborhoodManager && this.graphStore && this.config.neighborhood) {
+      const neighbors = await this.neighborhoodManager.getActiveNeighbors(this.id, this.graphStore);
+      if (neighbors.length > 0) {
+        this.bus.publishToGroup(msg, neighbors);
+        return;
+      }
+    }
+
+    // Fallback: broadcast to all (backward-compatible)
+    this.bus.publish({ ...msg, to: "*" });
   }
 
   private async gatherTickContext(): Promise<TickContext> {
@@ -140,7 +208,7 @@ export class PersonAgent extends BaseAgent {
     const allMessages = this.bus.getAllMessagesForTick(ctx.tickCount);
     const senders = new Set<string>();
     for (const msg of allMessages) {
-      if (msg.from !== this.id && msg.to === "*" && msg.type === "speak") {
+      if (msg.from !== this.id && (msg.to === "*" || msg.to === this.id) && msg.type === "speak") {
         senders.add(msg.from);
       }
     }

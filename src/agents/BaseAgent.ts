@@ -27,6 +27,12 @@ import type { VectorStore, EmbeddingAdapter } from "../types/VectorTypes.js";
 import type { PersistenceStore, ConsolidatedKnowledge } from "../types/PersistenceTypes.js";
 import type { Message } from "../messaging/Message.js";
 import type { BrainMemory } from "../memory/BrainMemory.js";
+import type { ActivitySchedule, TokenBudget } from "../types/ScheduleTypes.js";
+import { ActivityScheduler } from "../scheduling/ActivityScheduler.js";
+import { TokenBudgetTracker } from "../scheduling/TokenBudgetTracker.js";
+import type { TokenBudgetResult } from "../scheduling/TokenBudgetTracker.js";
+import type { NeighborhoodManager } from "../graph/NeighborhoodManager.js";
+import type { ConversationManager } from "../messaging/ConversationManager.js";
 
 export interface AgentStoreOptions {
   memoryStore?: MemoryStore | undefined;
@@ -35,6 +41,10 @@ export interface AgentStoreOptions {
   persistenceStore?: PersistenceStore | undefined;
   embeddingAdapter?: EmbeddingAdapter | undefined;
   brainMemory?: BrainMemory | undefined;
+  activityScheduler?: ActivityScheduler | undefined;
+  tokenBudgetTracker?: TokenBudgetTracker | undefined;
+  neighborhoodManager?: NeighborhoodManager | undefined;
+  conversationManager?: ConversationManager | undefined;
 }
 
 export interface TickContext {
@@ -60,6 +70,10 @@ export abstract class BaseAgent {
   protected memoryStore?: MemoryStore | undefined;
   protected graphStore?: GraphStore | undefined;
   protected brainMemory?: BrainMemory | undefined;
+  protected activityScheduler?: ActivityScheduler | undefined;
+  protected tokenBudgetTracker?: TokenBudgetTracker | undefined;
+  protected neighborhoodManager?: NeighborhoodManager | undefined;
+  protected conversationManager?: ConversationManager | undefined;
   protected internalState: AgentInternalState;
   private lifecycle: AgentLifecycle = new AgentLifecycle();
 
@@ -75,6 +89,10 @@ export abstract class BaseAgent {
     this.memoryStore = options?.memoryStore;
     this.graphStore = options?.graphStore;
     this.brainMemory = options?.brainMemory;
+    this.activityScheduler = options?.activityScheduler;
+    this.tokenBudgetTracker = options?.tokenBudgetTracker;
+    this.neighborhoodManager = options?.neighborhoodManager;
+    this.conversationManager = options?.conversationManager;
     this.internalState = {
       ...DEFAULT_INTERNAL_STATE,
       ...config.initialState,
@@ -144,8 +162,49 @@ export abstract class BaseAgent {
     }
   }
 
-  protected shouldSkipTick(): boolean {
-    return !this.lifecycle.isActive;
+  protected shouldSkipTick(currentTick?: number): boolean {
+    if (!this.lifecycle.isActive) return true;
+
+    // Check activity schedule
+    if (currentTick != null && this.activityScheduler) {
+      if (!this.activityScheduler.shouldActivate(this.id, currentTick, this.config.schedule)) {
+        return true;
+      }
+    }
+
+    // Check token budget
+    if (this.tokenBudgetTracker) {
+      const result = this.tokenBudgetTracker.canProceed(this.id, this.config.tokenBudget);
+      if (!result.allowed) {
+        this.applyBudgetPolicy(result, currentTick ?? 0);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private applyBudgetPolicy(result: TokenBudgetResult, tick: number): void {
+    switch (result.policy) {
+      case "pause":
+        this.pause(tick, "token-budget");
+        break;
+      case "stop":
+        this.stop(tick, "token-budget");
+        break;
+      case "degrade":
+        // Degrade is handled in PersonAgent.singleIteration by reducing maxTokens
+        break;
+    }
+  }
+
+  /**
+   * Checks if the agent is in degraded mode due to token budget.
+   */
+  protected isDegraded(): boolean {
+    if (!this.tokenBudgetTracker || !this.config.tokenBudget) return false;
+    const result = this.tokenBudgetTracker.canProceed(this.id, this.config.tokenBudget);
+    return !result.allowed && result.policy === "degrade";
   }
 
   abstract tick(ctx: WorldContext, rules: RulesContext): Promise<AgentAction[]>;

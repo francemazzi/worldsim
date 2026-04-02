@@ -6,6 +6,8 @@ export interface Relationship {
   metadata?: Record<string, unknown>;
   since: number;
   lastInteraction?: number;
+  decayRate?: number;
+  group?: string;
 }
 
 export interface GraphQuery {
