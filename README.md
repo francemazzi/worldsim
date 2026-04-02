@@ -1,4 +1,4 @@
-![WorldSim](docs/worldsim_img.webp)
+<img src="docs/worldsim_img.webp" alt="WorldSim" width="100%" style="border-radius: 16px; display: block; max-width: 100%;" />
 
 # worldsim
 
