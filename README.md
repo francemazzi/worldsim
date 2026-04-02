@@ -2,52 +2,52 @@
 
 # @worldsim/core
 
-Emulatore di mondo virtuale astratto con agenti LangGraph: motore di simulazione multi-agente per Node.js/TypeScript, modulare tramite plugin, con agenti di governance (**control**) e agenti persona (**person**). L’LLM è integrato tramite un adapter compatibile con le API OpenAI (OpenAI, proxy Anthropic, Ollama, ecc.).
+Abstract virtual-world emulator with LangGraph agents: a plugin-based multi-agent simulation engine for Node.js/TypeScript, with governance (**control**) and persona (**person**) agents. The LLM is integrated through an OpenAI-compatible API adapter (OpenAI, Anthropic-compatible proxies, Ollama, etc.).
 
-## Caratteristiche principali
+## Features
 
-- **Simulazione multi-agente** con cicli di ragionamento basati su LangGraph
-- **ControlAgent** per governance: monitora le regole e può mettere in pausa o fermare gli agenti
-- **PersonAgent** con cicli agentici e controlli di ciclo di vita
-- **Sistema di plugin** con hook sugli eventi del mondo e tool registrabili
-- **Motore regole** che carica file JSON e, opzionalmente, PDF (estrazione tramite LLM al bootstrap)
-- **LLM agnostico** tramite adapter OpenAI-compatible
-- **Persistenza opzionale**: senza store configurati, lo stato effimero resta in RAM per la sessione; puoi collegare implementazioni di [`MemoryStore`](src/types/MemoryTypes.ts) e [`GraphStore`](src/types/GraphTypes.ts) per memoria a lungo termine e relazioni tra agenti (vedi [Persistenza e database](#persistenza-e-database))
+- **Multi-agent simulation** with LangGraph-powered reasoning loops
+- **ControlAgent** for governance: watches rules and can pause or stop agents
+- **PersonAgent** with agentic loops and lifecycle guards
+- **Plugin system** with hooks on world events and registerable tools
+- **Rules engine** that loads JSON files and optionally PDFs (LLM extraction at bootstrap)
+- **LLM-agnostic** via an OpenAI-compatible adapter
+- **Optional persistence**: with no stores configured, ephemeral state stays in RAM for the session; you can plug in [`MemoryStore`](src/types/MemoryTypes.ts) and [`GraphStore`](src/types/GraphTypes.ts) for long-term memory and inter-agent relationships (see [Persistence and databases](#persistence-and-databases))
 
-## Requisiti e installazione
+## Requirements and installation
 
-- **Node.js** (versione LTS consigliata)
-- **Chiave API** per l’endpoint LLM scelto (es. `OPENAI_API_KEY` per l’API ufficiale OpenAI)
+- **Node.js** (LTS recommended)
+- An **API key** for your chosen LLM endpoint (e.g. `OPENAI_API_KEY` for the official OpenAI API)
 
 ```bash
 npm install @worldsim/core
 ```
 
-Se lavori sul codice sorgente di questo repository:
+If you work from this repository’s source:
 
 ```bash
 npm install
 npm run build
 ```
 
-Variabili ambiente tipiche (file `.env` o shell):
+Typical environment variables (`.env` file or shell):
 
-| Variabile | Uso |
-|-----------|-----|
-| `OPENAI_API_KEY` | Chiamate all’API OpenAI (o servizi compatibili che la richiedono) |
-| `REDIS_URL` | Test integrazione Redis (es. `redis://localhost:16379` con lo stack Docker di test) |
-| `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` | Test integrazione Neo4j |
+| Variable | Purpose |
+|----------|---------|
+| `OPENAI_API_KEY` | Calls to the OpenAI API (or compatible services that require it) |
+| `REDIS_URL` | Redis integration tests (e.g. `redis://localhost:16379` with the test Docker stack) |
+| `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` | Neo4j integration tests |
 
-## Come si usa la piattaforma (flusso in quattro passi)
+## Using the platform (four steps)
 
-1. **Istanzia `WorldEngine`** con configurazione [`WorldConfig`](src/types/WorldTypes.ts): al minimo `llm` (`baseURL`, `apiKey`, `model`); opzionalmente `rulesPath` (glob JSON e/o PDF), `memoryStore`, `graphStore`, `maxTicks`, `tickIntervalMs`, `worldId`.
-2. **Registra i plugin** con `world.use(plugin)`: logging, osservabilità, e **tool** esposti agli agenti persona (vedi [Tool e plugin](#tool-e-plugin)).
-3. **Aggiungi gli agenti** con `world.addAgent(config)`:
-   - `role: "control"`: governance (tool built-in `control_agent`).
-   - `role: "person"`: agenti con ciclo LangGraph; possono usare i tool dei plugin tramite `toolNames` (sottoinsieme) o tutti i tool registrati se `toolNames` è omesso; puoi anche passare `tools` direttamente in [`AgentConfig`](src/types/AgentTypes.ts).
-4. **Avvia e gestisci il ciclo di vita**: `await world.start()`; l’applicazione host può usare `pauseAgent`, `resumeAgent`, `stopAgent` e ascoltare `world.on("tick", ...)`. Per uno shutdown pulito, chiama `world.stop()` (come nell’esempio con `SIGINT` in [`examples/basic-world/index.ts`](examples/basic-world/index.ts)).
+1. **Create a `WorldEngine`** with [`WorldConfig`](src/types/WorldTypes.ts): at minimum `llm` (`baseURL`, `apiKey`, `model`); optionally `rulesPath` (JSON and/or PDF globs), `memoryStore`, `graphStore`, `maxTicks`, `tickIntervalMs`, `worldId`.
+2. **Register plugins** with `world.use(plugin)`: logging, observability, and **tools** exposed to person agents (see [Tools and plugins](#tools-and-plugins)).
+3. **Add agents** with `world.addAgent(config)`:
+   - `role: "control"`: governance (built-in `control_agent` tool).
+   - `role: "person"`: LangGraph-loop agents; they can use plugin tools via `toolNames` (subset) or all registered tools when `toolNames` is omitted; you can also pass `tools` inline on [`AgentConfig`](src/types/AgentTypes.ts).
+4. **Start and manage lifecycle**: `await world.start()`; the host app may call `pauseAgent`, `resumeAgent`, `stopAgent` and listen to `world.on("tick", ...)`. For a clean shutdown, call `world.stop()` (as in the `SIGINT` example in [`examples/basic-world/index.ts`](examples/basic-world/index.ts)).
 
-## Architettura (panoramica)
+## Architecture (overview)
 
 ```mermaid
 flowchart LR
@@ -61,14 +61,14 @@ flowchart LR
   PersonAgent -.-> GraphStore
 ```
 
-- **Bootstrap**: caricamento regole, hook `onBootstrap` / `onRulesLoaded`, costruzione degli agenti con gli stessi `memoryStore` e `graphStore` opzionali passati nel config del mondo.
-- **PersonAgent** usa opzionalmente memoria e grafo per arricchire il contesto e persistere azioni/relazioni tra tick (vedi implementazione in [`PersonAgent`](src/agents/PersonAgent.ts)).
+- **Bootstrap**: load rules, `onBootstrap` / `onRulesLoaded` hooks, construct agents with the same optional `memoryStore` and `graphStore` from the world config.
+- **PersonAgent** optionally uses memory and graph to enrich context and persist actions/relationships across ticks (see [`PersonAgent`](src/agents/PersonAgent.ts)).
 
-## Tool e plugin
+## Tools and plugins
 
-I plugin implementano [`WorldSimPlugin`](src/types/PluginTypes.ts): hook (`onWorldTick`, `onAgentAction`, `onAgentStatusChange`, `onWorldStop`, …) e opzionalmente un array **`tools`**.
+Plugins implement [`WorldSimPlugin`](src/types/PluginTypes.ts): hooks (`onWorldTick`, `onAgentAction`, `onAgentStatusChange`, `onWorldStop`, …) and optionally an array of **`tools`**.
 
-Ogni tool è un [`AgentTool`](src/types/PluginTypes.ts): `name`, `description`, `inputSchema` (JSON Schema compatibile), `execute(input, ctx)` dove `ctx` è il [`WorldContext`](src/types/WorldTypes.ts) del mondo.
+Each tool is an [`AgentTool`](src/types/PluginTypes.ts): `name`, `description`, `inputSchema` (JSON Schema–compatible), `execute(input, ctx)` where `ctx` is the world’s [`WorldContext`](src/types/WorldTypes.ts).
 
 ```typescript
 world.use({
@@ -99,21 +99,21 @@ world.use({
 });
 ```
 
-- **ControlAgent** espone il tool built-in **`control_agent`** per sospendere, riprendere o fermare altri agenti in base alle regole (vedi [`ControlAgent`](src/agents/ControlAgent.ts)).
-- **PersonAgent** riceve l’unione dei tool registrati nei plugin (filtrati da `toolNames` se presente) e di eventuali `tools` passati nel config dell’agente.
+- **ControlAgent** exposes the built-in **`control_agent`** tool to pause, resume, or stop other agents according to the rules (see [`ControlAgent`](src/agents/ControlAgent.ts)).
+- **PersonAgent** receives the union of tools registered on plugins (filtered by `toolNames` when set) and any `tools` passed on the agent config.
 
-## Persistenza e database
+## Persistence and databases
 
-Non è obbligatorio alcun database: se non passi `memoryStore` né `graphStore` in [`WorldConfig`](src/types/WorldTypes.ts), non c’è persistenza esterna oltre lo stato in memoria durante l’esecuzione.
+No database is required: if you omit both `memoryStore` and `graphStore` on [`WorldConfig`](src/types/WorldTypes.ts), there is no external persistence beyond in-memory state for the run.
 
-### Contratti pubblici (package npm)
+### Public contracts (npm package)
 
-Il package esporta i tipi delle interfacce da implementare nel tuo backend:
+The package exports the interface types you implement in your backend:
 
-- **`MemoryStore`**: salvataggio e query di [`MemoryEntry`](src/types/MemoryTypes.ts) per agente/tick/tipo (azioni, osservazioni, conversazioni, riflessioni).
-- **`GraphStore`**: nodi/relazioni tra agenti modellati come [`Relationship`](src/types/GraphTypes.ts) (forza, metadati, tick di interazione).
+- **`MemoryStore`**: save and query [`MemoryEntry`](src/types/MemoryTypes.ts) by agent, tick, and type (actions, observations, conversations, reflections).
+- **`GraphStore`**: inter-agent nodes/relationships modeled as [`Relationship`](src/types/GraphTypes.ts) (strength, metadata, interaction ticks).
 
-Passa una singola istanza per tipo nel costruttore del mondo; [`WorldEngine`](src/engine/WorldEngine.ts) la inoltra a tutti gli agenti che la supportano.
+Pass a single instance per type to the world constructor; [`WorldEngine`](src/engine/WorldEngine.ts) forwards it to all agents that support it.
 
 ```typescript
 const world = new WorldEngine({
@@ -128,42 +128,42 @@ const world = new WorldEngine({
 });
 ```
 
-### Implementazioni di riferimento in questo repository
+### Reference implementations in this repository
 
-Le implementazioni **Redis** e **Neo4j** non sono pubblicate come dipendenze del pacchetto `@worldsim/core`; servono come **riferimento** per test di integrazione e come base da copiare o adattare nella tua applicazione:
+The **Redis** and **Neo4j** implementations are **not** shipped as dependencies of `@worldsim/core`; they serve as **reference** code for integration tests and as a base to copy or adapt in your app:
 
 - [`tests/integration/stores/RedisMemoryStore.ts`](tests/integration/stores/RedisMemoryStore.ts)
 - [`tests/integration/stores/Neo4jGraphStore.ts`](tests/integration/stores/Neo4jGraphStore.ts)
 
-Per sviluppo e test senza servizi esterni puoi ispirarti anche agli store in-memory usati nei test:
+For development and tests without external services, you can also follow the in-memory stores used in tests:
 
 - [`tests/helpers/InMemoryMemoryStore.ts`](tests/helpers/InMemoryMemoryStore.ts)
 - [`tests/helpers/InMemoryGraphStore.ts`](tests/helpers/InMemoryGraphStore.ts)
 
-### Ambiente Docker per test (Redis e Neo4j)
+### Docker test environment (Redis and Neo4j)
 
-Dalla root del repository:
+From the repository root:
 
 ```bash
-npm run test:docker:up    # avvia i servizi definiti in docker-compose.test.yml
-npm run test:docker:down  # arresta i servizi
+npm run test:docker:up    # start services from docker-compose.test.yml
+npm run test:docker:down  # stop services
 ```
 
-Porte e credenziali di esempio (allineate a [`docker-compose.test.yml`](docker-compose.test.yml)):
+Example ports and credentials (aligned with [`docker-compose.test.yml`](docker-compose.test.yml)):
 
-| Servizio | Porta host | Note |
-|----------|------------|------|
-| Redis | `16379` → 6379 nel container | URL tipico: `redis://localhost:16379` |
-| Neo4j Bolt | `7687` | Utente/password di esempio: `neo4j` / `testpassword` (`NEO4J_AUTH` nel compose) |
-| Neo4j Browser | `7474` | Interfaccia HTTP opzionale |
+| Service | Host port | Notes |
+|---------|-----------|-------|
+| Redis | `16379` → 6379 in container | Typical URL: `redis://localhost:16379` |
+| Neo4j Bolt | `7687` | Example user/password: `neo4j` / `testpassword` (`NEO4J_AUTH` in compose) |
+| Neo4j Browser | `7474` | Optional HTTP UI |
 
-Gli integration test che usano questi servizi si avviano con `npm run test:integration` (richiede `.env` e servizi in esecuzione se non in CI).
+Integration tests that use these services are run with `npm run test:integration` (requires `.env` and running services when not in CI).
 
-## Regole
+## Rules
 
-Le regole vengono caricate al bootstrap da file **JSON** (glob in `rulesPath.json`) e opzionalmente da **PDF** (`rulesPath.pdf`). Per i PDF il contenuto viene estratto tramite LLM ([`PdfRulesParser`](src/rules/PdfRulesParser.ts)); serve quindi un LLM configurato e funzionante per quel passaggio.
+Rules load at bootstrap from **JSON** files (glob in `rulesPath.json`) and optionally **PDF** (`rulesPath.pdf`). For PDFs, content is extracted via LLM ([`PdfRulesParser`](src/rules/PdfRulesParser.ts)); a working LLM configuration is required for that step.
 
-Esempio di file JSON:
+Example JSON file:
 
 ```json
 {
@@ -181,9 +181,9 @@ Esempio di file JSON:
 }
 ```
 
-## Ciclo di vita degli agenti
+## Agent lifecycle
 
-Gli agenti seguono una macchina a stati: `idle → running → paused → running` (ripresa) oppure `→ stopped` (stato terminale).
+Agents follow a state machine: `idle → running → paused → running` (resume) or `→ stopped` (terminal).
 
 ```
 idle ──start──▶ running ──pause──▶ paused
@@ -193,9 +193,9 @@ idle ──start──▶ running ──pause──▶ paused
                             (terminal, no transitions)
 ```
 
-L’host può controllare gli agenti con `world.pauseAgent()`, `world.resumeAgent()`, `world.stopAgent()`. I ControlAgent possono applicare le stesse transizioni in autonomia tramite il tool `control_agent`.
+The host can drive agents with `world.pauseAgent()`, `world.resumeAgent()`, `world.stopAgent()`. ControlAgents can apply the same transitions autonomously via the `control_agent` tool.
 
-## Quick start (codice)
+## Quick start (code)
 
 ```typescript
 import { WorldEngine, ConsoleLoggerPlugin } from "@worldsim/core";
@@ -242,32 +242,32 @@ world.addAgent({
 await world.start();
 ```
 
-## Esempio nel repository
+## Example in this repository
 
-È disponibile un esempio più completo in [`examples/basic-world/`](examples/basic-world/) (plugin di osservazione sul ciclo di vita, pause/resume/stop da tick, regole da file).
+A fuller sample lives under [`examples/basic-world/`](examples/basic-world/) (lifecycle observer plugin, pause/resume/stop from ticks, rules from files).
 
-L’esempio importa `@worldsim/core` come farebbe un progetto che ha installato il pacchetto da npm. **Per eseguirlo in locale senza pubblicare:** dalla root del repo esegui `npm run build`, poi `npm link`; in un progetto Node separato esegui `npm link @worldsim/core`, copia l’esempio (o importa gli stessi moduli), imposta `OPENAI_API_KEY` e avvia lo script con un runner TypeScript (es. `npx tsx index.ts`). In alternativa, dopo `npm install @worldsim/core` nel tuo applicativo, incolla il contenuto dell’esempio nel tuo entrypoint.
+The example imports `@worldsim/core` like a project that installed the package from npm. **To run it locally without publishing:** from the repo root run `npm run build`, then `npm link`; in a separate Node project run `npm link @worldsim/core`, copy the example (or equivalent imports), set `OPENAI_API_KEY`, and run the script with a TypeScript runner (e.g. `npx tsx index.ts`). Alternatively, after `npm install @worldsim/core` in your app, paste the example into your entrypoint.
 
-## Script npm
+## npm scripts
 
-| Comando | Descrizione |
+| Command | Description |
 |---------|-------------|
-| `npm run build` | Build con tsup (CJS + ESM) |
-| `npm run dev` | Build in watch mode (tsup) |
-| `npm test` | Test unitari (Vitest) |
-| `npm run test:watch` | Vitest in modalità watch |
-| `npm run test:integration` | Test di integrazione (richiede `.env` e servizi dove necessario) |
-| `npm run test:docker:up` | Avvia Redis e Neo4j per i test (`docker-compose.test.yml`) |
-| `npm run test:docker:down` | Ferma i container di test |
-| `npm run test:prompts` | Valutazioni promptfoo (richiede `.env`) |
-| `npm run test:all` | Esegue tutti i test |
-| `npm run typecheck` | Controllo tipi TypeScript |
-| `npm run lint` | ESLint su `src` |
+| `npm run build` | Build with tsup (CJS + ESM) |
+| `npm run dev` | Watch build (tsup) |
+| `npm test` | Unit tests (Vitest) |
+| `npm run test:watch` | Vitest watch mode |
+| `npm run test:integration` | Integration tests (requires `.env` and services where needed) |
+| `npm run test:docker:up` | Start Redis and Neo4j for tests (`docker-compose.test.yml`) |
+| `npm run test:docker:down` | Stop test containers |
+| `npm run test:prompts` | promptfoo evaluations (requires `.env`) |
+| `npm run test:all` | Run all tests |
+| `npm run typecheck` | TypeScript typecheck |
+| `npm run lint` | ESLint on `src` |
 
 ## Roadmap
 
-Per attività e roadmap di sviluppo dettagliate vedi [`docs/tasks.md`](docs/tasks.md).
+For detailed development tasks and roadmap, see [`docs/tasks.md`](docs/tasks.md).
 
-## Licenza
+## License
 
 MIT
