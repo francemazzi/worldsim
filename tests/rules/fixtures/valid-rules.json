@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "name": "Test Rules",
+  "description": "Rules for unit testing",
+  "rules": [
+    {
+      "id": "rule-001",
+      "priority": 1,
+      "scope": "all",
+      "instruction": "Be respectful at all times.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "rule-002",
+      "priority": 10,
+      "scope": "person",
+      "instruction": "Contribute at least one idea every 5 ticks.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "rule-003",
+      "priority": 5,
+      "scope": "control",
+      "instruction": "Report violations of priority 1-5 rules immediately.",
+      "enforcement": "hard"
+    }
+  ]
+}

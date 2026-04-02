@@ -1,0 +1,9 @@
+{
+  "name": "Bad Rules",
+  "rules": [
+    {
+      "id": "rule-bad",
+      "scope": "all"
+    }
+  ]
+}
