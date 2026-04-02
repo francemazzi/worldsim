@@ -1,5 +1,8 @@
 import type { MemoryStore } from "./MemoryTypes.js";
 import type { GraphStore } from "./GraphTypes.js";
+import type { VectorStore, EmbeddingAdapter } from "./VectorTypes.js";
+import type { PersistenceStore } from "./PersistenceTypes.js";
+import type { ConsolidationConfig } from "./ConsolidationTypes.js";
 
 export interface WorldContext {
   worldId: string;
@@ -20,6 +23,10 @@ export interface WorldConfig {
   } | undefined;
   memoryStore?: MemoryStore | undefined;
   graphStore?: GraphStore | undefined;
+  vectorStore?: VectorStore | undefined;
+  embeddingAdapter?: EmbeddingAdapter | undefined;
+  persistenceStore?: PersistenceStore | undefined;
+  consolidation?: Partial<ConsolidationConfig> | undefined;
 }
 
 export interface LLMConfig {

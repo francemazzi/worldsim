@@ -1,6 +1,10 @@
 export { WorldEngine } from "./engine/WorldEngine.js";
 export { ConsoleLoggerPlugin } from "./plugins/built-in/ConsoleLoggerPlugin.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
+export { BrainMemory } from "./memory/BrainMemory.js";
+export type { RecallOptions, RecallResult } from "./memory/BrainMemory.js";
+export { MemoryConsolidator } from "./memory/MemoryConsolidator.js";
+export { EmbeddingManager } from "./memory/EmbeddingManager.js";
 
 export type {
   WorldConfig,
@@ -37,3 +41,22 @@ export type {
   ChatOptions,
   ToolCall,
 } from "./llm/LLMAdapter.js";
+export type {
+  VectorStore,
+  VectorEntry,
+  VectorQuery,
+  VectorSearchResult,
+  EmbeddingAdapter,
+} from "./types/VectorTypes.js";
+export type {
+  PersistenceStore,
+  PersistedAgentConfig,
+  StateSnapshot,
+  ConversationRecord,
+  ConsolidatedKnowledge,
+} from "./types/PersistenceTypes.js";
+export type {
+  ConsolidationConfig,
+  ConsolidationResult,
+  ImportanceScore,
+} from "./types/ConsolidationTypes.js";

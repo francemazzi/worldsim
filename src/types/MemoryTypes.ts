@@ -2,11 +2,12 @@ export interface MemoryEntry {
   id: string;
   agentId: string;
   tick: number;
-  type: "action" | "observation" | "conversation" | "reflection";
+  type: "action" | "observation" | "conversation" | "reflection" | "knowledge";
   content: string;
   metadata?: Record<string, unknown>;
   timestamp: Date;
   importance?: number;
+  embedding?: number[];
 }
 
 export interface MemoryQuery {

@@ -1,6 +1,7 @@
 import type { AgentProfile, AgentInternalState } from "../types/AgentTypes.js";
 import type { MemoryEntry } from "../types/MemoryTypes.js";
 import type { Relationship } from "../types/GraphTypes.js";
+import type { ConsolidatedKnowledge } from "../types/PersistenceTypes.js";
 
 export function buildProfilePrompt(profile: AgentProfile): string {
   const sections: string[] = [];
@@ -60,4 +61,25 @@ export function buildRelationshipPrompt(relationships: Relationship[]): string {
       `${r.to}: tipo=${r.type}, forza=${r.strength.toFixed(1)}, dal tick ${r.since}${r.lastInteraction != null ? `, ultima interazione tick ${r.lastInteraction}` : ""}`,
   );
   return `--- RELAZIONI ---\n${lines.join("\n")}`;
+}
+
+export function buildKnowledgePrompt(
+  knowledge: ConsolidatedKnowledge[],
+): string {
+  if (knowledge.length === 0) return "";
+  const lines = knowledge.map(
+    (k) =>
+      `[${k.category ?? "generale"}, importanza ${k.importance.toFixed(1)}] ${k.summary}`,
+  );
+  return `--- CONOSCENZE CONSOLIDATE ---\n${lines.join("\n")}`;
+}
+
+export function buildSemanticMemoryPrompt(
+  memories: MemoryEntry[],
+): string {
+  if (memories.length === 0) return "";
+  const lines = memories.map(
+    (m) => `[tick ${m.tick}, ${m.type}] ${m.content}`,
+  );
+  return `--- MEMORIE RILEVANTI ---\n${lines.join("\n")}`;
 }

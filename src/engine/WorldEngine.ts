@@ -24,6 +24,9 @@ import type {
 import type { RulesContext } from "../types/RulesTypes.js";
 import type { WorldSimPlugin } from "../types/PluginTypes.js";
 import type { BaseAgent } from "../agents/BaseAgent.js";
+import type { AgentStoreOptions } from "../agents/BaseAgent.js";
+import { BrainMemory } from "../memory/BrainMemory.js";
+import type { ConsolidationResult } from "../types/ConsolidationTypes.js";
 
 type TickHandler = (tick: number) => void;
 
@@ -46,6 +49,7 @@ export class WorldEngine {
   private eventLog: WorldEvent[] = [];
   private pendingAgentConfigs: AgentConfig[] = [];
   private tickHandlers: TickHandler[] = [];
+  private brainMemory?: BrainMemory | undefined;
 
   constructor(config: WorldConfig) {
     this.config = config;
@@ -85,9 +89,29 @@ export class WorldEngine {
     );
     await this.pluginRegistry.runHook("onRulesLoaded", this.rulesContext);
 
-    const storeOptions = {
+    // Auto-compose BrainMemory if vector or persistence store is provided
+    if (
+      this.config.memoryStore &&
+      (this.config.vectorStore || this.config.persistenceStore)
+    ) {
+      this.brainMemory = new BrainMemory({
+        memoryStore: this.config.memoryStore,
+        vectorStore: this.config.vectorStore,
+        persistenceStore: this.config.persistenceStore,
+        embeddingAdapter: this.config.embeddingAdapter,
+        graphStore: this.config.graphStore,
+        llm: this.llm,
+        consolidation: this.config.consolidation,
+      });
+    }
+
+    const storeOptions: AgentStoreOptions = {
       memoryStore: this.config.memoryStore,
       graphStore: this.config.graphStore,
+      vectorStore: this.config.vectorStore,
+      persistenceStore: this.config.persistenceStore,
+      embeddingAdapter: this.config.embeddingAdapter,
+      brainMemory: this.brainMemory,
     };
 
     for (const agentConfig of this.pendingAgentConfigs) {
@@ -256,6 +280,17 @@ export class WorldEngine {
 
   getAgent(id: string): BaseAgent | undefined {
     return this.agentRegistry.get(id);
+  }
+
+  async consolidate(): Promise<ConsolidationResult[]> {
+    if (!this.brainMemory) return [];
+    const results: ConsolidationResult[] = [];
+    const worldId = this.context.worldId;
+    for (const agent of this.agentRegistry.list()) {
+      const result = await this.brainMemory.consolidate(agent.id, worldId);
+      results.push(result);
+    }
+    return results;
   }
 
   private async runLoop(): Promise<void> {

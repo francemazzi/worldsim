@@ -4,6 +4,8 @@ import {
   buildStatePrompt,
   buildMemoryPrompt,
   buildRelationshipPrompt,
+  buildKnowledgePrompt,
+  buildSemanticMemoryPrompt,
 } from "./ProfilePromptBuilder.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
 import { createMessageId } from "../messaging/MessageBus.js";
@@ -21,16 +23,25 @@ import type { WorldContext, WorldEvent } from "../types/WorldTypes.js";
 import type { RulesContext, Rule } from "../types/RulesTypes.js";
 import type { MemoryStore, MemoryEntry } from "../types/MemoryTypes.js";
 import type { GraphStore, Relationship } from "../types/GraphTypes.js";
+import type { VectorStore, EmbeddingAdapter } from "../types/VectorTypes.js";
+import type { PersistenceStore, ConsolidatedKnowledge } from "../types/PersistenceTypes.js";
 import type { Message } from "../messaging/Message.js";
+import type { BrainMemory } from "../memory/BrainMemory.js";
 
 export interface AgentStoreOptions {
   memoryStore?: MemoryStore | undefined;
   graphStore?: GraphStore | undefined;
+  vectorStore?: VectorStore | undefined;
+  persistenceStore?: PersistenceStore | undefined;
+  embeddingAdapter?: EmbeddingAdapter | undefined;
+  brainMemory?: BrainMemory | undefined;
 }
 
 export interface TickContext {
   memories: MemoryEntry[];
   relationships: Relationship[];
+  relevantMemories?: MemoryEntry[] | undefined;
+  knowledge?: ConsolidatedKnowledge[] | undefined;
 }
 
 const DEFAULT_INTERNAL_STATE: AgentInternalState = {
@@ -48,6 +59,7 @@ export abstract class BaseAgent {
   protected bus: MessageBus;
   protected memoryStore?: MemoryStore | undefined;
   protected graphStore?: GraphStore | undefined;
+  protected brainMemory?: BrainMemory | undefined;
   protected internalState: AgentInternalState;
   private lifecycle: AgentLifecycle = new AgentLifecycle();
 
@@ -62,6 +74,7 @@ export abstract class BaseAgent {
     this.bus = bus;
     this.memoryStore = options?.memoryStore;
     this.graphStore = options?.graphStore;
+    this.brainMemory = options?.brainMemory;
     this.internalState = {
       ...DEFAULT_INTERNAL_STATE,
       ...config.initialState,
@@ -158,6 +171,16 @@ export abstract class BaseAgent {
     if (tickContext) {
       const memorySection = buildMemoryPrompt(tickContext.memories);
       if (memorySection) sections.push(memorySection);
+
+      if (tickContext.relevantMemories && tickContext.relevantMemories.length > 0) {
+        const semanticSection = buildSemanticMemoryPrompt(tickContext.relevantMemories);
+        if (semanticSection) sections.push(semanticSection);
+      }
+
+      if (tickContext.knowledge && tickContext.knowledge.length > 0) {
+        const knowledgeSection = buildKnowledgePrompt(tickContext.knowledge);
+        if (knowledgeSection) sections.push(knowledgeSection);
+      }
 
       const relSection = buildRelationshipPrompt(tickContext.relationships);
       if (relSection) sections.push(relSection);

@@ -68,6 +68,28 @@ export class PersonAgent extends BaseAgent {
   }
 
   private async gatherTickContext(): Promise<TickContext> {
+    if (this.brainMemory) {
+      const currentSituation = this.describeCurrentSituation();
+      const [recallResult, relationships] = await Promise.all([
+        this.brainMemory.recall({
+          agentId: this.id,
+          recentLimit: 20,
+          semanticQuery: currentSituation,
+          semanticTopK: 5,
+          includeKnowledge: true,
+        }),
+        this.graphStore
+          ? this.graphStore.getRelationships({ agentId: this.id, limit: 10 })
+          : Promise.resolve([]),
+      ]);
+
+      return {
+        memories: recallResult.memories,
+        relationships,
+        knowledge: recallResult.knowledge,
+      };
+    }
+
     const [memories, relationships] = await Promise.all([
       this.memoryStore
         ? this.memoryStore.getRecent(this.id, 20)
@@ -79,11 +101,22 @@ export class PersonAgent extends BaseAgent {
     return { memories, relationships };
   }
 
+  private describeCurrentSituation(): string {
+    const parts: string[] = [];
+    parts.push(`mood: ${this.internalState.mood}`);
+    parts.push(`energy: ${this.internalState.energy}`);
+    if (this.internalState.goals.length > 0) {
+      parts.push(`goals: ${this.internalState.goals.join(", ")}`);
+    }
+    return parts.join("; ");
+  }
+
   private async persistActions(
     actions: AgentAction[],
     ctx: WorldContext,
   ): Promise<void> {
-    if (!this.memoryStore || actions.length === 0) return;
+    if (actions.length === 0) return;
+    if (!this.brainMemory && !this.memoryStore) return;
 
     const entries = actions.map((a) => ({
       id: randomUUID(),
@@ -94,7 +127,11 @@ export class PersonAgent extends BaseAgent {
       timestamp: new Date(),
     }));
 
-    await this.memoryStore.saveBatch(entries);
+    if (this.brainMemory) {
+      await this.brainMemory.saveBatch(entries, ctx.worldId);
+    } else if (this.memoryStore) {
+      await this.memoryStore.saveBatch(entries);
+    }
   }
 
   private async updateRelationships(ctx: WorldContext): Promise<void> {
