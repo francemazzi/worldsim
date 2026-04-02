@@ -33,6 +33,7 @@ import { TokenBudgetTracker } from "../scheduling/TokenBudgetTracker.js";
 import type { TokenBudgetResult } from "../scheduling/TokenBudgetTracker.js";
 import type { NeighborhoodManager } from "../graph/NeighborhoodManager.js";
 import type { ConversationManager } from "../messaging/ConversationManager.js";
+import type { LocationIndex } from "../location/LocationIndex.js";
 
 export interface AgentStoreOptions {
   memoryStore?: MemoryStore | undefined;
@@ -45,6 +46,9 @@ export interface AgentStoreOptions {
   tokenBudgetTracker?: TokenBudgetTracker | undefined;
   neighborhoodManager?: NeighborhoodManager | undefined;
   conversationManager?: ConversationManager | undefined;
+  locationIndex?: LocationIndex | undefined;
+  /** Radius in km for proximity-based messaging (replaces broadcast). 0 = no proximity fallback. */
+  defaultBroadcastRadius?: number | undefined;
 }
 
 export interface TickContext {
@@ -74,6 +78,8 @@ export abstract class BaseAgent {
   protected tokenBudgetTracker?: TokenBudgetTracker | undefined;
   protected neighborhoodManager?: NeighborhoodManager | undefined;
   protected conversationManager?: ConversationManager | undefined;
+  protected locationIndex?: LocationIndex | undefined;
+  protected defaultBroadcastRadius?: number | undefined;
   protected internalState: AgentInternalState;
   private lifecycle: AgentLifecycle = new AgentLifecycle();
 
@@ -93,6 +99,8 @@ export abstract class BaseAgent {
     this.tokenBudgetTracker = options?.tokenBudgetTracker;
     this.neighborhoodManager = options?.neighborhoodManager;
     this.conversationManager = options?.conversationManager;
+    this.locationIndex = options?.locationIndex;
+    this.defaultBroadcastRadius = options?.defaultBroadcastRadius;
     this.internalState = {
       ...DEFAULT_INTERNAL_STATE,
       ...config.initialState,

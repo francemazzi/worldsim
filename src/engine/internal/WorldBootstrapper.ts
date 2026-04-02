@@ -55,6 +55,8 @@ export class WorldBootstrapper {
         tokenBudgetTracker: this.runtime.tokenBudgetTracker,
         neighborhoodManager: this.runtime.neighborhoodManager,
         conversationManager: this.runtime.conversationManager,
+        locationIndex: this.runtime.locationIndex,
+        defaultBroadcastRadius: this.runtime.config.defaultBroadcastRadius,
       };
 
       if (agentConfig.role === "control") {

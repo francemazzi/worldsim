@@ -56,6 +56,13 @@ export interface AgentConfig {
   } | undefined;
   /** If true, agent always makes LLM call even when idle. Default false. */
   alwaysThink?: boolean | undefined;
+  /**
+   * LLM tier for this agent.
+   * - "full": uses the main world LLM config (default)
+   * - "light": uses WorldConfig.lightLlm for cheaper/faster inference
+   * Agents with explicit `llm` config override this setting.
+   */
+  llmTier?: "full" | "light" | undefined;
 }
 
 export interface AgentState {

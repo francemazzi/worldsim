@@ -30,7 +30,7 @@ export class TickOrchestrator {
       await this.runtime.pluginRegistry.runHook(
         "onWorldStop",
         this.runtime.context,
-        this.runtime.eventLog,
+        this.runtime.eventLog.toArray(),
       );
     }
   }
@@ -39,6 +39,7 @@ export class TickOrchestrator {
     const tick = this.runtime.clock.increment();
     this.runtime.messageBus.newTick(tick);
     this.runtime.context.tickCount = tick;
+    this.runtime.llmPool.setTick(tick);
 
     await this.runtime.pluginRegistry.runHook(
       "onWorldTick",
@@ -60,9 +61,29 @@ export class TickOrchestrator {
     // Cleanup stale conversations
     this.runtime.conversationManager.tickCleanup(tick);
 
-    // Filter active agents and sort by priority (agents with pending messages first)
+    // Reset neighborhood cache for this tick
+    this.runtime.neighborhoodManager.resetTickCache(tick);
+
+    // Filter active agents, applying world-level active-set scheduling
+    const defaultRatio = this.runtime.config.defaultActiveTickRatio;
     const activePersonAgents = this.runtime.personAgents
-      .filter((a) => a.isActive)
+      .filter((a) => {
+        if (!a.isActive) return false;
+
+        // Agents with pending messages always run (they have stimulus)
+        if (this.runtime.messageBus.getMessageCount(a.id, tick) > 0) return true;
+
+        // Apply world-level defaultActiveTickRatio for agents without their own schedule
+        if (defaultRatio != null && defaultRatio < 1.0) {
+          if (!this.runtime.activityScheduler.shouldActivate(a.id, tick, {
+            activeTickRatio: defaultRatio,
+          })) {
+            return false;
+          }
+        }
+
+        return true;
+      })
       .sort((a, b) => {
         const aMsgs = this.runtime.messageBus.getMessageCount(a.id, tick);
         const bMsgs = this.runtime.messageBus.getMessageCount(b.id, tick);
@@ -87,6 +108,16 @@ export class TickOrchestrator {
       allActions.push(...actions);
     }
 
+    // Batch decay/prune relationships for all active agents (single pass)
+    if (this.runtime.config.graphStore) {
+      const agentIds = activePersonAgents.map((a) => a.id);
+      await this.runtime.neighborhoodManager.decayAndPruneBatch(
+        agentIds,
+        tick,
+        this.runtime.config.graphStore,
+      );
+    }
+
     this.controlEventApplier.apply(tick);
 
     if (this.runtime.controlAgents.length > 0 && allActions.length > 0) {
@@ -96,6 +127,7 @@ export class TickOrchestrator {
           allActions,
           this.runtime.context,
           this.runtime.rulesContext!,
+          this.runtime.config.controlSamplingRate,
         );
 
         for (const evaluation of evaluations) {
@@ -120,19 +152,17 @@ export class TickOrchestrator {
       }
     }
 
-    for (const action of allActions) {
-      await this.runtime.pluginRegistry.runHookWithTransform(
-        "onAgentAction",
-        action,
-        {
-          agentId: action.agentId,
-          status: "running",
-          currentMessages: [],
-          loopCount: 0,
-          ephemeralMemory: {},
-        },
-      );
-    }
+    await this.runtime.pluginRegistry.runActionHooks(
+      allActions,
+      this.runtime.context,
+      (action) => ({
+        agentId: action.agentId,
+        status: "running",
+        currentMessages: [],
+        loopCount: 0,
+        ephemeralMemory: {},
+      }),
+    );
 
     for (const ca of this.runtime.controlAgents) {
       if (ca.isActive) {

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { WorldClock } from "./WorldClock.js";
 import { createWorldContext } from "./WorldContext.js";
 import { BatchExecutor } from "./BatchExecutor.js";
+import { CircularBuffer } from "./CircularBuffer.js";
 import { WorldBootstrapper } from "./internal/WorldBootstrapper.js";
 import { ControlEventApplier } from "./internal/ControlEventApplier.js";
 import { TickOrchestrator } from "./internal/TickOrchestrator.js";
@@ -46,11 +47,16 @@ export class WorldEngine {
       messageBus: new MessageBus(),
       rulesContext: null,
       pluginRegistry: new PluginRegistry(),
-      llmPool: new LLMAdapterPool(config.llm),
+      llmPool: new LLMAdapterPool(
+        config.llm,
+        config.lightLlm,
+        config.enableResponseCache ?? false,
+        config.responseCacheTtl ?? 5,
+      ),
       clock: new WorldClock(),
       controlAgents: [],
       personAgents: [],
-      eventLog: [],
+      eventLog: new CircularBuffer(config.eventLogMaxSize ?? 10_000),
       pendingAgentConfigs: [],
       tickHandlers: [],
       brainMemory: undefined,
@@ -204,7 +210,7 @@ export class WorldEngine {
   }
 
   getEventLog(): Readonly<WorldEvent[]> {
-    return this.runtime.eventLog;
+    return this.runtime.eventLog.toArray();
   }
 
   getAgent(id: string): BaseAgent | undefined {

@@ -120,10 +120,16 @@ export class ControlAgent extends BaseAgent {
   private static readonly EVAL_CHUNK_SIZE = 20;
   private static readonly SAFE_ACTION_TYPES: Set<string> = new Set(["observe", "finish"]);
 
+  /**
+   * Evaluates actions against hard rules.
+   * @param samplingRate - Fraction of non-safe actions to evaluate (0.0-1.0). Default 1.0.
+   *   Actions not sampled are auto-approved. Useful at scale to reduce LLM calls.
+   */
   async evaluateActions(
     actions: AgentAction[],
     ctx: WorldContext,
     rules: RulesContext,
+    samplingRate = 1.0,
   ): Promise<EvaluationResult[]> {
     if (this.shouldSkipTick() || actions.length === 0) return [];
 
@@ -146,7 +152,7 @@ export class ControlAgent extends BaseAgent {
 
     // Pre-filter: auto-approve safe action types (observe, finish)
     const safeResults: EvaluationResult[] = [];
-    const actionsToEvaluate: AgentAction[] = [];
+    let actionsToEvaluate: AgentAction[] = [];
 
     for (const action of actions) {
       if (ControlAgent.SAFE_ACTION_TYPES.has(action.actionType)) {
@@ -162,9 +168,34 @@ export class ControlAgent extends BaseAgent {
 
     if (actionsToEvaluate.length === 0) return safeResults;
 
+    // Apply sampling: evaluate only a fraction of actions when rate < 1.0
+    if (samplingRate < 1.0 && actionsToEvaluate.length > 1) {
+      const sampleCount = Math.max(1, Math.ceil(actionsToEvaluate.length * samplingRate));
+      // Deterministic shuffle using tick as seed
+      const shuffled = [...actionsToEvaluate].sort(
+        (a, b) => simpleHash(`${a.agentId}:${ctx.tickCount}`) - simpleHash(`${b.agentId}:${ctx.tickCount}`),
+      );
+      const sampled = shuffled.slice(0, sampleCount);
+      const skipped = shuffled.slice(sampleCount);
+
+      // Auto-approve skipped actions
+      for (const action of skipped) {
+        safeResults.push({
+          agentId: action.agentId,
+          actionType: action.actionType,
+          verdict: "approved",
+        });
+      }
+      actionsToEvaluate = sampled;
+    }
+
     const rulesStr = allHardRules
       .map((r) => `[${r.id}] ${r.instruction}`)
       .join("\n");
+
+    // Build the control graph once for all chunks (reuse within same tick)
+    const tools = [this.buildControlAgentTool()];
+    const graph = buildControlGraph({ llm: this.llm, tools, worldContext: ctx });
 
     // Chunk remaining actions for parallel evaluation
     const chunks: AgentAction[][] = [];
@@ -173,7 +204,7 @@ export class ControlAgent extends BaseAgent {
     }
 
     const chunkPromises = chunks.map((chunk) =>
-      this.evaluateChunk(chunk, ctx, rulesStr),
+      this.evaluateChunkWithGraph(chunk, ctx, rulesStr, graph),
     );
     const chunkResults = await Promise.all(chunkPromises);
 
@@ -185,19 +216,24 @@ export class ControlAgent extends BaseAgent {
     ctx: WorldContext,
     rulesStr: string,
   ): Promise<EvaluationResult[]> {
+    const tools = [this.buildControlAgentTool()];
+    const graph = buildControlGraph({ llm: this.llm, tools, worldContext: ctx });
+    return this.evaluateChunkWithGraph(actions, ctx, rulesStr, graph);
+  }
+
+  private async evaluateChunkWithGraph(
+    actions: AgentAction[],
+    ctx: WorldContext,
+    rulesStr: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    graph: any,
+  ): Promise<EvaluationResult[]> {
     const actionsStr = actions
       .map(
         (a) =>
           `Agent ${a.agentId} (${a.actionType}): ${JSON.stringify(a.payload)}`,
       )
       .join("\n");
-
-    const tools = [this.buildControlAgentTool()];
-    const graph = buildControlGraph({
-      llm: this.llm,
-      tools,
-      worldContext: ctx,
-    });
 
     const result = await graph.invoke({
       messages: [
@@ -244,4 +280,12 @@ ${this.watchPatterns.join("\n")}`,
       verdict: "approved" as const,
     }));
   }
+}
+
+function simpleHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return hash;
 }

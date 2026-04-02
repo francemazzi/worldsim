@@ -15,7 +15,7 @@ export class WorldLifecycle {
     await this.runtime.pluginRegistry.runHook(
       "onWorldStop",
       this.runtime.context,
-      this.runtime.eventLog,
+      this.runtime.eventLog.toArray(),
     );
 
     this.runtime.agentRegistry.clear();

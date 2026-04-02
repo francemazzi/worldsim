@@ -24,6 +24,8 @@ const DEFAULT_CONFIG: NeighborhoodConfig = {
  */
 export class NeighborhoodManager {
   private configs: Map<string, NeighborhoodConfig> = new Map();
+  private neighborCache: Map<string, string[]> = new Map();
+  private cacheTick = -1;
 
   /**
    * Registers an agent with its neighborhood configuration.
@@ -37,13 +39,27 @@ export class NeighborhoodManager {
   }
 
   /**
+   * Resets the per-tick neighbor cache. Call at the start of each tick.
+   */
+  resetTickCache(tick: number): void {
+    if (tick !== this.cacheTick) {
+      this.neighborCache.clear();
+      this.cacheTick = tick;
+    }
+  }
+
+  /**
    * Returns the active neighbors for an agent (contacts above min strength threshold).
    * Results are sorted by strength descending and capped at maxContacts.
+   * Uses per-tick cache to avoid repeated GraphStore queries.
    */
   async getActiveNeighbors(
     agentId: string,
     graphStore: GraphStore,
   ): Promise<string[]> {
+    const cached = this.neighborCache.get(agentId);
+    if (cached) return cached;
+
     const config = this.getConfig(agentId);
 
     const relationships = await graphStore.getRelationships({
@@ -52,10 +68,13 @@ export class NeighborhoodManager {
       limit: config.maxContacts,
     });
 
-    return relationships
+    const neighbors = relationships
       .sort((a, b) => b.strength - a.strength)
       .slice(0, config.maxContacts)
       .map((r) => (r.from === agentId ? r.to : r.from));
+
+    this.neighborCache.set(agentId, neighbors);
+    return neighbors;
   }
 
   /**
@@ -105,6 +124,58 @@ export class NeighborhoodManager {
 
     for (const rel of toRemove) {
       await graphStore.removeRelationship(rel.from, rel.to, rel.type);
+    }
+  }
+
+  /**
+   * Batch decay and prune for multiple agents in a single pass.
+   * Fetches all relationships once per agent, applies decay, then prunes.
+   * Much more efficient than calling decayRelationships + pruneToMax per agent.
+   */
+  async decayAndPruneBatch(
+    agentIds: string[],
+    currentTick: number,
+    graphStore: GraphStore,
+  ): Promise<void> {
+    for (const agentId of agentIds) {
+      const config = this.getConfig(agentId);
+      const relationships = await graphStore.getRelationships({ agentId });
+      if (relationships.length === 0) continue;
+
+      // Apply decay and collect survivors
+      const survivors: { rel: Relationship; newStrength: number }[] = [];
+
+      for (const rel of relationships) {
+        const lastInteraction = rel.lastInteraction ?? rel.since;
+        const ticksSinceInteraction = currentTick - lastInteraction;
+
+        if (ticksSinceInteraction <= 0) {
+          survivors.push({ rel, newStrength: rel.strength });
+          continue;
+        }
+
+        const newStrength = Math.max(0, rel.strength - config.decayRate * ticksSinceInteraction);
+
+        if (newStrength < config.minStrength) {
+          await graphStore.removeRelationship(rel.from, rel.to, rel.type);
+        } else {
+          survivors.push({ rel, newStrength });
+          if (newStrength !== rel.strength) {
+            await graphStore.updateRelationship(rel.from, rel.to, rel.type, {
+              strength: newStrength,
+            });
+          }
+        }
+      }
+
+      // Prune excess contacts in the same pass
+      if (survivors.length > config.maxContacts) {
+        survivors.sort((a, b) => b.newStrength - a.newStrength);
+        const toRemove = survivors.slice(config.maxContacts);
+        for (const { rel } of toRemove) {
+          await graphStore.removeRelationship(rel.from, rel.to, rel.type);
+        }
+      }
     }
   }
 

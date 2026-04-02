@@ -6,6 +6,7 @@ import { MessageBus } from "../../messaging/MessageBus.js";
 import { PluginRegistry } from "../../plugins/PluginRegistry.js";
 import { LLMAdapterPool } from "../../llm/LLMAdapterPool.js";
 import { BatchExecutor } from "../BatchExecutor.js";
+import { CircularBuffer } from "../CircularBuffer.js";
 import { ActivityScheduler } from "../../scheduling/ActivityScheduler.js";
 import { TokenBudgetTracker } from "../../scheduling/TokenBudgetTracker.js";
 import { NeighborhoodManager } from "../../graph/NeighborhoodManager.js";
@@ -35,7 +36,7 @@ export interface WorldEngineRuntime {
   clock: WorldClock;
   controlAgents: ControlAgent[];
   personAgents: PersonAgent[];
-  eventLog: WorldEvent[];
+  eventLog: CircularBuffer<WorldEvent>;
   pendingAgentConfigs: AgentConfig[];
   tickHandlers: TickHandler[];
   brainMemory?: BrainMemory | undefined;

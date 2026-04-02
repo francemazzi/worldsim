@@ -5,7 +5,7 @@
 export class BatchExecutor {
   private maxConcurrent: number;
 
-  constructor(maxConcurrent: number = Infinity) {
+  constructor(maxConcurrent: number = 100) {
     this.maxConcurrent = maxConcurrent;
   }
 

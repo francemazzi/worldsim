@@ -1,4 +1,6 @@
 import type { WorldSimPlugin, AgentTool } from "../types/PluginTypes.js";
+import type { AgentAction, AgentState } from "../types/AgentTypes.js";
+import type { WorldContext } from "../types/WorldTypes.js";
 
 type HookName = keyof {
   [K in keyof WorldSimPlugin as WorldSimPlugin[K] extends
@@ -24,7 +26,30 @@ export class PluginRegistry {
     hookName: K,
     ...args: Parameters<NonNullable<WorldSimPlugin[K]>>
   ): Promise<void> {
+    // Separate parallel and sequential plugins
+    const parallelTasks: Promise<unknown>[] = [];
+    const sequentialPlugins: WorldSimPlugin[] = [];
+
     for (const plugin of this.plugins) {
+      const hookFn = plugin[hookName];
+      if (typeof hookFn !== "function") continue;
+
+      if (plugin.parallel) {
+        parallelTasks.push(
+          (hookFn as (...a: unknown[]) => Promise<unknown>).apply(plugin, args),
+        );
+      } else {
+        sequentialPlugins.push(plugin);
+      }
+    }
+
+    // Run parallel hooks concurrently
+    if (parallelTasks.length > 0) {
+      await Promise.all(parallelTasks);
+    }
+
+    // Run sequential hooks in order
+    for (const plugin of sequentialPlugins) {
       const hookFn = plugin[hookName];
       if (typeof hookFn === "function") {
         await (hookFn as (...a: unknown[]) => Promise<unknown>).apply(
@@ -50,6 +75,55 @@ export class PluginRegistry {
       }
     }
     return result;
+  }
+
+  /**
+   * Runs action hooks efficiently:
+   * - Plugins with onAgentActionsBatch get called once with all actions
+   * - Plugins with only onAgentAction get called per-action (sequential)
+   */
+  async runActionHooks(
+    actions: AgentAction[],
+    ctx: WorldContext,
+    buildState: (action: AgentAction) => AgentState,
+  ): Promise<void> {
+    if (actions.length === 0) return;
+
+    const batchPlugins: WorldSimPlugin[] = [];
+    const perActionPlugins: WorldSimPlugin[] = [];
+
+    for (const plugin of this.plugins) {
+      if (typeof plugin.onAgentActionsBatch === "function") {
+        batchPlugins.push(plugin);
+      } else if (typeof plugin.onAgentAction === "function") {
+        perActionPlugins.push(plugin);
+      }
+    }
+
+    // Run batch hooks (can be parallelized if marked parallel)
+    const batchParallel: Promise<void>[] = [];
+    const batchSequential: WorldSimPlugin[] = [];
+    for (const plugin of batchPlugins) {
+      if (plugin.parallel) {
+        batchParallel.push(plugin.onAgentActionsBatch!(actions, ctx));
+      } else {
+        batchSequential.push(plugin);
+      }
+    }
+    if (batchParallel.length > 0) await Promise.all(batchParallel);
+    for (const plugin of batchSequential) {
+      await plugin.onAgentActionsBatch!(actions, ctx);
+    }
+
+    // Run per-action hooks for plugins without batch support
+    if (perActionPlugins.length > 0) {
+      for (const action of actions) {
+        const state = buildState(action);
+        for (const plugin of perActionPlugins) {
+          await plugin.onAgentAction!(action, state);
+        }
+      }
+    }
   }
 
   getAllTools(): AgentTool[] {

@@ -107,11 +107,7 @@ export class PersonAgent extends BaseAgent {
     await this.persistActions(actions, ctx);
     await this.updateRelationships(ctx);
 
-    // Decay and prune relationships via neighborhood manager
-    if (this.neighborhoodManager && this.graphStore) {
-      await this.neighborhoodManager.decayRelationships(this.id, ctx.tickCount, this.graphStore);
-      await this.neighborhoodManager.pruneToMax(this.id, this.graphStore);
-    }
+    // Note: decay/prune is now handled in batch by TickOrchestrator post-tick phase
 
     return actions;
   }
@@ -147,12 +143,21 @@ export class PersonAgent extends BaseAgent {
       }
     }
 
-    // Fallback: broadcast to all (backward-compatible)
+    // Proximity-based fallback: send to nearby agents instead of broadcasting
+    if (this.locationIndex && this.defaultBroadcastRadius && this.defaultBroadcastRadius > 0) {
+      const nearby = this.locationIndex.findNearby(this.id, this.defaultBroadcastRadius);
+      if (nearby.length > 0) {
+        this.bus.publishToGroup(msg, nearby.map((n) => n.agentId));
+        return;
+      }
+    }
+
+    // Last resort: broadcast to all (backward-compatible when no location/radius configured)
     this.bus.publish({ ...msg, to: "*" });
   }
 
   private async gatherTickContext(): Promise<TickContext> {
-    const degraded = this.isDegraded();
+    const degraded = this.isDegraded() || this.config.llmTier === "light";
     const memoryLimit = degraded ? 5 : 20;
     const relLimit = degraded ? 3 : 10;
 
