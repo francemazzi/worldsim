@@ -1,3 +1,5 @@
+![WorldSim](docs/worldsim_img.png)
+
 # @worldsim/core
 
 Abstract virtual world emulator with LangGraph agents. A stateless, plugin-based multi-agent simulation engine for Node.js/TypeScript.
