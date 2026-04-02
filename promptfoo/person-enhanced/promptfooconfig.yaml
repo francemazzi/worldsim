@@ -22,9 +22,17 @@ prompts:
 
     {{observations}}
 
-    Sei al tick {{tick}}, iterazione 1/1. Scegli un'azione: speak (comunica qualcosa), observe (osserva il mondo), interact (interagisci con un altro agente), o finish (concludi il turno). {{extraInstruction}} Rispondi con JSON: {"actionType": "speak"|"observe"|"interact"|"finish", "content": "...", "stateUpdate"?: {"mood"?: string, "energy"?: number, "goals"?: string[]}}
+    Sei al tick {{tick}}, iterazione 1/1. Scegli un'azione: speak (comunica qualcosa), observe (osserva il mondo), interact (interagisci con un altro agente), o finish (concludi il turno). {{extraInstruction}} Rispondi SOLO con JSON puro senza markdown: {"actionType": "speak"|"observe"|"interact"|"finish", "content": "...", "stateUpdate"?: {"mood"?: string, "energy"?: number, "goals"?: string[]}}
 
-# --- Test 1: Profile influences behavior ---
+defaultTest:
+  options:
+    transform: |
+      // Strip markdown code fences if present
+      let cleaned = output;
+      const match = output.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (match) cleaned = match[1].trim();
+      return cleaned;
+
 tests:
   - description: "Doctor profile produces medical-coherent actions"
     vars:
@@ -60,7 +68,6 @@ tests:
           const c = (p.content || "").toLowerCase();
           return c.includes("pazient") || c.includes("sintom") || c.includes("diagnos") || c.includes("mal") || c.includes("testa") || c.includes("cur");
 
-  # --- Test 2: Recent memory influences decisions ---
   - description: "Agent references injected memory context"
     vars:
       profileSection: |
@@ -91,7 +98,6 @@ tests:
           const c = (p.content || "").toLowerCase();
           return c.includes("slide") || c.includes("presentazion") || c.includes("alice") || c.includes("aiut") || c.includes("guard");
 
-  # --- Test 3A: Trusted ally gets cooperative response ---
   - description: "Agent responds cooperatively to trusted ally"
     vars:
       profileSection: |
@@ -124,7 +130,6 @@ tests:
           const p = JSON.parse(output);
           return p.content && p.content.length > 10;
 
-  # --- Test 3B: Unknown stranger gets cautious response ---
   - description: "Agent is cautious with unknown stranger"
     vars:
       profileSection: |
@@ -152,7 +157,6 @@ tests:
           const p = JSON.parse(output);
           return p.actionType !== undefined && typeof p.content === "string";
 
-  # --- Test 4: Low energy state influences action ---
   - description: "Exhausted agent tends toward passive actions"
     vars:
       profileSection: |
@@ -179,7 +183,6 @@ tests:
           const p = JSON.parse(output);
           return ["finish", "observe", "speak"].includes(p.actionType);
 
-  # --- Test 5: Tool usage with profession ---
   - description: "Doctor agent references diagnostic tool"
     vars:
       profileSection: |
@@ -207,7 +210,6 @@ tests:
           const p = JSON.parse(output);
           return p.actionType === "tool_call" || p.actionType === "speak" || p.actionType === "interact";
 
-  # --- Test 6: State update in response ---
   - description: "Agent proposes state update after emotional event"
     vars:
       profileSection: |
