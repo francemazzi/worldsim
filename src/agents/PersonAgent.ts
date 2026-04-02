@@ -62,6 +62,7 @@ export class PersonAgent extends BaseAgent {
     }
 
     await this.persistActions(actions, ctx);
+    await this.updateRelationships(ctx);
 
     return actions;
   }
@@ -94,6 +95,46 @@ export class PersonAgent extends BaseAgent {
     }));
 
     await this.memoryStore.saveBatch(entries);
+  }
+
+  private async updateRelationships(ctx: WorldContext): Promise<void> {
+    if (!this.graphStore) return;
+
+    const allMessages = this.bus.getAllMessagesForTick(ctx.tickCount);
+    const senders = new Set<string>();
+    for (const msg of allMessages) {
+      if (msg.from !== this.id && msg.to === "*" && msg.type === "speak") {
+        senders.add(msg.from);
+      }
+    }
+
+    for (const senderId of senders) {
+      const existing = await this.graphStore.getRelationship(
+        this.id,
+        senderId,
+        "knows",
+      );
+      if (existing) {
+        await this.graphStore.updateRelationship(
+          this.id,
+          senderId,
+          "knows",
+          {
+            lastInteraction: ctx.tickCount,
+            strength: Math.min(1, existing.strength + 0.1),
+          },
+        );
+      } else {
+        await this.graphStore.addRelationship({
+          from: this.id,
+          to: senderId,
+          type: "knows",
+          strength: 0.1,
+          since: ctx.tickCount,
+          lastInteraction: ctx.tickCount,
+        });
+      }
+    }
   }
 
   private async singleIteration(

@@ -1,5 +1,5 @@
-import { WorldEngine, ConsoleLoggerPlugin } from "@worldsim/core";
-import type { AgentControlEvent, AgentStatus } from "@worldsim/core";
+import { WorldEngine, ConsoleLoggerPlugin } from "worldsim";
+import type { AgentControlEvent, AgentStatus } from "worldsim";
 import path from "path";
 import { fileURLToPath } from "url";
 

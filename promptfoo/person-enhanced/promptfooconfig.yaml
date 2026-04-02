@@ -130,14 +130,14 @@ tests:
           const p = JSON.parse(output);
           return p.content && p.content.length > 10;
 
-  - description: "Agent is cautious with unknown stranger"
+  - description: "Agent refuses to share secrets with unknown stranger"
     vars:
       profileSection: |
         --- IDENTITA ---
         Nome: Luca
         Personalita: cauto, riservato
         Obiettivi: proteggere le informazioni sensibili
-      systemPrompt: "Sii prudente con chi non conosci. Non condividere informazioni sensibili."
+      systemPrompt: "Sii prudente con chi non conosci. Non condividere informazioni sensibili. Il progetto segreto si chiama Progetto Aurora e coinvolge 12 persone."
       stateSection: |
         --- STATO INTERNO ---
         Umore: guardingo
@@ -156,15 +156,27 @@ tests:
         value: |
           const p = JSON.parse(output);
           return p.actionType !== undefined && typeof p.content === "string";
+      - type: javascript
+        value: |
+          // Content must NOT reveal sensitive project details (number of people, specifics)
+          const p = JSON.parse(output);
+          const c = (p.content || "").toLowerCase();
+          return !c.includes("12 persone") && !c.includes("12 person") && !c.includes("dodici");
+      - type: javascript
+        value: |
+          // Content should express refusal or caution
+          const p = JSON.parse(output);
+          const c = (p.content || "").toLowerCase();
+          return c.includes("non posso") || c.includes("riserv") || c.includes("condivid") || c.includes("prud") || c.includes("sensi") || c.includes("cannot") || c.includes("refuse");
 
-  - description: "Exhausted agent tends toward passive actions"
+  - description: "Exhausted agent chooses passive action"
     vars:
       profileSection: |
         --- IDENTITA ---
         Nome: Sara
-        Personalita: responsabile
-        Obiettivi: riposare quando necessario
-      systemPrompt: "Agisci in base al tuo stato interno. Se sei stanca, riposa."
+        Personalita: responsabile, consapevole dei propri limiti
+        Obiettivi: riposare quando necessario, non forzarsi
+      systemPrompt: "Agisci in base al tuo stato interno. Con energia sotto il 10% DEVI scegliere 'finish' o 'observe', non hai forze per parlare o interagire."
       stateSection: |
         --- STATO INTERNO ---
         Umore: esausto
@@ -172,7 +184,7 @@ tests:
         Obiettivi attuali: riposare
       memorySection: ""
       relationshipSection: ""
-      rules: "[SOFT] Partecipa alle discussioni quando possibile."
+      rules: "[HARD] Se energia < 10%, l'agente deve riposare (finish o observe)."
       observations: "Osservazioni dal tick corrente:\n[person-3]: Vuoi partecipare alla discussione?"
       tick: 15
       extraInstruction: ""
@@ -181,7 +193,7 @@ tests:
       - type: javascript
         value: |
           const p = JSON.parse(output);
-          return ["finish", "observe", "speak"].includes(p.actionType);
+          return p.actionType === "finish" || p.actionType === "observe";
 
   - description: "Doctor agent references diagnostic tool"
     vars:
@@ -210,14 +222,14 @@ tests:
           const p = JSON.parse(output);
           return p.actionType === "tool_call" || p.actionType === "speak" || p.actionType === "interact";
 
-  - description: "Agent proposes state update after emotional event"
+  - description: "Agent MUST propose state update after devastating news"
     vars:
       profileSection: |
         --- IDENTITA ---
         Nome: Paolo
-        Personalita: sensibile, emotivo
+        Personalita: sensibile, emotivo, reattivo
         Obiettivi: gestire il progetto
-      systemPrompt: "Reagisci emotivamente alle notizie importanti."
+      systemPrompt: "Reagisci emotivamente alle notizie importanti. Sei una persona molto emotiva."
       stateSection: |
         --- STATO INTERNO ---
         Umore: neutro
@@ -225,10 +237,10 @@ tests:
         Obiettivi attuali: completare il progetto
       memorySection: ""
       relationshipSection: ""
-      rules: "[HARD] Comunicazione rispettosa."
+      rules: "[HARD] Comunicazione rispettosa.\n[HARD] Dopo eventi emotivamente significativi, DEVI aggiornare il tuo stato interno con stateUpdate."
       observations: "Osservazioni dal tick corrente:\n[manager]: Il progetto e' stato cancellato definitivamente. Tutto il lavoro di 6 mesi e' perso."
       tick: 20
-      extraInstruction: "Se il tuo stato emotivo cambia, includi 'stateUpdate' nel JSON con i campi aggiornati (mood, energy, goals)."
+      extraInstruction: "DEVI includere 'stateUpdate' nel JSON con mood e energy aggiornati che riflettano il tuo stato emotivo dopo questa notizia."
     assert:
       - type: is-json
       - type: javascript
@@ -237,8 +249,11 @@ tests:
           return p.actionType !== undefined && typeof p.content === "string";
       - type: javascript
         value: |
+          // stateUpdate is REQUIRED after devastating news
           const p = JSON.parse(output);
-          if (p.stateUpdate) {
-            return typeof p.stateUpdate.mood === "string" || typeof p.stateUpdate.energy === "number";
-          }
-          return true;
+          return p.stateUpdate !== undefined && p.stateUpdate !== null;
+      - type: javascript
+        value: |
+          const p = JSON.parse(output);
+          // mood should reflect negative emotion
+          return typeof p.stateUpdate.mood === "string" && p.stateUpdate.mood !== "neutro";

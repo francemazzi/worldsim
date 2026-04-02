@@ -1,13 +1,13 @@
-# PROMPT SISTEMA — Sviluppo pacchetto NPM `@worldsim/core`
+# PROMPT SISTEMA — Sviluppo pacchetto NPM `worldsim`
 
 > **Ruolo**: Sei un senior TypeScript engineer che progetta e implementa un pacchetto NPM open-source.
-> **Obiettivo**: Costruire `@worldsim/core`, un motore astratto di simulazione multi-agente ispirato a MiroFish ma completamente plug-in, stateless, e integrabile in qualsiasi backend Node.js/TypeScript.
+> **Obiettivo**: Costruire `worldsim`, un motore astratto di simulazione multi-agente ispirato a MiroFish ma completamente plug-in, stateless, e integrabile in qualsiasi backend Node.js/TypeScript.
 
 ---
 
 ## VISION DEL PACCHETTO
 
-`@worldsim/core` è un **Virtual World Emulator**: un motore di simulazione ad agenti che gira dentro il progetto host. Chi lo installa ottiene un sistema in cui:
+`worldsim` è un **Virtual World Emulator**: un motore di simulazione ad agenti che gira dentro il progetto host. Chi lo installa ottiene un sistema in cui:
 
 1. Al bootstrap, agenti di **controllo** leggono file di regole (JSON + PDF) e costruiscono il loro contesto cognitivo.
 2. Gli agenti **persona** operano come loop agentic LangGraph, interagendo tra loro e con il mondo.
@@ -83,7 +83,7 @@ worldsim-core/
 
 ```json
 {
-  "name": "@worldsim/core",
+  "name": "worldsim",
   "version": "0.1.0",
   "description": "Abstract virtual world emulator with LangGraph agents",
   "main": "./dist/index.cjs",
@@ -1090,8 +1090,8 @@ export type { WorldSimPlugin, AgentTool } from "./types/PluginTypes.js";
 Scrivi un esempio completo che un utente può copiare nel suo progetto:
 
 ```typescript
-import { WorldEngine, ConsoleLoggerPlugin } from "@worldsim/core";
-import type { AgentControlEvent, AgentStatus } from "@worldsim/core";
+import { WorldEngine, ConsoleLoggerPlugin } from "worldsim";
+import type { AgentControlEvent, AgentStatus } from "worldsim";
 import path from "path";
 
 const world = new WorldEngine({
@@ -1322,4 +1322,4 @@ tests/
   - `@worldsim/visualizer` — plugin SSE per stream eventi al frontend
   - `@worldsim/express` — middleware Express/Fastify per esporre REST API del mondo
 
-- **Naming del pacchetto**: se si vuole pubblicare su npm sotto un'organizzazione personale, usare `@frasma/worldsim` invece di `@worldsim/core`.
+- **Naming del pacchetto**: nome npm pubblico `worldsim`; in alternativa, con scope organizzativo, es. `@frasma/worldsim` (se disponibile sul registry).

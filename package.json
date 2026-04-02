@@ -1,5 +1,5 @@
 {
-  "name": "@worldsim/core",
+  "name": "worldsim",
   "version": "0.1.0",
   "description": "Abstract virtual world emulator with LangGraph agents",
   "main": "./dist/index.cjs",

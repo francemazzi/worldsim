@@ -1,6 +1,6 @@
 ![WorldSim](docs/worldsim_img.webp)
 
-# @worldsim/core
+# worldsim
 
 Abstract virtual-world emulator with LangGraph agents: a plugin-based multi-agent simulation engine for Node.js/TypeScript, with governance (**control**) and persona (**person**) agents. The LLM is integrated through an OpenAI-compatible API adapter (OpenAI, Anthropic-compatible proxies, Ollama, etc.).
 
@@ -20,7 +20,7 @@ Abstract virtual-world emulator with LangGraph agents: a plugin-based multi-agen
 - An **API key** for your chosen LLM endpoint (e.g. `OPENAI_API_KEY` for the official OpenAI API)
 
 ```bash
-npm install @worldsim/core
+npm install worldsim
 ```
 
 If you work from this repository’s source:
@@ -130,7 +130,7 @@ const world = new WorldEngine({
 
 ### Reference implementations in this repository
 
-The **Redis** and **Neo4j** implementations are **not** shipped as dependencies of `@worldsim/core`; they serve as **reference** code for integration tests and as a base to copy or adapt in your app:
+The **Redis** and **Neo4j** implementations are **not** shipped as dependencies of `worldsim`; they serve as **reference** code for integration tests and as a base to copy or adapt in your app:
 
 - [`tests/integration/stores/RedisMemoryStore.ts`](tests/integration/stores/RedisMemoryStore.ts)
 - [`tests/integration/stores/Neo4jGraphStore.ts`](tests/integration/stores/Neo4jGraphStore.ts)
@@ -198,7 +198,7 @@ The host can drive agents with `world.pauseAgent()`, `world.resumeAgent()`, `wor
 ## Quick start (code)
 
 ```typescript
-import { WorldEngine, ConsoleLoggerPlugin } from "@worldsim/core";
+import { WorldEngine, ConsoleLoggerPlugin } from "worldsim";
 
 const world = new WorldEngine({
   worldId: "my-world",
@@ -246,7 +246,7 @@ await world.start();
 
 A fuller sample lives under [`examples/basic-world/`](examples/basic-world/) (lifecycle observer plugin, pause/resume/stop from ticks, rules from files).
 
-The example imports `@worldsim/core` like a project that installed the package from npm. **To run it locally without publishing:** from the repo root run `npm run build`, then `npm link`; in a separate Node project run `npm link @worldsim/core`, copy the example (or equivalent imports), set `OPENAI_API_KEY`, and run the script with a TypeScript runner (e.g. `npx tsx index.ts`). Alternatively, after `npm install @worldsim/core` in your app, paste the example into your entrypoint.
+The example imports `worldsim` like a project that installed the package from npm. **To run it locally without publishing:** from the repo root run `npm run build`, then `npm link`; in a separate Node project run `npm link worldsim`, copy the example (or equivalent imports), set `OPENAI_API_KEY`, and run the script with a TypeScript runner (e.g. `npx tsx index.ts`). Alternatively, after `npm install worldsim` in your app, paste the example into your entrypoint.
 
 ## npm scripts
 
