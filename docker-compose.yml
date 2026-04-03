@@ -1,0 +1,10 @@
+services:
+  worldsim-demo:
+    build: .
+    ports:
+      - "4400:4400"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.openai.com/v1}
+    restart: unless-stopped
