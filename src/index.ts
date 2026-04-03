@@ -7,6 +7,8 @@ export { reportGeneratorPlugin } from "./plugins/built-in/ReportGeneratorPlugin.
 export type { ReportGeneratorOptions } from "./plugins/built-in/ReportGeneratorPlugin.js";
 export { RealWorldToolsPlugin } from "./plugins/built-in/RealWorldToolsPlugin.js";
 export type { RealWorldToolsOptions, RealWorldDataSources, WeatherDataSource, NewsDataSource, EnvironmentDataSource } from "./plugins/built-in/RealWorldToolsPlugin.js";
+export { RelationshipPlugin } from "./plugins/built-in/RelationshipPlugin.js";
+export type { RelationshipPluginOptions, RelationshipMeta } from "./plugins/built-in/RelationshipPlugin.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
 
 // ─── Core Types ─────────────────────────────────────────────────────
@@ -79,6 +81,7 @@ export type {
   Relationship,
   GraphQuery,
   RelationshipUpsert,
+  RelationshipTypeDefinition,
 } from "./types/GraphTypes.js";
 export type {
   VectorStore,

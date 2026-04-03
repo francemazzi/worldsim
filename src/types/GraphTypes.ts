@@ -1,3 +1,14 @@
+export interface RelationshipTypeDefinition {
+  /** Unique identifier, e.g. "father", "friend", "partner" */
+  id: string;
+  /** Human-readable title, e.g. "Padre", "Amico", "Partner" */
+  title: string;
+  /** Description of the relationship meaning */
+  description: string;
+  /** true when the type is predefined by the scenario */
+  predefined: boolean;
+}
+
 export interface Relationship {
   from: string;
   to: string;

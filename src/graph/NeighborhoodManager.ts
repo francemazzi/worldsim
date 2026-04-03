@@ -11,6 +11,18 @@ export interface NeighborhoodConfig {
   groups: string[];
 }
 
+/**
+ * Returns a decay rate multiplier based on relationship validation status.
+ * Validated relationships decay much slower; broken ones decay faster.
+ */
+function getDecayMultiplier(rel: Relationship): number {
+  const status = (rel.metadata as { status?: string } | undefined)?.status;
+  if (status === "validated") return 0.25;
+  if (status === "mutual") return 0.5;
+  if (status === "broken") return 2.0;
+  return 1.0;
+}
+
 const DEFAULT_CONFIG: NeighborhoodConfig = {
   maxContacts: 20,
   decayRate: 0.01,
@@ -95,7 +107,8 @@ export class NeighborhoodManager {
 
       if (ticksSinceInteraction <= 0) continue;
 
-      const newStrength = Math.max(0, rel.strength - config.decayRate * ticksSinceInteraction);
+      const decayMultiplier = getDecayMultiplier(rel);
+      const newStrength = Math.max(0, rel.strength - config.decayRate * ticksSinceInteraction * decayMultiplier);
 
       if (newStrength < config.minStrength) {
         await graphStore.removeRelationship(rel.from, rel.to, rel.type);
@@ -157,7 +170,8 @@ export class NeighborhoodManager {
           continue;
         }
 
-        const newStrength = Math.max(0, rel.strength - config.decayRate * ticksSinceInteraction);
+        const decayMultiplier = getDecayMultiplier(rel);
+        const newStrength = Math.max(0, rel.strength - config.decayRate * ticksSinceInteraction * decayMultiplier);
 
         if (newStrength < config.minStrength) {
           toRemove.push({ from: rel.from, to: rel.to, type: rel.type });

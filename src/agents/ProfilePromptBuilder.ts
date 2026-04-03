@@ -1,6 +1,6 @@
 import type { AgentProfile, AgentInternalState } from "../types/AgentTypes.js";
 import type { MemoryEntry } from "../types/MemoryTypes.js";
-import type { Relationship } from "../types/GraphTypes.js";
+import type { Relationship, RelationshipTypeDefinition } from "../types/GraphTypes.js";
 import type { ConsolidatedKnowledge } from "../types/PersistenceTypes.js";
 import type { LocationConfig } from "../types/LocationTypes.js";
 
@@ -59,12 +59,26 @@ export function buildMemoryPrompt(memories: MemoryEntry[]): string {
   return `--- MEMORIA RECENTE ---\n${lines.join("\n")}`;
 }
 
-export function buildRelationshipPrompt(relationships: Relationship[]): string {
+export function buildRelationshipPrompt(
+  relationships: Relationship[],
+  typeRegistry?: Map<string, RelationshipTypeDefinition>,
+): string {
   if (relationships.length === 0) return "";
-  const lines = relationships.map(
-    (r) =>
-      `${r.to}: tipo=${r.type}, forza=${r.strength.toFixed(1)}, dal tick ${r.since}${r.lastInteraction != null ? `, ultima interazione tick ${r.lastInteraction}` : ""}`,
-  );
+  const lines = relationships.map((r) => {
+    const meta = r.metadata as { status?: string; socialWitnesses?: string[] } | undefined;
+    const typeDef = typeRegistry?.get(r.type);
+    const typeLabel = typeDef ? `${typeDef.title} (${typeDef.description})` : r.type;
+
+    let statusLabel = "";
+    if (meta?.status === "proposed") statusLabel = ", stato=proposta (in attesa)";
+    else if (meta?.status === "mutual") statusLabel = ", stato=reciproca";
+    else if (meta?.status === "validated") {
+      const witnesses = meta.socialWitnesses ?? [];
+      statusLabel = `, stato=validata${witnesses.length > 0 ? ` (testimoni: ${witnesses.join(", ")})` : ""}`;
+    } else if (meta?.status === "broken") statusLabel = ", stato=interrotta";
+
+    return `${r.to}: tipo=${typeLabel}, forza=${r.strength.toFixed(1)}${statusLabel}, dal tick ${r.since}${r.lastInteraction != null ? `, ultima interazione tick ${r.lastInteraction}` : ""}`;
+  });
   return `--- RELAZIONI ---\n${lines.join("\n")}`;
 }
 
@@ -123,9 +137,24 @@ export function buildPersonalityEnforcement(profile: AgentProfile): string {
   return `--- PERSONALITA (OBBLIGATORIO) ---\n${lines.join("\n")}`;
 }
 
+const RELATIONSHIP_BEHAVIOR_GUIDE: Record<string, string> = {
+  father: "Legame familiare profondo, anche nel conflitto. Protezione, autorità, orgoglio paterno.",
+  mother: "Legame familiare profondo, anche nel conflitto. Protezione, cura, affetto materno.",
+  child: "Legame familiare profondo, anche nel conflitto. Rispetto, ma anche ribellione e crescita.",
+  sibling: "Legame familiare profondo, anche nel conflitto. Complicità, rivalità fraterna, lealtà.",
+  grandparent: "Legame familiare profondo. Saggezza, affetto, trasmissione di tradizioni.",
+  spouse: "Affetto profondo, possessività, gelosia se appropriato. Supporto ma anche tensioni quotidiane.",
+  partner: "Affetto, complicità sentimentale, gelosia se appropriato. Vulnerabilità emotiva.",
+  friend: "Supporto, lealtà, condivisione. Ma puoi anche litigare e riconciliarti.",
+  rival: "Competizione, diffidenza, provocazioni. Rispetto riluttante o disprezzo aperto.",
+  mentor: "Guida, consigli, aspettative. Pazienza o impazienza verso l'allievo.",
+  ally: "Collaborazione strategica, interessi comuni. Fiducia condizionata agli obiettivi.",
+};
+
 export function buildSocialDynamics(
   relationships: Relationship[],
   profile: AgentProfile,
+  typeRegistry?: Map<string, RelationshipTypeDefinition>,
 ): string {
   const lines: string[] = [];
 
@@ -137,9 +166,56 @@ export function buildSocialDynamics(
       const trustLevel = r.strength > 0.7 ? "alta fiducia"
         : r.strength > 0.4 ? "fiducia moderata"
         : "poca fiducia";
-      lines.push(`- ${r.to}: ${r.type}, ${trustLevel} (forza: ${r.strength.toFixed(1)})`);
+      const typeDef = typeRegistry?.get(r.type);
+      const typeLabel = typeDef?.title ?? r.type;
+      lines.push(`- ${r.to}: ${typeLabel}, ${trustLevel} (forza: ${r.strength.toFixed(1)})`);
       if (r.strength < 0.3) {
         lines.push(`  → Con ${r.to} puoi essere schietto, diffidente o in disaccordo.`);
+      }
+    }
+
+    // Validated / mutual relationships with behavioral guidance
+    const significant = relationships.filter((r) => {
+      const meta = r.metadata as { status?: string } | undefined;
+      return meta?.status === "validated" || meta?.status === "mutual";
+    });
+    const pending = relationships.filter((r) => {
+      const meta = r.metadata as { status?: string } | undefined;
+      return meta?.status === "proposed";
+    });
+    const broken = relationships.filter((r) => {
+      const meta = r.metadata as { status?: string } | undefined;
+      return meta?.status === "broken";
+    });
+
+    if (significant.length > 0) {
+      lines.push("");
+      lines.push("RELAZIONI SIGNIFICATIVE:");
+      for (const r of significant) {
+        const meta = r.metadata as { status?: string } | undefined;
+        const typeDef = typeRegistry?.get(r.type);
+        const typeLabel = typeDef?.title ?? r.type;
+        const statusLabel = meta?.status === "validated" ? "validata dalla comunità" : "reciproca";
+        const guide = RELATIONSHIP_BEHAVIOR_GUIDE[r.type] ?? "";
+        lines.push(`- ${r.to} è ${typeLabel} (${statusLabel}).${guide ? ` ${guide}` : ""}`);
+      }
+    }
+
+    if (pending.length > 0) {
+      lines.push("");
+      lines.push("RELAZIONI IN ATTESA:");
+      for (const r of pending) {
+        const typeDef = typeRegistry?.get(r.type);
+        lines.push(`- Hai proposto '${typeDef?.title ?? r.type}' con ${r.to}. Attendi conferma.`);
+      }
+    }
+
+    if (broken.length > 0) {
+      lines.push("");
+      lines.push("RELAZIONI INTERROTTE:");
+      for (const r of broken) {
+        const typeDef = typeRegistry?.get(r.type);
+        lines.push(`- La relazione '${typeDef?.title ?? r.type}' con ${r.to} è interrotta.`);
       }
     }
   }

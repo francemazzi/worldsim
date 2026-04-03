@@ -4,6 +4,8 @@ import { InMemoryGraphStore } from "../stores/InMemoryGraphStore.js";
 import { ConsoleLoggerPlugin } from "../plugins/built-in/ConsoleLoggerPlugin.js";
 import { reportGeneratorPlugin } from "../plugins/built-in/ReportGeneratorPlugin.js";
 import { RealWorldToolsPlugin, type RealWorldDataSources } from "../plugins/built-in/RealWorldToolsPlugin.js";
+import { RelationshipPlugin } from "../plugins/built-in/RelationshipPlugin.js";
+import type { RelationshipTypeDefinition } from "../types/GraphTypes.js";
 import type { LLMConfig } from "../types/WorldTypes.js";
 import type { SimulationReport } from "../types/ReportTypes.js";
 
@@ -20,6 +22,14 @@ export interface ScenarioConfig {
     addRules?: string[];
     announcement?: string;
   };
+  /** Custom relationship type definitions for this scenario */
+  relationshipTypes?: RelationshipTypeDefinition[];
+  /** Pre-established relationships seeded at tick 0 as validated */
+  initialRelationships?: Array<{
+    from: string;
+    to: string;
+    type: string;
+  }>;
 }
 
 export interface ScenarioAgentConfig {
@@ -37,6 +47,12 @@ export interface ScenarioAgentConfig {
     backstory?: string;
     skills?: string[];
   };
+  /** Relationships declared as part of this agent's identity */
+  relationships?: Array<{
+    target: string;
+    type: string;
+    description?: string;
+  }>;
 }
 
 export interface ScenarioResult {
@@ -68,6 +84,13 @@ export function loadScenario(
 
   engine.use(ConsoleLoggerPlugin);
 
+  // Register relationship plugin (always active — provides relationship tools)
+  const relationshipPlugin = new RelationshipPlugin({
+    graphStore,
+    customTypes: scenario.relationshipTypes,
+  });
+  engine.use(relationshipPlugin);
+
   // Register real-world tools if data sources are configured
   if (scenario.dataSources) {
     engine.use(new RealWorldToolsPlugin({ dataSources: scenario.dataSources }));
@@ -78,6 +101,15 @@ export function loadScenario(
 
   for (const agent of scenario.agents) {
     engine.addAgent(agent);
+  }
+
+  // Seed initial relationships as validated (strength 0.8, status "validated")
+  if (scenario.initialRelationships && scenario.initialRelationships.length > 0) {
+    relationshipPlugin
+      .seedRelationships(scenario.initialRelationships, graphStore)
+      .catch((err) =>
+        console.error("[Scenario] Failed to seed initial relationships:", err),
+      );
   }
 
   // Set up trigger if defined
