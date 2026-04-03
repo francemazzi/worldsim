@@ -273,19 +273,29 @@ export class PersonAgent extends BaseAgent {
 
     // Prefer batch upsert if available (single DB call)
     if (this.graphStore.upsertRelationshipBatch) {
-      const upserts: RelationshipUpsert[] = Array.from(senders).map((senderId) => ({
-        from: this.id,
-        to: senderId,
-        type: "knows",
-        strengthIncrement: 0.1,
-        tick: ctx.tickCount,
-      }));
+      const upserts: RelationshipUpsert[] = Array.from(senders).flatMap((senderId) => [
+        {
+          from: this.id,
+          to: senderId,
+          type: "knows",
+          strengthIncrement: 0.1,
+          tick: ctx.tickCount,
+        },
+        {
+          from: this.id,
+          to: senderId,
+          type: "trusts",
+          strengthIncrement: 0.05,
+          tick: ctx.tickCount,
+        },
+      ]);
       await this.graphStore.upsertRelationshipBatch(upserts);
       return;
     }
 
     // Fallback: sequential (backward-compatible)
     for (const senderId of senders) {
+      // "knows" relationship
       const existing = await this.graphStore.getRelationship(
         this.id,
         senderId,
@@ -307,6 +317,33 @@ export class PersonAgent extends BaseAgent {
           to: senderId,
           type: "knows",
           strength: 0.1,
+          since: ctx.tickCount,
+          lastInteraction: ctx.tickCount,
+        });
+      }
+
+      // "trusts" relationship — grows slower than "knows"
+      const existingTrust = await this.graphStore.getRelationship(
+        this.id,
+        senderId,
+        "trusts",
+      );
+      if (existingTrust) {
+        await this.graphStore.updateRelationship(
+          this.id,
+          senderId,
+          "trusts",
+          {
+            lastInteraction: ctx.tickCount,
+            strength: Math.min(1, existingTrust.strength + 0.05),
+          },
+        );
+      } else {
+        await this.graphStore.addRelationship({
+          from: this.id,
+          to: senderId,
+          type: "trusts",
+          strength: 0.3,
           since: ctx.tickCount,
           lastInteraction: ctx.tickCount,
         });

@@ -5,6 +5,8 @@ export { LifeSkillsPlugin } from "./plugins/built-in/LifeSkillsPlugin.js";
 export type { SkillCategory } from "./plugins/built-in/LifeSkillsPlugin.js";
 export { reportGeneratorPlugin } from "./plugins/built-in/ReportGeneratorPlugin.js";
 export type { ReportGeneratorOptions } from "./plugins/built-in/ReportGeneratorPlugin.js";
+export { RealWorldToolsPlugin } from "./plugins/built-in/RealWorldToolsPlugin.js";
+export type { RealWorldToolsOptions, RealWorldDataSources, WeatherDataSource, NewsDataSource, EnvironmentDataSource } from "./plugins/built-in/RealWorldToolsPlugin.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
 
 // ─── Core Types ─────────────────────────────────────────────────────

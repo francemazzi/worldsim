@@ -3,6 +3,7 @@ import { InMemoryMemoryStore } from "../stores/InMemoryMemoryStore.js";
 import { InMemoryGraphStore } from "../stores/InMemoryGraphStore.js";
 import { ConsoleLoggerPlugin } from "../plugins/built-in/ConsoleLoggerPlugin.js";
 import { reportGeneratorPlugin } from "../plugins/built-in/ReportGeneratorPlugin.js";
+import { RealWorldToolsPlugin, type RealWorldDataSources } from "../plugins/built-in/RealWorldToolsPlugin.js";
 import type { LLMConfig } from "../types/WorldTypes.js";
 import type { SimulationReport } from "../types/ReportTypes.js";
 
@@ -13,6 +14,7 @@ export interface ScenarioConfig {
   tickIntervalMs?: number;
   agents: ScenarioAgentConfig[];
   rules?: { json?: string[]; pdf?: string[] };
+  dataSources?: RealWorldDataSources;
   trigger?: {
     atTick: number;
     addRules?: string[];
@@ -65,6 +67,11 @@ export function loadScenario(
   });
 
   engine.use(ConsoleLoggerPlugin);
+
+  // Register real-world tools if data sources are configured
+  if (scenario.dataSources) {
+    engine.use(new RealWorldToolsPlugin({ dataSources: scenario.dataSources }));
+  }
 
   const report = reportGeneratorPlugin({ engine });
   engine.use(report.plugin);

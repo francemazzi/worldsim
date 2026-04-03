@@ -18,6 +18,7 @@ import {
   studioPlugin,
 } from "worldsim";
 import { reportGeneratorPlugin } from "../../src/plugins/built-in/ReportGeneratorPlugin.js";
+import { RealWorldToolsPlugin } from "../../src/plugins/built-in/RealWorldToolsPlugin.js";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,6 +66,11 @@ world.use(ConsoleLoggerPlugin);
 world.use(
   new LifeSkillsPlugin(["farming", "cooking", "social", "technology", "crafting", "spiritual", "academic"]),
 );
+
+// Real-world tools: agents can check weather and observe environment
+if (scenario.dataSources) {
+  world.use(new RealWorldToolsPlugin({ dataSources: scenario.dataSources }));
+}
 
 const report = reportGeneratorPlugin({ engine: world });
 world.use(report.plugin);

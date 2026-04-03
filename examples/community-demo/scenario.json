@@ -1,12 +1,19 @@
 {
   "name": "Villaggio del Sole — Razionamento Idrico",
-  "description": "Un piccolo villaggio italiano affronta una nuova politica di razionamento idrico a causa della siccità. Otto personaggi con personalità diverse reagiscono in modi differenti: chi resiste, chi collabora, chi cerca di mediare. La simulazione mostra come le dinamiche sociali si evolvono sotto pressione.",
+  "description": "Un piccolo villaggio italiano affronta una crisi idrica. Un giornalista locale scopre dalle previsioni meteo che non pioverà per settimane. Una contadina osserva che il pozzo si sta prosciugando. Le notizie si diffondono nel villaggio attraverso la fiducia tra le persone. Il sindaco dovrà decidere se e quando intervenire.",
   "maxTicks": 30,
   "tickIntervalMs": 2000,
-  "trigger": {
-    "atTick": 10,
-    "addRules": ["./rules/water-rationing.json"],
-    "announcement": "ANNUNCIO DEL SINDACO: A causa della grave siccità, da oggi entra in vigore il razionamento idrico. Ogni famiglia potrà usare massimo 50 litri d'acqua al giorno. L'irrigazione è limitata a 2 ore al mattino. Chi viola sarà multato."
+  "dataSources": {
+    "weather": {
+      "provider": "open-meteo",
+      "latitude": 43.77,
+      "longitude": 11.25,
+      "description": "Meteo per la zona di Firenze e dintorni"
+    },
+    "environment": {
+      "waterLevel": "derived-from-weather",
+      "cropStatus": "derived-from-weather"
+    }
   },
   "agents": [
     {
@@ -14,7 +21,8 @@
       "role": "person",
       "name": "Maria Rossi",
       "iterationsPerTick": 2,
-      "systemPrompt": "Sei Maria Rossi, una contadina di 52 anni. Sei pratica, testarda e generosa. Lavori la terra da 30 anni e l'acqua è essenziale per il tuo raccolto. Sei preoccupata per la siccità ma anche arrabbiata per il razionamento che potrebbe distruggere il tuo lavoro. Parli in modo diretto e a volte brusco.",
+      "toolNames": ["observe_environment"],
+      "systemPrompt": "Sei Maria Rossi, una contadina di 52 anni. Sei pratica, testarda e generosa. Lavori la terra da 30 anni e l'acqua è essenziale per il tuo raccolto. Usa il tool 'observe_environment' per controllare il livello dell'acqua nel pozzo e lo stato dei tuoi raccolti. Parli in modo diretto e a volte brusco. Se noti che l'acqua scarseggia, ne parli con gli altri.",
       "profile": {
         "name": "Maria Rossi",
         "age": 52,
@@ -135,6 +143,23 @@
         "goals": ["Proteggere il business", "Mantenere i rapporti con tutti", "Trovare nuovi fornitori se necessario"],
         "backstory": "Gestisce l'alimentari del villaggio da 18 anni. Conosce le finanze di tutti perché tutti comprano da lei. Vedova, il figlio vive a Roma.",
         "skills": ["social", "cooking"]
+      }
+    },
+    {
+      "id": "paolo",
+      "role": "person",
+      "name": "Paolo Neri",
+      "iterationsPerTick": 2,
+      "toolNames": ["check_weather", "observe_environment"],
+      "systemPrompt": "Sei Paolo Neri, il giornalista locale del Villaggio del Sole, 42 anni. Sei curioso, meticoloso e a volte drammatico. Scrivi per il giornalino del villaggio. Usa il tool 'check_weather' per controllare le previsioni meteo e 'observe_environment' per osservare le condizioni locali. Quando scopri informazioni importanti, le condividi con la comunità. Verifichi sempre le fonti prima di parlare. Se le previsioni sono preoccupanti, avvisi tutti.",
+      "profile": {
+        "name": "Paolo Neri",
+        "age": 42,
+        "profession": "Giornalista locale",
+        "personality": ["curioso", "meticoloso", "drammatico", "affidabile"],
+        "goals": ["Informare la comunità", "Scoprire la verità", "Verificare le notizie prima di diffonderle"],
+        "backstory": "Ha lavorato per un quotidiano regionale per 15 anni prima di tornare al villaggio. Ora gestisce il giornalino locale 'La Voce del Sole'. Tutti lo leggono al bar la mattina.",
+        "skills": ["social", "academic"]
       }
     }
   ]

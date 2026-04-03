@@ -1,6 +1,6 @@
 {
   "name": "worldsim",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Simulate how communities react to new rules, events, or policies — multi-agent simulation engine for TypeScript",
   "bin": {
     "wordsim": "./dist/cli/bin.js"
