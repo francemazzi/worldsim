@@ -1,4 +1,4 @@
-import type { GraphStore } from "../types/GraphTypes.js";
+import type { GraphStore, Relationship } from "../types/GraphTypes.js";
 
 export interface NeighborhoodConfig {
   /** Maximum number of active contacts. Default 20. */
@@ -130,20 +130,23 @@ export class NeighborhoodManager {
   /**
    * Batch decay and prune for multiple agents in a single pass.
    * Fetches all relationships once per agent, applies decay, then prunes.
-   * Much more efficient than calling decayRelationships + pruneToMax per agent.
+   * Collects all mutations and applies removals in batch when the store supports it.
+   * Agents are processed in parallel.
    */
   async decayAndPruneBatch(
     agentIds: string[],
     currentTick: number,
     graphStore: GraphStore,
   ): Promise<void> {
-    for (const agentId of agentIds) {
+    const processAgent = async (agentId: string): Promise<void> => {
       const config = this.getConfig(agentId);
       const relationships = await graphStore.getRelationships({ agentId });
-      if (relationships.length === 0) continue;
+      if (relationships.length === 0) return;
 
-      // Apply decay and collect survivors
-      const survivors: { rel: Relationship; newStrength: number }[] = [];
+      // Pure computation: classify relationships
+      const toRemove: Array<{ from: string; to: string; type: string }> = [];
+      const toUpdate: Array<{ rel: Relationship; newStrength: number }> = [];
+      const survivors: Array<{ rel: Relationship; newStrength: number }> = [];
 
       for (const rel of relationships) {
         const lastInteraction = rel.lastInteraction ?? rel.since;
@@ -157,26 +160,44 @@ export class NeighborhoodManager {
         const newStrength = Math.max(0, rel.strength - config.decayRate * ticksSinceInteraction);
 
         if (newStrength < config.minStrength) {
-          await graphStore.removeRelationship(rel.from, rel.to, rel.type);
+          toRemove.push({ from: rel.from, to: rel.to, type: rel.type });
         } else {
           survivors.push({ rel, newStrength });
           if (newStrength !== rel.strength) {
-            await graphStore.updateRelationship(rel.from, rel.to, rel.type, {
-              strength: newStrength,
-            });
+            toUpdate.push({ rel, newStrength });
           }
         }
       }
 
-      // Prune excess contacts in the same pass
+      // Prune excess contacts
       if (survivors.length > config.maxContacts) {
         survivors.sort((a, b) => b.newStrength - a.newStrength);
-        const toRemove = survivors.slice(config.maxContacts);
-        for (const { rel } of toRemove) {
-          await graphStore.removeRelationship(rel.from, rel.to, rel.type);
+        for (const { rel } of survivors.slice(config.maxContacts)) {
+          toRemove.push({ from: rel.from, to: rel.to, type: rel.type });
         }
       }
-    }
+
+      // Apply mutations
+      await Promise.all(
+        toUpdate.map(({ rel, newStrength }) =>
+          graphStore.updateRelationship(rel.from, rel.to, rel.type, {
+            strength: newStrength,
+          }),
+        ),
+      );
+
+      if (toRemove.length > 0) {
+        if (graphStore.removeRelationshipBatch) {
+          await graphStore.removeRelationshipBatch(toRemove);
+        } else {
+          await Promise.all(
+            toRemove.map((r) => graphStore.removeRelationship(r.from, r.to, r.type)),
+          );
+        }
+      }
+    };
+
+    await Promise.all(agentIds.map(processAgent));
   }
 
   /**

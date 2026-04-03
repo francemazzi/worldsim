@@ -36,7 +36,10 @@ export class PluginRegistry {
 
       if (plugin.parallel) {
         parallelTasks.push(
-          (hookFn as (...a: unknown[]) => Promise<unknown>).apply(plugin, args),
+          (hookFn as (...a: unknown[]) => Promise<unknown>).apply(plugin, args)
+            .catch((err: unknown) => {
+              console.warn(`[PluginRegistry] Plugin "${plugin.name}" threw in ${hookName}:`, err);
+            }),
         );
       } else {
         sequentialPlugins.push(plugin);
@@ -52,10 +55,14 @@ export class PluginRegistry {
     for (const plugin of sequentialPlugins) {
       const hookFn = plugin[hookName];
       if (typeof hookFn === "function") {
-        await (hookFn as (...a: unknown[]) => Promise<unknown>).apply(
-          plugin,
-          args,
-        );
+        try {
+          await (hookFn as (...a: unknown[]) => Promise<unknown>).apply(
+            plugin,
+            args,
+          );
+        } catch (err) {
+          console.warn(`[PluginRegistry] Plugin "${plugin.name}" threw in ${hookName}:`, err);
+        }
       }
     }
   }
@@ -68,10 +75,14 @@ export class PluginRegistry {
     for (const plugin of this.plugins) {
       const hookFn = plugin[hookName];
       if (typeof hookFn === "function") {
-        result = await (hookFn as (...a: unknown[]) => Promise<unknown>).apply(
-          plugin,
-          [result, ...args.slice(1)],
-        );
+        try {
+          result = await (hookFn as (...a: unknown[]) => Promise<unknown>).apply(
+            plugin,
+            [result, ...args.slice(1)],
+          );
+        } catch (err) {
+          console.warn(`[PluginRegistry] Plugin "${plugin.name}" threw in ${hookName}:`, err);
+        }
       }
     }
     return result;
@@ -105,14 +116,22 @@ export class PluginRegistry {
     const batchSequential: WorldSimPlugin[] = [];
     for (const plugin of batchPlugins) {
       if (plugin.parallel) {
-        batchParallel.push(plugin.onAgentActionsBatch!(actions, ctx));
+        batchParallel.push(
+          plugin.onAgentActionsBatch!(actions, ctx).catch((err: unknown) => {
+            console.warn(`[PluginRegistry] Plugin "${plugin.name}" threw in onAgentActionsBatch:`, err);
+          }),
+        );
       } else {
         batchSequential.push(plugin);
       }
     }
     if (batchParallel.length > 0) await Promise.all(batchParallel);
     for (const plugin of batchSequential) {
-      await plugin.onAgentActionsBatch!(actions, ctx);
+      try {
+        await plugin.onAgentActionsBatch!(actions, ctx);
+      } catch (err) {
+        console.warn(`[PluginRegistry] Plugin "${plugin.name}" threw in onAgentActionsBatch:`, err);
+      }
     }
 
     // Run per-action hooks for plugins without batch support
@@ -120,7 +139,11 @@ export class PluginRegistry {
       for (const action of actions) {
         const state = buildState(action);
         for (const plugin of perActionPlugins) {
-          await plugin.onAgentAction!(action, state);
+          try {
+            await plugin.onAgentAction!(action, state);
+          } catch (err) {
+            console.warn(`[PluginRegistry] Plugin "${plugin.name}" threw in onAgentAction:`, err);
+          }
         }
       }
     }

@@ -153,6 +153,10 @@ export class PersonAgent extends BaseAgent {
     }
 
     // Last resort: broadcast to all (backward-compatible when no location/radius configured)
+    console.warn(
+      `[PersonAgent] Agent "${this.id}" falling back to broadcast at tick ${ctx.tickCount}. ` +
+      `Consider configuring neighborhood, location, or broadcastRadius.`,
+    );
     this.bus.publish({ ...msg, to: "*" });
   }
 

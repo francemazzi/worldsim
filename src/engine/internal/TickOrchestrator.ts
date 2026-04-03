@@ -103,9 +103,16 @@ export class TickOrchestrator {
       };
     });
 
-    const results = await this.runtime.batchExecutor.execute(tasks);
-    for (const actions of results) {
-      allActions.push(...actions);
+    const results = await this.runtime.batchExecutor.executeSettled(tasks);
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        allActions.push(...result.value);
+      } else {
+        const agent = activePersonAgents[result.index];
+        this.logEvent("agent:error", agent?.id ?? "unknown", {
+          error: result.error.message,
+        });
+      }
     }
 
     // Batch decay/prune relationships for all active agents (single pass)

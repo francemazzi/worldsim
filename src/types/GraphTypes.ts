@@ -48,4 +48,11 @@ export interface GraphStore {
    * Implementations should handle this in a single DB round-trip where possible.
    */
   upsertRelationshipBatch?(upserts: RelationshipUpsert[]): Promise<void>;
+
+  /**
+   * Optional batch remove: remove multiple relationships in a single round-trip.
+   */
+  removeRelationshipBatch?(
+    entries: Array<{ from: string; to: string; type: string }>,
+  ): Promise<void>;
 }

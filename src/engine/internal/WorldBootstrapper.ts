@@ -3,6 +3,7 @@ import { PersonAgent } from "../../agents/PersonAgent.js";
 import type { AgentStoreOptions } from "../../agents/BaseAgent.js";
 import type { NeighborhoodConfig } from "../../graph/NeighborhoodManager.js";
 import { BrainMemory } from "../../memory/BrainMemory.js";
+import { TrackingLLMAdapter } from "../../llm/TrackingLLMAdapter.js";
 import { RulesLoader, buildRulesContext } from "../../rules/RulesLoader.js";
 import type { WorldEngineRuntime } from "./WorldEngineRuntime.js";
 
@@ -42,7 +43,12 @@ export class WorldBootstrapper {
     }
 
     for (const agentConfig of this.runtime.pendingAgentConfigs) {
-      const agentLlm = this.runtime.llmPool.getAdapter(agentConfig);
+      const rawLlm = this.runtime.llmPool.getAdapter(agentConfig);
+      const agentLlm = new TrackingLLMAdapter(
+        rawLlm,
+        agentConfig.id,
+        this.runtime.tokenBudgetTracker,
+      );
 
       const storeOptions: AgentStoreOptions = {
         memoryStore: this.runtime.config.memoryStore,
