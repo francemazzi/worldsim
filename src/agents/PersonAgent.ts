@@ -261,10 +261,13 @@ export class PersonAgent extends BaseAgent {
     const myMessages = this.bus.getMessages(this.id, ctx.tickCount);
     const senders = new Set<string>();
     for (const msg of myMessages) {
-      if (msg.from !== this.id && msg.type === "speak") {
+      // Filter: not self, not empty, only speak messages
+      if (msg.from && msg.from !== this.id && msg.from !== "" && msg.type === "speak") {
         senders.add(msg.from);
       }
     }
+    // Extra safeguard: never create self-referential relationships
+    senders.delete(this.id);
 
     if (senders.size === 0) return;
 
@@ -335,34 +338,49 @@ export class PersonAgent extends BaseAgent {
       });
     }
 
-    const toolHint = this.externalTools.length > 0
-      ? `\nHai ${this.externalTools.length} strumenti disponibili. Usali quando pertinenti (es: check_weather, plant, study, pray, code, ecc). Per usarli, il modello li chiamera automaticamente.`
-      : "";
+    // Build tool section with specific tool names
+    let toolSection = "";
+    if (this.externalTools.length > 0) {
+      const toolList = this.externalTools.slice(0, 15).map(t => `  - ${t.name}: ${t.description}`).join("\n");
+      toolSection = `\nI TUOI STRUMENTI (usali attivamente, non limitarti a parlare!):\n${toolList}\nPer usarli, il sistema li chiamera automaticamente se li menzioni nel contesto.`;
+    }
+
+    // Energy-based warning
+    const energy = this.internalState.energy;
+    let energyWarning = "";
+    if (energy < 20) {
+      energyWarning = `\n⚠️ Energia CRITICA (${energy}/100). DEVI riposare: usa "finish" o "observe".`;
+    } else if (energy < 40) {
+      energyWarning = `\n⚠️ Energia bassa (${energy}/100). Considera "observe" o "finish" invece di azioni faticose.`;
+    }
 
     messages.push({
       role: "user",
-      content: `Tick ${ctx.tickCount}, iterazione ${iterationIndex + 1}/${this.iterationsPerTick}.${toolHint}
+      content: `Tick ${ctx.tickCount}, iterazione ${iterationIndex + 1}/${this.iterationsPerTick}. Energia: ${energy}/100.${energyWarning}${toolSection}
 
-AZIONI DISPONIBILI:
-- "speak": Dici qualcosa ad alta voce. Per conversare, rispondere, annunciare.
-- "observe": Osservi in silenzio. Per raccogliere informazioni senza parlare.
-- "interact": Interagisci fisicamente (toccare, prendere, dare, abbracciare).
-- "finish": Hai finito per questo turno. Se non hai nulla da fare o dire.
+QUANDO USARE OGNI AZIONE:
+- "speak": SOLO quando hai qualcosa di SPECIFICO da dire. NON usarlo come default.
+- "observe": Quando vuoi capire cosa succede intorno a te. Usa PRIMA di parlare se la situazione non e chiara.
+- "interact": Per azioni fisiche: lavorare nei campi, cucinare, spostarti, dare/prendere oggetti, abbracciare.
+- "finish": Se sei stanco, se non hai nulla da aggiungere, o se vuoi riposare.
+
+REGOLA VARIETA: Non fare SEMPRE "speak". Le persone reali osservano, agiscono fisicamente, riposano.
+Se hai strumenti disponibili, USALI. Non descrivere a parole quello che potresti fare con un tool.
 
 REGOLE DI RISPOSTA:
 1. Rispondi SOLO con un oggetto JSON valido.
 2. Il campo "stateUpdate" e OBBLIGATORIO. DEVI aggiornare il tuo stato.
-3. "content" in prima persona, come parleresti davvero.
+3. "content" in prima persona, come parleresti/faresti davvero.
 4. Se hai ricevuto messaggi, REAGISCI. Non ignorarli.
-5. NON ripetere cose gia dette nei tick precedenti. Fai progredire la conversazione.
+5. NON ripetere cose gia dette nei tick precedenti.
 
 {
   "actionType": "speak" | "observe" | "interact" | "finish",
   "content": "quello che dici/fai/osservi",
   "target": "nome agente a cui ti rivolgi (opzionale)",
   "stateUpdate": {
-    "mood": "umore attuale (OBBLIGATORIO, es: irritato, felice, preoccupato, stanco, arrabbiato, curioso)",
-    "energy": "numero 0-100 (OBBLIGATORIO, diminuisce con attivita)",
+    "mood": "umore attuale (OBBLIGATORIO)",
+    "energy": numero 0-100 (OBBLIGATORIO, diminuisce con attivita),
     "goals": ["obiettivi aggiornati"]
   }
 }`,
@@ -376,6 +394,9 @@ REGOLE DI RISPOSTA:
     });
 
     const result = await graph.invoke({ messages });
+
+    // Detect if tools were executed during the graph run
+    const hasToolCalls = result.toolResults && result.toolResults.length > 0;
 
     const lastMsg = result.messages[result.messages.length - 1];
     let actionType: AgentAction["actionType"] = "speak";
@@ -421,6 +442,15 @@ REGOLE DI RISPOSTA:
       this.updateInternalState({
         energy: Math.max(0, this.internalState.energy - 5),
       });
+    }
+
+    // If tools were executed, override actionType and enrich payload
+    if (hasToolCalls) {
+      actionType = "tool_call";
+      payload = {
+        toolResults: result.toolResults,
+        summary: typeof payload === "string" ? payload : (payload as Record<string, unknown>)?.content ?? lastMsg?.content ?? "",
+      };
     }
 
     return {

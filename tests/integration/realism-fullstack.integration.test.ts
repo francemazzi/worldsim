@@ -215,7 +215,7 @@ describe.skipIf(!apiKey)("Full-stack realism integration", () => {
     const lucaRels = await neo4j.getRelationships({ agentId: "luca" });
     console.log(`🔗 Relazioni: Maria conosce ${mariaRels.length} agenti, Luca conosce ${lucaRels.length}`);
     for (const r of mariaRels) {
-      console.log(`   Maria → ${r.to}: forza=${r.strength.toFixed(2)}, tipo=${r.type}`);
+      console.log(`   ${r.from} → ${r.to}: forza=${r.strength.toFixed(2)}, tipo=${r.type}`);
     }
 
     // ─── Verify state evolution ───
