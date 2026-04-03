@@ -111,16 +111,23 @@ export class WorldSimServer {
     return this;
   }
 
-  /** Start the world simulation and HTTP server. */
-  async start(): Promise<void> {
-    // Start HTTP server if we own it
-    if (this.ownsHttpServer) {
+  /**
+   * Start only the HTTP + Socket.IO server (does not start the simulation).
+   * Useful when you need clients to connect before the simulation begins.
+   */
+  async listen(): Promise<void> {
+    if (this.ownsHttpServer && !this.httpServer.listening) {
       await new Promise<void>((resolve) => {
         this.httpServer.listen(this.port, () => {
           resolve();
         });
       });
     }
+  }
+
+  /** Start the world simulation and HTTP server. */
+  async start(): Promise<void> {
+    await this.listen();
 
     // Update agent counts
     this.streamPlugin.setAgentCounts(this.agentConfigs.length, this.agentConfigs.length);
