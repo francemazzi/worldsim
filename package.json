@@ -2,6 +2,9 @@
   "name": "worldsim",
   "version": "0.1.0",
   "description": "Abstract virtual world emulator with LangGraph agents",
+  "bin": {
+    "worldsim": "./dist/cli/bin.cjs"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

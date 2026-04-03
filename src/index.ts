@@ -90,6 +90,10 @@ export type {
   ConversationTurn,
 } from "./types/ConversationTypes.js";
 
+// Studio
+export { studioPlugin } from "./studio/StudioPlugin.js";
+export type { StudioOptions } from "./studio/StudioConfig.js";
+
 // Streaming (Socket.IO)
 export { WorldSimServer } from "./streaming/WorldSimServer.js";
 export type { WorldSimServerOptions } from "./streaming/WorldSimServer.js";
