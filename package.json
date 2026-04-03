@@ -1,6 +1,6 @@
 {
   "name": "worldsim",
-  "version": "1.0.0",
+  "version": "1.0.6",
   "description": "Abstract virtual world emulator with LangGraph agents",
   "bin": {
     "worldsim": "./dist/cli/bin.cjs"
@@ -42,6 +42,12 @@
     "ai",
     "swarm"
   ],
+  "files": [
+    "dist",
+    "docs/worldsim_img.svg",
+    "README.md",
+    "LICENSE"
+  ],
   "license": "MIT",
   "dependencies": {
     "@langchain/core": "^1.1.38",
@@ -59,10 +65,18 @@
     "drizzle-orm": "^0.45.2"
   },
   "peerDependenciesMeta": {
-    "ioredis": { "optional": true },
-    "neo4j-driver": { "optional": true },
-    "pg": { "optional": true },
-    "drizzle-orm": { "optional": true }
+    "ioredis": {
+      "optional": true
+    },
+    "neo4j-driver": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    },
+    "drizzle-orm": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/ioredis": "^4.28.10",
