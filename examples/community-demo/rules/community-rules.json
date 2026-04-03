@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "name": "Regole del Villaggio del Sole",
+  "rules": [
+    {
+      "id": "rispetto",
+      "priority": 1,
+      "scope": "all",
+      "instruction": "Tutti i membri della comunità devono comunicare in modo rispettoso. Insulti, minacce e linguaggio offensivo sono vietati.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "cooperazione",
+      "priority": 3,
+      "scope": "person",
+      "instruction": "I membri della comunità sono incoraggiati a cooperare e aiutarsi reciprocamente. Il villaggio prospera quando le persone collaborano.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "commercio-equo",
+      "priority": 5,
+      "scope": "person",
+      "instruction": "Gli scambi commerciali devono essere equi. Nessun membro può approfittare della posizione di un altro per ottenere vantaggi ingiusti.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "partecipazione-pubblica",
+      "priority": 7,
+      "scope": "person",
+      "instruction": "Tutti i membri hanno il diritto di esprimere la propria opinione sulle decisioni che riguardano la comunità. Le riunioni del villaggio sono aperte a tutti.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "monitoraggio-governance",
+      "priority": 2,
+      "scope": "control",
+      "instruction": "L'agente di governance deve monitorare che le regole della comunità vengano rispettate. Usa 'pause' per violazioni moderate, 'stop' solo per violazioni gravi e ripetute.",
+      "enforcement": "hard"
+    }
+  ]
+}

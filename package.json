@@ -1,7 +1,7 @@
 {
   "name": "worldsim",
   "version": "1.0.6",
-  "description": "Abstract virtual world emulator with LangGraph agents",
+  "description": "Simulate how communities react to new rules, events, or policies — multi-agent simulation engine for TypeScript",
   "bin": {
     "worldsim": "./dist/cli/bin.cjs"
   },
@@ -40,11 +40,14 @@
     "langgraph",
     "simulation",
     "ai",
-    "swarm"
+    "community",
+    "policy",
+    "social-simulation"
   ],
   "files": [
     "dist",
-    "docs/worldsim_img.svg",
+    "examples/community-demo",
+    "docs/worldsim_img.webp",
     "README.md",
     "LICENSE"
   ],

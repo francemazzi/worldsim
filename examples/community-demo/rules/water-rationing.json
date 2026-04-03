@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "name": "Politica di Razionamento Idrico",
+  "rules": [
+    {
+      "id": "razionamento-idrico",
+      "priority": 1,
+      "scope": "all",
+      "instruction": "NUOVA POLITICA: A causa della siccità, l'acqua è razionata. Ogni famiglia può usare massimo 50 litri al giorno. L'irrigazione dei campi è limitata a 2 ore al mattino presto. Chi viola il razionamento sarà multato. Questa politica è efficace immediatamente e non è negoziabile.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "segnalazione-sprechi",
+      "priority": 4,
+      "scope": "person",
+      "instruction": "I membri della comunità sono incoraggiati a segnalare sprechi d'acqua. Chi nota un uso eccessivo dovrebbe informare il sindaco o l'agente di governance.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "solidarieta-idrica",
+      "priority": 6,
+      "scope": "person",
+      "instruction": "Le famiglie con pozzi privati sono incoraggiate a condividere l'acqua con chi ne ha bisogno. La solidarietà è un valore fondamentale del villaggio.",
+      "enforcement": "soft"
+    }
+  ]
+}
