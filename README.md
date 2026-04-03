@@ -77,6 +77,16 @@ import { studioPlugin } from "worldsim";
 engine.use(studioPlugin({ engine, port: 4400, memoryStore, graphStore }));
 ```
 
+### UI Examples
+
+Relationship Graph view (real-time social connection map):
+
+![Relationship Graph](docs/relationships.png)
+
+Agent Details view (profile, internal state, and memory timeline):
+
+![Agent Details](docs/agent_details.png)
+
 ## Architecture
 
 ```mermaid
