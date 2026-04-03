@@ -37,8 +37,10 @@ export function studioPlugin(options: StudioOptions): WorldSimPlugin {
     stores?: import("./StoreDetector.js").StoreRefs;
     port?: number;
     corsOrigin?: string | string[];
+    reportGetter?: (() => import("../types/ReportTypes.js").SimulationReport | null) | undefined;
   } = { engine: options.engine, stores, port };
   if (options.corsOrigin) serverOpts.corsOrigin = options.corsOrigin;
+  if (options.reportGetter) serverOpts.reportGetter = options.reportGetter;
 
   const server = new StudioServer(serverOpts);
 

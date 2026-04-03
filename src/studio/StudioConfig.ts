@@ -3,6 +3,7 @@ import type { MemoryStore } from "../types/MemoryTypes.js";
 import type { GraphStore } from "../types/GraphTypes.js";
 import type { VectorStore, EmbeddingAdapter } from "../types/VectorTypes.js";
 import type { PersistenceStore } from "../types/PersistenceTypes.js";
+import type { SimulationReport } from "../types/ReportTypes.js";
 
 export interface StudioOptions {
   /** Reference to the WorldEngine instance. Required for live mode. */
@@ -20,6 +21,9 @@ export interface StudioOptions {
   vectorStore?: VectorStore;
   embeddingAdapter?: EmbeddingAdapter;
   persistenceStore?: PersistenceStore;
+
+  /** Optional report getter from ReportGeneratorPlugin. Enables the Report page in Studio. */
+  reportGetter?: () => SimulationReport | null;
 }
 
 export interface StudioCliConfig {

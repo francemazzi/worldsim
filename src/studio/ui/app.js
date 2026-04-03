@@ -15,6 +15,11 @@
     connected: false,
     // Graph data
     graph: null,
+    // Report data
+    report: null,
+    // Scenario data
+    scenarios: null,
+    scenarioStarting: false,
     // Filters
     eventTypeFilter: "",
     eventAgentFilter: "",
@@ -130,6 +135,8 @@
     // Load data for specific pages
     if (page === "events") loadEvents();
     if (page === "graph") loadGraph();
+    if (page === "report") loadReport();
+    if (page === "scenarios") loadScenarios();
     if (page === "agentDetail") loadAgentDetail(detail);
   }
 
@@ -340,6 +347,8 @@
           ${navItem("agents", "Agents")}
           ${navItem("events", "Event Log")}
           ${navItem("graph", "Relationships", !hasGraph)}
+          ${navItem("scenarios", "Scenarios")}
+          ${navItem("report", "Report")}
           ${navItem("conversations", "Conversations", !hasPersistence)}
           ${navItem("search", "Semantic Search", !hasVector)}
           ${navItem("setup", "Store Setup")}
@@ -369,6 +378,8 @@
       case "agentDetail": return renderAgentDetail();
       case "events": return renderEvents();
       case "graph": return renderGraphPage();
+      case "scenarios": return renderScenariosPage();
+      case "report": return renderReportPage();
       case "conversations": return renderConversations();
       case "search": return renderSearch();
       case "setup": return renderSetup();
@@ -635,6 +646,485 @@
     `;
   }
 
+  // ── Scenarios ──────────────────────────────────────────────────────
+  async function loadScenarios() {
+    try {
+      state.scenarios = await api("/scenarios");
+    } catch {
+      state.scenarios = { presets: [], hasApiKey: false };
+    }
+    render();
+  }
+
+  function renderScenariosPage() {
+    const data = state.scenarios;
+    if (!data) return '<div class="section-title">Scenarios</div><div>Loading...</div>';
+
+    const presets = data.presets || [];
+    const isRunning = state.world?.status === "running" || state.world?.status === "bootstrapping";
+
+    return `
+      <div class="section-title">Scenarios</div>
+      <div class="section-subtitle">Select a preset scenario or upload your own to start a simulation</div>
+
+      ${!data.hasApiKey ? `
+        <div class="card" style="border-color:var(--yellow)">
+          <div class="card-title">LLM Configuration Required</div>
+          <div style="margin-top:8px;font-size:13px;color:var(--text-muted)">
+            Set the <code>OPENAI_API_KEY</code> environment variable to start simulations.
+          </div>
+        </div>
+      ` : ""}
+
+      ${isRunning ? `
+        <div class="card" style="border-color:var(--green)">
+          <div style="font-size:13px;color:var(--green)">A simulation is currently running. Wait for it to finish or stop it before starting a new one.</div>
+        </div>
+      ` : ""}
+
+      <div class="agent-grid">
+        ${presets.map((p) => `
+          <div class="agent-card scenario-card">
+            <div class="agent-name">${esc(p.name)}</div>
+            <div style="font-size:13px;color:var(--text-muted);margin:8px 0">${esc(p.description)}</div>
+            <div class="agent-state">
+              <div class="agent-state-item"><span class="agent-state-label">Agents:</span> ${p.agentCount}</div>
+              <div class="agent-state-item"><span class="agent-state-label">Ticks:</span> ${p.maxTicks}</div>
+            </div>
+            ${!isRunning && data.hasApiKey ? `<button class="btn" style="margin-top:12px;width:100%" data-start-scenario="${esc(p.id)}">Start Simulation</button>` : ""}
+          </div>
+        `).join("")}
+        ${presets.length === 0 ? `
+          <div class="empty-state" style="grid-column:1/-1;padding:40px">
+            <div class="empty-state-text">No preset scenarios available. Use the upload area to load a custom scenario JSON file.</div>
+          </div>
+        ` : ""}
+      </div>
+
+      ${!isRunning ? `
+        <div class="card" style="margin-top:20px">
+          <div class="card-title">Upload Custom Scenario</div>
+          <div class="scenario-upload" id="scenario-dropzone">
+            <div style="font-size:14px;color:var(--text-muted);text-align:center;padding:30px;cursor:pointer">
+              Drop a <strong>scenario.json</strong> file here or click to select
+            </div>
+            <input type="file" id="scenario-file" accept=".json" style="display:none">
+          </div>
+          <div id="scenario-preview"></div>
+        </div>
+      ` : ""}
+    `;
+  }
+
+  async function startScenario(presetId) {
+    if (state.scenarioStarting) return;
+    state.scenarioStarting = true;
+    render();
+
+    try {
+      const result = await fetch("/api/scenario/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presetId }),
+      }).then((r) => r.json());
+
+      if (result.started) {
+        navigate("dashboard");
+        // Request fresh snapshot
+        setTimeout(() => socket.emit("request:snapshot"), 500);
+      } else {
+        alert("Failed to start: " + (result.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Error starting scenario: " + err.message);
+    } finally {
+      state.scenarioStarting = false;
+    }
+  }
+
+  async function startCustomScenario(scenario) {
+    if (state.scenarioStarting) return;
+    state.scenarioStarting = true;
+
+    try {
+      const result = await fetch("/api/scenario/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario }),
+      }).then((r) => r.json());
+
+      if (result.started) {
+        navigate("dashboard");
+        setTimeout(() => socket.emit("request:snapshot"), 500);
+      } else {
+        alert("Failed to start: " + (result.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      state.scenarioStarting = false;
+    }
+  }
+
+  // ── Report ─────────────────────────────────────────────────────────
+  async function loadReport() {
+    try {
+      const data = await api("/report");
+      if (data.ready === false) {
+        state.report = null;
+      } else {
+        state.report = data;
+      }
+    } catch {
+      state.report = null;
+    }
+    render();
+    if (state.report) {
+      setTimeout(() => {
+        drawMoodHeatmap();
+        drawEnergyChart();
+        drawActionBars();
+      }, 50);
+    }
+  }
+
+  function renderReportPage() {
+    if (!state.report) {
+      return `
+        <div class="section-title">Simulation Report</div>
+        <div class="empty-state" style="padding:60px">
+          <div class="empty-state-text">Report not available yet. The simulation must complete first.</div>
+          <div style="margin-top:12px"><button class="btn" id="report-refresh">Refresh</button></div>
+        </div>
+      `;
+    }
+
+    const r = state.report;
+    const s = r.summary;
+
+    return `
+      <div class="section-title">Simulation Report</div>
+      <div class="section-subtitle">${esc(s.worldId)} &middot; ${(s.durationMs / 1000).toFixed(1)}s</div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-value">${s.totalTicks}</div>
+          <div class="stat-label">Ticks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${s.agentCount}</div>
+          <div class="stat-label">Agents</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${s.totalActions}</div>
+          <div class="stat-label">Actions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${r.metrics.totalSpeaks}</div>
+          <div class="stat-label">Speaks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${r.metrics.ruleViolations}</div>
+          <div class="stat-label">Violations</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Mood Heatmap</span>
+          <span class="badge">agents x ticks</span>
+        </div>
+        <div class="chart-container" id="mood-heatmap" style="height:${Math.max(200, r.agents.filter(a => a.role !== "control").length * 32 + 60)}px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Energy Over Time</span>
+        </div>
+        <div class="chart-container" id="energy-chart" style="height:280px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Action Distribution</span>
+        </div>
+        <div class="chart-container" id="action-bars" style="height:${Math.max(180, r.agents.filter(a => a.role !== "control").length * 36 + 40)}px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Timeline</span>
+          <span class="badge">${r.timeline.length} events</span>
+        </div>
+        <div class="report-timeline">
+          ${r.timeline.slice(0, 100).map((t) => `
+            <div class="timeline-entry timeline-${t.type}">
+              <span class="event-tick">T${t.tick}</span>
+              <span class="timeline-desc">${esc(t.description)}</span>
+            </div>
+          `).join("")}
+          ${r.timeline.length === 0 ? '<div class="empty-state"><div class="empty-state-text">No timeline events.</div></div>' : ""}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Per-Agent Summary</span>
+        </div>
+        <div class="agent-report-grid">
+          ${r.agents.filter(a => a.role !== "control").map((a) => {
+            const lastMood = a.moodTrajectory.length ? a.moodTrajectory[a.moodTrajectory.length - 1].mood : "?";
+            const lastEnergy = a.energyTrajectory.length ? a.energyTrajectory[a.energyTrajectory.length - 1].energy : 0;
+            return `
+              <div class="agent-report-card">
+                <div class="agent-name">${esc(a.name)}</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">${a.personality.join(", ")}</div>
+                <div class="agent-state">
+                  <div class="agent-state-item"><span class="agent-state-label">Actions:</span> ${a.totalActions}</div>
+                  <div class="agent-state-item"><span class="agent-state-label">Mood:</span> ${esc(lastMood)}</div>
+                  <div class="agent-state-item"><span class="agent-state-label">Energy:</span> ${lastEnergy}</div>
+                  <div class="agent-state-item"><span class="agent-state-label">Speaks:</span> ${a.actions.speak}</div>
+                  <div class="agent-state-item"><span class="agent-state-label">Observes:</span> ${a.actions.observe}</div>
+                  <div class="agent-state-item"><span class="agent-state-label">Tools:</span> ${a.actions.tool_call}</div>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Chart drawing ───────────────────────────────────────────────────
+  const MOOD_COLORS = {
+    neutral: "#8b949e",
+    happy: "#3fb950", felice: "#3fb950", contento: "#3fb950",
+    sad: "#6e7681", triste: "#6e7681",
+    angry: "#f85149", arrabbiato: "#f85149", furioso: "#f85149",
+    anxious: "#d29922", ansioso: "#d29922", preoccupato: "#d29922",
+    excited: "#58a6ff", eccitato: "#58a6ff", entusiasta: "#58a6ff",
+    frustrated: "#f0883e", frustrato: "#f0883e",
+    calm: "#56d364", calmo: "#56d364", sereno: "#56d364",
+    curious: "#bc8cff", curioso: "#bc8cff",
+    worried: "#d29922", preoccupata: "#d29922",
+    determined: "#58a6ff", determinato: "#58a6ff", determinata: "#58a6ff",
+    hopeful: "#56d364", speranzoso: "#56d364",
+    resigned: "#6e7681", rassegnato: "#6e7681",
+    irritated: "#f0883e", irritato: "#f0883e", irritata: "#f0883e",
+    thoughtful: "#bc8cff", riflessivo: "#bc8cff", riflessiva: "#bc8cff",
+    optimistic: "#3fb950", ottimista: "#3fb950",
+    pessimistic: "#6e7681", pessimista: "#6e7681",
+  };
+
+  function moodColor(mood) {
+    const m = (mood || "neutral").toLowerCase();
+    return MOOD_COLORS[m] || "#8b949e";
+  }
+
+  function drawMoodHeatmap() {
+    const container = document.getElementById("mood-heatmap");
+    if (!container || !state.report) return;
+
+    const agents = state.report.agents.filter((a) => a.role !== "control");
+    if (agents.length === 0) return;
+
+    const canvas = document.createElement("canvas");
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    container.innerHTML = "";
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext("2d");
+    const labelWidth = 120;
+    const topMargin = 30;
+    const cellH = Math.min(28, (canvas.height - topMargin - 10) / agents.length);
+    const maxTick = state.report.summary.totalTicks;
+    const chartW = canvas.width - labelWidth - 20;
+    const cellW = Math.max(4, chartW / maxTick);
+
+    // Header ticks
+    ctx.fillStyle = "#8b949e";
+    ctx.font = "10px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    const tickStep = Math.max(1, Math.floor(maxTick / 15));
+    for (let t = 0; t <= maxTick; t += tickStep) {
+      ctx.fillText("T" + t, labelWidth + t * cellW + cellW / 2, topMargin - 8);
+    }
+
+    // Rows
+    for (let i = 0; i < agents.length; i++) {
+      const a = agents[i];
+      const y = topMargin + i * cellH;
+
+      // Label
+      ctx.fillStyle = "#e6edf3";
+      ctx.font = "11px -apple-system, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(a.name.length > 14 ? a.name.slice(0, 13) + "..." : a.name, labelWidth - 8, y + cellH / 2 + 4);
+
+      // Cells
+      const moodMap = new Map(a.moodTrajectory.map((s) => [s.tick, s.mood]));
+      for (let t = 0; t < maxTick; t++) {
+        const mood = moodMap.get(t + 1) || "neutral";
+        ctx.fillStyle = moodColor(mood);
+        ctx.globalAlpha = 0.85;
+        ctx.fillRect(labelWidth + t * cellW + 1, y + 1, cellW - 2, cellH - 2);
+        ctx.globalAlpha = 1.0;
+      }
+    }
+  }
+
+  function drawEnergyChart() {
+    const container = document.getElementById("energy-chart");
+    if (!container || !state.report) return;
+
+    const agents = state.report.agents.filter((a) => a.role !== "control");
+    if (agents.length === 0) return;
+
+    const canvas = document.createElement("canvas");
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    container.innerHTML = "";
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext("2d");
+    const leftMargin = 50;
+    const bottomMargin = 30;
+    const topMargin = 20;
+    const chartW = canvas.width - leftMargin - 20;
+    const chartH = canvas.height - topMargin - bottomMargin;
+    const maxTick = state.report.summary.totalTicks;
+
+    // Axes
+    ctx.strokeStyle = "#30363d";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(leftMargin, topMargin);
+    ctx.lineTo(leftMargin, topMargin + chartH);
+    ctx.lineTo(leftMargin + chartW, topMargin + chartH);
+    ctx.stroke();
+
+    // Y-axis labels
+    ctx.fillStyle = "#8b949e";
+    ctx.font = "10px -apple-system, sans-serif";
+    ctx.textAlign = "right";
+    for (let v = 0; v <= 100; v += 25) {
+      const y = topMargin + chartH - (v / 100) * chartH;
+      ctx.fillText(String(v), leftMargin - 6, y + 3);
+      ctx.strokeStyle = "#21262d";
+      ctx.beginPath();
+      ctx.moveTo(leftMargin, y);
+      ctx.lineTo(leftMargin + chartW, y);
+      ctx.stroke();
+    }
+
+    // X-axis labels
+    ctx.textAlign = "center";
+    const tickStep = Math.max(1, Math.floor(maxTick / 10));
+    for (let t = 0; t <= maxTick; t += tickStep) {
+      const x = leftMargin + (t / maxTick) * chartW;
+      ctx.fillText("T" + t, x, topMargin + chartH + 16);
+    }
+
+    // Lines per agent
+    const lineColors = ["#58a6ff", "#3fb950", "#f0883e", "#bc8cff", "#f85149", "#d29922", "#56d364", "#8b949e", "#ff7b72", "#79c0ff"];
+    for (let i = 0; i < agents.length; i++) {
+      const a = agents[i];
+      const color = lineColors[i % lineColors.length];
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      let started = false;
+      for (const snap of a.energyTrajectory) {
+        const x = leftMargin + ((snap.tick - 1) / maxTick) * chartW;
+        const y = topMargin + chartH - (snap.energy / 100) * chartH;
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+
+      // Legend dot
+      const legendY = topMargin + 4 + i * 14;
+      ctx.fillStyle = color;
+      ctx.fillRect(leftMargin + chartW - 130, legendY, 8, 8);
+      ctx.fillStyle = "#e6edf3";
+      ctx.font = "10px -apple-system, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(a.name.length > 12 ? a.name.slice(0, 11) + "..." : a.name, leftMargin + chartW - 118, legendY + 8);
+    }
+  }
+
+  function drawActionBars() {
+    const container = document.getElementById("action-bars");
+    if (!container || !state.report) return;
+
+    const agents = state.report.agents.filter((a) => a.role !== "control");
+    if (agents.length === 0) return;
+
+    const canvas = document.createElement("canvas");
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    container.innerHTML = "";
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext("2d");
+    const leftMargin = 120;
+    const rightMargin = 100;
+    const topMargin = 20;
+    const barH = Math.min(24, (canvas.height - topMargin - 10) / agents.length);
+    const chartW = canvas.width - leftMargin - rightMargin;
+
+    const categories = ["speak", "observe", "interact", "tool_call", "finish"];
+    const catColors = { speak: "#58a6ff", observe: "#8b949e", interact: "#3fb950", tool_call: "#bc8cff", finish: "#6e7681" };
+    const maxActions = Math.max(1, ...agents.map((a) => a.totalActions));
+
+    // Legend
+    ctx.font = "10px -apple-system, sans-serif";
+    ctx.textAlign = "left";
+    let legendX = leftMargin;
+    for (const cat of categories) {
+      ctx.fillStyle = catColors[cat];
+      ctx.fillRect(legendX, 4, 10, 10);
+      ctx.fillStyle = "#e6edf3";
+      ctx.fillText(cat, legendX + 14, 13);
+      legendX += ctx.measureText(cat).width + 28;
+    }
+
+    for (let i = 0; i < agents.length; i++) {
+      const a = agents[i];
+      const y = topMargin + i * barH;
+
+      // Label
+      ctx.fillStyle = "#e6edf3";
+      ctx.font = "11px -apple-system, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(a.name.length > 14 ? a.name.slice(0, 13) + "..." : a.name, leftMargin - 8, y + barH / 2 + 4);
+
+      // Stacked bar
+      let x = leftMargin;
+      for (const cat of categories) {
+        const count = a.actions[cat] || 0;
+        const w = (count / maxActions) * chartW;
+        ctx.fillStyle = catColors[cat];
+        ctx.fillRect(x, y + 2, w, barH - 4);
+        x += w;
+      }
+
+      // Total
+      ctx.fillStyle = "#8b949e";
+      ctx.font = "10px -apple-system, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(String(a.totalActions), x + 6, y + barH / 2 + 3);
+    }
+  }
+
   function renderStoreRequired(storeName, feature) {
     const cap = state.capabilities?.stores?.[storeName];
     return `
@@ -711,6 +1201,40 @@
       });
     }
 
+    // Scenario start buttons
+    document.querySelectorAll("[data-start-scenario]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = el.getAttribute("data-start-scenario");
+        if (id) startScenario(id);
+      });
+    });
+
+    // Scenario file upload
+    const dropzone = document.getElementById("scenario-dropzone");
+    const fileInput = document.getElementById("scenario-file");
+    if (dropzone && fileInput) {
+      dropzone.addEventListener("click", () => fileInput.click());
+      dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.style.borderColor = "var(--accent)"; });
+      dropzone.addEventListener("dragleave", () => { dropzone.style.borderColor = ""; });
+      dropzone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = "";
+        const file = e.dataTransfer?.files?.[0];
+        if (file) handleScenarioFile(file);
+      });
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files?.[0];
+        if (file) handleScenarioFile(file);
+      });
+    }
+
+    // Report refresh
+    const reportRefresh = document.getElementById("report-refresh");
+    if (reportRefresh) {
+      reportRefresh.addEventListener("click", loadReport);
+    }
+
     // Search
     const searchBtn = document.getElementById("search-btn");
     if (searchBtn) {
@@ -773,6 +1297,34 @@
     } catch (err) {
       container.innerHTML = `<div class="card">Failed to load: ${esc(err.message)}</div>`;
     }
+  }
+
+  function handleScenarioFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const scenario = JSON.parse(reader.result);
+        const preview = document.getElementById("scenario-preview");
+        if (preview) {
+          preview.innerHTML = `
+            <div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border)">
+              <div style="font-weight:600;margin-bottom:8px">${esc(scenario.name || "Custom Scenario")}</div>
+              <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">${esc(scenario.description || "")}</div>
+              <div style="font-size:12px;color:var(--text-muted)">
+                Agents: ${scenario.agents?.length ?? 0} &middot; Ticks: ${scenario.maxTicks ?? "?"}
+              </div>
+              <button class="btn" style="margin-top:12px" id="start-custom-scenario">Start Simulation</button>
+            </div>
+          `;
+          document.getElementById("start-custom-scenario")?.addEventListener("click", () => {
+            startCustomScenario(scenario);
+          });
+        }
+      } catch {
+        alert("Invalid JSON file.");
+      }
+    };
+    reader.readAsText(file);
   }
 
   // ── Utilities ──────────────────────────────────────────────────────

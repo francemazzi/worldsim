@@ -1,11 +1,13 @@
+// ─── Primary API ────────────────────────────────────────────────────
 export { WorldEngine } from "./engine/WorldEngine.js";
 export { ConsoleLoggerPlugin } from "./plugins/built-in/ConsoleLoggerPlugin.js";
+export { LifeSkillsPlugin } from "./plugins/built-in/LifeSkillsPlugin.js";
+export type { SkillCategory } from "./plugins/built-in/LifeSkillsPlugin.js";
+export { reportGeneratorPlugin } from "./plugins/built-in/ReportGeneratorPlugin.js";
+export type { ReportGeneratorOptions } from "./plugins/built-in/ReportGeneratorPlugin.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
-export { BrainMemory } from "./memory/BrainMemory.js";
-export type { RecallOptions, RecallResult } from "./memory/BrainMemory.js";
-export { MemoryConsolidator } from "./memory/MemoryConsolidator.js";
-export { EmbeddingManager } from "./memory/EmbeddingManager.js";
 
+// ─── Core Types ─────────────────────────────────────────────────────
 export type {
   WorldConfig,
   WorldContext,
@@ -25,6 +27,46 @@ export type {
 } from "./types/AgentTypes.js";
 export type { RuleSet, Rule, RulesContext } from "./types/RulesTypes.js";
 export type { WorldSimPlugin, AgentTool } from "./types/PluginTypes.js";
+
+// ─── Report Types ───────────────────────────────────────────────────
+export type {
+  SimulationReport,
+  SimulationSummary,
+  TimelineEntry,
+  AgentReport,
+  AgentTickSnapshot,
+  ActionDistribution,
+  RelationshipEvolution,
+  SimulationMetrics,
+} from "./types/ReportTypes.js";
+
+// ─── Stores (zero-dependency) ───────────────────────────────────────
+export { InMemoryMemoryStore } from "./stores/InMemoryMemoryStore.js";
+export { InMemoryGraphStore } from "./stores/InMemoryGraphStore.js";
+
+// ─── Studio & Streaming ────────────────────────────────────────────
+export { studioPlugin } from "./studio/StudioPlugin.js";
+export type { StudioOptions } from "./studio/StudioConfig.js";
+export { WorldSimServer } from "./streaming/WorldSimServer.js";
+export type { WorldSimServerOptions } from "./streaming/WorldSimServer.js";
+export { SocketIOStreamPlugin } from "./streaming/SocketIOStreamPlugin.js";
+export type {
+  ServerToClientEvents,
+  ClientToServerEvents,
+  TickEvent,
+  AgentActionEvent,
+  AgentStatusEvent,
+  MessageEvent,
+  AgentStateEvent,
+  AgentSnapshot,
+  WorldSnapshot,
+} from "./streaming/types.js";
+
+// ─── Scenario Loader ────────────────────────────────────────────────
+export { loadScenario } from "./studio/ScenarioLoader.js";
+export type { ScenarioConfig, ScenarioAgentConfig, ScenarioResult } from "./studio/ScenarioLoader.js";
+
+// ─── Store Interfaces ───────────────────────────────────────────────
 export type {
   MemoryStore,
   MemoryEntry,
@@ -36,12 +78,6 @@ export type {
   GraphQuery,
   RelationshipUpsert,
 } from "./types/GraphTypes.js";
-export type {
-  LLMAdapter,
-  LLMResponse,
-  ChatOptions,
-  ToolCall,
-} from "./llm/LLMAdapter.js";
 export type {
   VectorStore,
   VectorEntry,
@@ -56,20 +92,34 @@ export type {
   ConversationRecord,
   ConsolidatedKnowledge,
 } from "./types/PersistenceTypes.js";
+
+// ─── Advanced: LLM ─────────────────────────────────────────────────
+export type {
+  LLMAdapter,
+  LLMResponse,
+  ChatOptions,
+  ToolCall,
+} from "./llm/LLMAdapter.js";
+export { LLMAdapterPool } from "./llm/LLMAdapterPool.js";
+export { ResponseCache } from "./llm/ResponseCache.js";
+
+// ─── Advanced: Memory & Consolidation ───────────────────────────────
+export { BrainMemory } from "./memory/BrainMemory.js";
+export type { RecallOptions, RecallResult } from "./memory/BrainMemory.js";
+export { MemoryConsolidator } from "./memory/MemoryConsolidator.js";
+export { EmbeddingManager } from "./memory/EmbeddingManager.js";
 export type {
   ConsolidationConfig,
   ConsolidationResult,
   ImportanceScore,
 } from "./types/ConsolidationTypes.js";
 
-// Scalability modules
+// ─── Advanced: Scheduling & Scalability ─────────────────────────────
 export { ActivityScheduler } from "./scheduling/ActivityScheduler.js";
 export { TokenBudgetTracker } from "./scheduling/TokenBudgetTracker.js";
 export type { TokenBudgetResult } from "./scheduling/TokenBudgetTracker.js";
 export { BatchExecutor } from "./engine/BatchExecutor.js";
 export { CircularBuffer } from "./engine/CircularBuffer.js";
-export { LLMAdapterPool } from "./llm/LLMAdapterPool.js";
-export { ResponseCache } from "./llm/ResponseCache.js";
 export { LocationIndex } from "./location/LocationIndex.js";
 export type { NearbyResult } from "./location/LocationIndex.js";
 export { ConversationManager } from "./messaging/ConversationManager.js";
@@ -90,38 +140,12 @@ export type {
   ConversationTurn,
 } from "./types/ConversationTypes.js";
 
-// Studio
-export { studioPlugin } from "./studio/StudioPlugin.js";
-export type { StudioOptions } from "./studio/StudioConfig.js";
-
-// Streaming (Socket.IO)
-export { WorldSimServer } from "./streaming/WorldSimServer.js";
-export type { WorldSimServerOptions } from "./streaming/WorldSimServer.js";
-export { SocketIOStreamPlugin } from "./streaming/SocketIOStreamPlugin.js";
-export type {
-  ServerToClientEvents,
-  ClientToServerEvents,
-  TickEvent,
-  AgentActionEvent,
-  AgentStatusEvent,
-  MessageEvent,
-  AgentStateEvent,
-  AgentSnapshot,
-  WorldSnapshot,
-} from "./streaming/types.js";
-
-// Stores (in-memory — zero dependencies)
-export { InMemoryMemoryStore } from "./stores/InMemoryMemoryStore.js";
-export { InMemoryGraphStore } from "./stores/InMemoryGraphStore.js";
-
-// Stores (production — require peer dependencies)
+// ─── Production Stores (peer dependencies) ──────────────────────────
 export { RedisMemoryStore } from "./stores/RedisMemoryStore.js";
 export { Neo4jGraphStore } from "./stores/Neo4jGraphStore.js";
 export { PgVectorStore } from "./stores/PgVectorStore.js";
 export { PgPersistenceStore } from "./stores/PgPersistenceStore.js";
 export { OpenAIEmbeddingAdapter } from "./stores/OpenAIEmbeddingAdapter.js";
 
-// Life Skills Plugin
-export { LifeSkillsPlugin } from "./plugins/built-in/LifeSkillsPlugin.js";
-export type { SkillCategory } from "./plugins/built-in/LifeSkillsPlugin.js";
+// ─── Skill Resolver ─────────────────────────────────────────────────
 export { resolveToolNames } from "./plugins/built-in/skillResolver.js";
