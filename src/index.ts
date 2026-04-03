@@ -89,3 +89,19 @@ export type {
   Conversation,
   ConversationTurn,
 } from "./types/ConversationTypes.js";
+
+// Streaming (Socket.IO)
+export { WorldSimServer } from "./streaming/WorldSimServer.js";
+export type { WorldSimServerOptions } from "./streaming/WorldSimServer.js";
+export { SocketIOStreamPlugin } from "./streaming/SocketIOStreamPlugin.js";
+export type {
+  ServerToClientEvents,
+  ClientToServerEvents,
+  TickEvent,
+  AgentActionEvent,
+  AgentStatusEvent,
+  MessageEvent,
+  AgentStateEvent,
+  AgentSnapshot,
+  WorldSnapshot,
+} from "./streaming/types.js";
