@@ -325,6 +325,14 @@
       </div>
     `;
     attachHandlers();
+
+    // Redraw canvases after render if on those pages
+    if (state.page === "graph" && state.graph) {
+      setTimeout(renderGraph, 20);
+    }
+    if (state.page === "report" && state.report) {
+      setTimeout(() => { drawMoodHeatmap(); drawEnergyChart(); drawActionBars(); }, 20);
+    }
   }
 
   function renderSidebar() {
@@ -803,7 +811,13 @@
     const s = r.summary;
 
     return `
-      <div class="section-title">Simulation Report</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="section-title" style="margin-bottom:0">Simulation Report</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="report-refresh">Refresh</button>
+          <button class="btn" id="report-download">Download JSON</button>
+        </div>
+      </div>
       <div class="section-subtitle">${esc(s.worldId)} &middot; ${(s.durationMs / 1000).toFixed(1)}s</div>
 
       <div class="stats-row">
@@ -1229,10 +1243,23 @@
       });
     }
 
-    // Report refresh
+    // Report refresh & download
     const reportRefresh = document.getElementById("report-refresh");
     if (reportRefresh) {
       reportRefresh.addEventListener("click", loadReport);
+    }
+    const reportDownload = document.getElementById("report-download");
+    if (reportDownload) {
+      reportDownload.addEventListener("click", () => {
+        if (!state.report) return;
+        const blob = new Blob([JSON.stringify(state.report, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `worldsim-report-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
     }
 
     // Search

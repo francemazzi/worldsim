@@ -60,14 +60,22 @@ export class StudioServer {
     this.scenarioPresets = options.scenarioPresets ?? [];
 
     // UI directory: at build time, static assets are copied to dist/studio/ui
-    // __dirname works in CJS; import.meta.url in ESM
+    // Try multiple candidate paths since __dirname varies depending on bundler output
     let currentDir: string;
     try {
       currentDir = typeof __dirname !== "undefined" ? __dirname : fileURLToPath(new URL(".", import.meta.url));
     } catch {
       currentDir = process.cwd();
     }
-    this.uiDir = join(currentDir, "ui");
+    const candidates = [
+      join(currentDir, "ui"),                    // dev: src/studio/ → src/studio/ui
+      join(currentDir, "studio", "ui"),          // bundled lib: dist/ → dist/studio/ui
+      join(currentDir, "..", "studio", "ui"),     // bundled cli: dist/cli/ → dist/studio/ui
+    ];
+    const defaultUiDir = join(currentDir, "ui");
+    this.uiDir = candidates.find((d) => {
+      try { return readFileSync(join(d, "index.html")).length > 0; } catch { return false; }
+    }) ?? defaultUiDir;
 
     this.router = new StudioRouter();
     this.httpServer = createServer((req, res) => this.handleRequest(req, res));

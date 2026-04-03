@@ -259,9 +259,14 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
 
   return {
     plugin,
-    /** Returns the report after the world stops, or null if still running. */
+    /** Returns the final report after stop, or a live partial report while running. */
     getReport(): SimulationReport | null {
-      return report;
+      if (report) return report;
+      // Build a live partial report if simulation is in progress
+      if (startTime === 0 || collectors.size === 0) return null;
+      const ctx = options.engine.getContext();
+      const events = [...options.engine.getEventLog()];
+      return buildReport(ctx, events);
     },
   };
 }

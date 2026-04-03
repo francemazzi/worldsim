@@ -111,6 +111,14 @@ async function runDemo(values: Record<string, unknown>): Promise<void> {
   }
 
   const scenario = JSON.parse(readFileSync(scenarioPath, "utf-8"));
+  const scenarioDir = dirname(scenarioPath);
+
+  // Resolve rule paths relative to scenario directory (not cwd)
+  if (scenario.rules?.json) {
+    scenario.rules.json = scenario.rules.json.map((p: string) =>
+      p.startsWith("/") ? p : join(scenarioDir, p),
+    );
+  }
 
   console.log(`\n  Villaggio del Sole — Community Policy Simulation`);
   console.log(`  ${scenario.agents.length} agents | ${scenario.maxTicks} ticks`);

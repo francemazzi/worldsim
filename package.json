@@ -3,7 +3,7 @@
   "version": "1.0.6",
   "description": "Simulate how communities react to new rules, events, or policies — multi-agent simulation engine for TypeScript",
   "bin": {
-    "worldsim": "./dist/cli/bin.cjs"
+    "wordsim": "./dist/cli/bin.js"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
