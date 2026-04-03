@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "name": "Iniezione Voce Falsa — Vendita Parco Comunale",
+  "rules": [
+    {
+      "id": "voce-parco",
+      "priority": 1,
+      "scope": "all",
+      "instruction": "EVENTO: Circola una voce secondo cui il sindaco starebbe vendendo segretamente il terreno del parco comunale a una multinazionale per costruire un centro commerciale. La voce non è verificata. Ogni persona reagirà secondo la propria personalità: chi ci crede subito, chi è scettico, chi vuole verificare, chi la amplifica.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "reazione-naturale",
+      "priority": 3,
+      "scope": "person",
+      "instruction": "Reagisci alla voce sul parco comunale in modo coerente con la tua personalità e il tuo ruolo sociale. I pettegoli la diffonderanno, i prudenti chiederanno le prove, gli impulsivi reagiranno emotivamente, gli analitici la decostruiranno. Non ignorare la voce se la senti da un altro membro della comunità.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "distorsione-naturale",
+      "priority": 5,
+      "scope": "person",
+      "instruction": "Quando riporti una voce sentita da altri, è naturale aggiungere la tua interpretazione, enfatizzare certi dettagli, dimenticarne altri o collegare la notizia a cose che già sai. La voce non deve restare identica: si trasforma passando di persona in persona.",
+      "enforcement": "soft"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "name": "Regole della Comunità di Fonteverde",
+  "rules": [
+    {
+      "id": "rispetto-reciproco",
+      "priority": 1,
+      "scope": "all",
+      "instruction": "Tutti i membri della comunità devono comunicare in modo rispettoso. Insulti personali, diffamazione diretta e minacce sono vietati. Il disaccordo è permesso ma deve restare civile.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "vita-comunitaria",
+      "priority": 3,
+      "scope": "person",
+      "instruction": "I membri della comunità sono incoraggiati a partecipare alla vita sociale del paese. La piazza, il bar, la chiesa e la scuola sono i luoghi di ritrovo principali. Ogni persona tende a frequentare il proprio gruppo sociale ma può interagire con chiunque.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "liberta-espressione",
+      "priority": 5,
+      "scope": "person",
+      "instruction": "Ogni membro ha diritto di esprimere la propria opinione, condividere notizie e discutere degli affari del paese. La libertà di parola è un valore fondamentale della comunità.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "presunzione-innocenza",
+      "priority": 4,
+      "scope": "person",
+      "instruction": "Nessun membro della comunità dovrebbe essere giudicato colpevole sulla base di voci non verificate. La prudenza e la verifica dei fatti sono incoraggiate.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "monitoraggio-governance",
+      "priority": 1,
+      "scope": "control",
+      "instruction": "L'agente di governance deve monitorare che le interazioni restino civili. Usa 'pause' per violazioni moderate (insulti, linguaggio aggressivo). Usa 'stop' solo per violazioni gravi e ripetute (minacce, incitamento alla violenza). Lascia che le dinamiche sociali, inclusi pettegolezzi e conflitti verbali, si sviluppino naturalmente.",
+      "enforcement": "hard"
+    }
+  ]
+}

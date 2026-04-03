@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "name": "Regole del Mercato di San Rocco",
+  "rules": [
+    {
+      "id": "rispetto-mercato",
+      "priority": 1,
+      "scope": "all",
+      "instruction": "Tutti i partecipanti al mercato devono comunicare in modo civile e rispettoso. Minacce, insulti e intimidazioni sono severamente vietati.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "commercio-equo",
+      "priority": 2,
+      "scope": "person",
+      "instruction": "I venditori devono praticare prezzi equi e trasparenti. È vietato nascondere le scorte per manipolare i prezzi. Ogni venditore deve dichiarare le proprie disponibilità quando richiesto dal regolatore.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "libero-mercato",
+      "priority": 4,
+      "scope": "person",
+      "instruction": "I compratori sono liberi di acquistare da qualsiasi venditore. Nessun venditore può impedire ai clienti di confrontare i prezzi. La concorrenza leale è incoraggiata.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "trasparenza-prezzi",
+      "priority": 3,
+      "scope": "person",
+      "instruction": "Ogni venditore deve esporre chiaramente i propri prezzi. Gli aumenti improvvisi devono essere giustificati con ragioni verificabili (aumento costi fornitori, scarsità reale).",
+      "enforcement": "soft"
+    },
+    {
+      "id": "protezione-consumatori",
+      "priority": 5,
+      "scope": "person",
+      "instruction": "I consumatori vulnerabili (famiglie numerose, anziani, indigenti) hanno diritto a prezzi calmierati per i beni di prima necessità come il grano.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "monitoraggio-governance",
+      "priority": 1,
+      "scope": "control",
+      "instruction": "L'agente di governance deve monitorare che le regole del mercato vengano rispettate. Usa 'pause' per violazioni moderate (linguaggio offensivo, piccole irregolarità). Usa 'stop' solo per violazioni gravi e ripetute (minacce fisiche, frode conclamata). Lascia che le dinamiche commerciali si sviluppino naturalmente.",
+      "enforcement": "hard"
+    }
+  ]
+}

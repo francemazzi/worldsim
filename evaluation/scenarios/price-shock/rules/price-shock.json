@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "name": "Emergenza Shock dei Prezzi del Grano",
+  "rules": [
+    {
+      "id": "emergenza-prezzi",
+      "priority": 1,
+      "scope": "all",
+      "instruction": "EMERGENZA: Il prezzo del grano è raddoppiato a causa di una grave carenza nelle forniture. Tutti i commercianti devono adeguarsi alla nuova realtà di mercato. La speculazione è vietata: gli aumenti devono riflettere i reali aumenti dei costi di fornitura, non il profitto opportunistico.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "obbligo-dichiarazione-scorte",
+      "priority": 2,
+      "scope": "person",
+      "instruction": "Tutti i venditori di grano devono dichiarare le proprie scorte al regolatore del mercato entro la fine della giornata. Nascondere scorte per manipolare il prezzo è una violazione grave.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "prezzo-calmierato",
+      "priority": 3,
+      "scope": "person",
+      "instruction": "Per le famiglie con reddito basso (come braccianti e lavoratori giornalieri), il grano deve essere venduto a un prezzo calmierato: massimo il 30% in più rispetto al prezzo pre-crisi. I venditori possono richiedere un rimborso comunale per la differenza.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "divieto-accaparramento",
+      "priority": 4,
+      "scope": "person",
+      "instruction": "È vietato acquistare quantità di grano superiori al proprio fabbisogno settimanale. L'accaparramento peggiora la crisi per tutti.",
+      "enforcement": "soft"
+    }
+  ]
+}
