@@ -167,7 +167,7 @@ describe("PersonAgent", () => {
       expect(state.goals).toEqual(["goal1"]);
     });
 
-    it("no stateUpdate leaves state unchanged", async () => {
+    it("no stateUpdate applies default energy decay", async () => {
       const agent = new PersonAgent(
         makeConfig({
           iterationsPerTick: 1,
@@ -181,7 +181,8 @@ describe("PersonAgent", () => {
 
       const state = agent.getInternalState();
       expect(state.mood).toBe("calmo");
-      expect(state.energy).toBe(50);
+      // Default energy decay: -5 per action when no stateUpdate
+      expect(state.energy).toBe(45);
     });
   });
 

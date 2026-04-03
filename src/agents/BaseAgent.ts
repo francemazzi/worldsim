@@ -6,6 +6,9 @@ import {
   buildRelationshipPrompt,
   buildKnowledgePrompt,
   buildSemanticMemoryPrompt,
+  buildPersonalityEnforcement,
+  buildSocialDynamics,
+  buildConflictInstructions,
 } from "./ProfilePromptBuilder.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
 import { createMessageId } from "../messaging/MessageBus.js";
@@ -251,6 +254,26 @@ export abstract class BaseAgent {
 
       const relSection = buildRelationshipPrompt(tickContext.relationships);
       if (relSection) sections.push(relSection);
+
+      // Personality enforcement + social dynamics (only for person agents with profiles)
+      if (this.config.role === "person" && this.config.profile) {
+        sections.push(buildPersonalityEnforcement(this.config.profile));
+        sections.push(buildSocialDynamics(
+          tickContext.relationships,
+          this.config.profile,
+        ));
+        sections.push(buildConflictInstructions());
+      }
+    }
+
+    // If no tickContext but we have a profile, still add personality sections
+    if (!tickContext && this.config.role === "person" && this.config.profile) {
+      sections.push(buildPersonalityEnforcement(this.config.profile));
+      sections.push(buildSocialDynamics(
+        [],
+        this.config.profile,
+      ));
+      sections.push(buildConflictInstructions());
     }
 
     const scopeRules = rules.getRulesForScope(

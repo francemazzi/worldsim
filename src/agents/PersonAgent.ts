@@ -331,13 +331,41 @@ export class PersonAgent extends BaseAgent {
     if (observedContent) {
       messages.push({
         role: "user",
-        content: `Osservazioni dal tick corrente:\n${observedContent}`,
+        content: `Le seguenti persone hanno parlato o agito nella tua zona:\n${observedContent}\n\nDevi reagire a questi messaggi. Puoi essere d'accordo, in disaccordo, ignorare chi non ti interessa, o rispondere come ritieni opportuno per il tuo personaggio.`,
       });
     }
 
+    const toolHint = this.externalTools.length > 0
+      ? `\nHai ${this.externalTools.length} strumenti disponibili. Usali quando pertinenti (es: check_weather, plant, study, pray, code, ecc). Per usarli, il modello li chiamera automaticamente.`
+      : "";
+
     messages.push({
       role: "user",
-      content: `Sei al tick ${ctx.tickCount}, iterazione ${iterationIndex + 1}/${this.iterationsPerTick}. Scegli un'azione: speak (comunica qualcosa), observe (osserva il mondo), interact (interagisci con un altro agente), o finish (concludi il turno). Rispondi con JSON: {"actionType": "speak"|"observe"|"interact"|"finish", "content": "...", "stateUpdate"?: {"mood"?: string, "energy"?: number, "goals"?: string[]}}`,
+      content: `Tick ${ctx.tickCount}, iterazione ${iterationIndex + 1}/${this.iterationsPerTick}.${toolHint}
+
+AZIONI DISPONIBILI:
+- "speak": Dici qualcosa ad alta voce. Per conversare, rispondere, annunciare.
+- "observe": Osservi in silenzio. Per raccogliere informazioni senza parlare.
+- "interact": Interagisci fisicamente (toccare, prendere, dare, abbracciare).
+- "finish": Hai finito per questo turno. Se non hai nulla da fare o dire.
+
+REGOLE DI RISPOSTA:
+1. Rispondi SOLO con un oggetto JSON valido.
+2. Il campo "stateUpdate" e OBBLIGATORIO. DEVI aggiornare il tuo stato.
+3. "content" in prima persona, come parleresti davvero.
+4. Se hai ricevuto messaggi, REAGISCI. Non ignorarli.
+5. NON ripetere cose gia dette nei tick precedenti. Fai progredire la conversazione.
+
+{
+  "actionType": "speak" | "observe" | "interact" | "finish",
+  "content": "quello che dici/fai/osservi",
+  "target": "nome agente a cui ti rivolgi (opzionale)",
+  "stateUpdate": {
+    "mood": "umore attuale (OBBLIGATORIO, es: irritato, felice, preoccupato, stanco, arrabbiato, curioso)",
+    "energy": "numero 0-100 (OBBLIGATORIO, diminuisce con attivita)",
+    "goals": ["obiettivi aggiornati"]
+  }
+}`,
     });
 
     const graph = buildPersonGraph({
@@ -377,10 +405,22 @@ export class PersonAgent extends BaseAgent {
 
         if (parsed.stateUpdate) {
           this.updateInternalState(parsed.stateUpdate);
+        } else {
+          // Default energy decay: every action costs energy
+          const energyCost = actionType === "observe" ? 2 : actionType === "finish" ? 0 : 5;
+          if (energyCost > 0) {
+            this.updateInternalState({
+              energy: Math.max(0, this.internalState.energy - energyCost),
+            });
+          }
         }
       }
     } catch {
       payload = lastMsg?.content ?? "";
+      // Even on parse failure, decay energy
+      this.updateInternalState({
+        energy: Math.max(0, this.internalState.energy - 5),
+      });
     }
 
     return {

@@ -109,3 +109,19 @@ export type {
   AgentSnapshot,
   WorldSnapshot,
 } from "./streaming/types.js";
+
+// Stores (in-memory — zero dependencies)
+export { InMemoryMemoryStore } from "./stores/InMemoryMemoryStore.js";
+export { InMemoryGraphStore } from "./stores/InMemoryGraphStore.js";
+
+// Stores (production — require peer dependencies)
+export { RedisMemoryStore } from "./stores/RedisMemoryStore.js";
+export { Neo4jGraphStore } from "./stores/Neo4jGraphStore.js";
+export { PgVectorStore } from "./stores/PgVectorStore.js";
+export { PgPersistenceStore } from "./stores/PgPersistenceStore.js";
+export { OpenAIEmbeddingAdapter } from "./stores/OpenAIEmbeddingAdapter.js";
+
+// Life Skills Plugin
+export { LifeSkillsPlugin } from "./plugins/built-in/LifeSkillsPlugin.js";
+export type { SkillCategory } from "./plugins/built-in/LifeSkillsPlugin.js";
+export { resolveToolNames } from "./plugins/built-in/skillResolver.js";
