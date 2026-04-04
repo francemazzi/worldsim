@@ -5,6 +5,7 @@ import { SocketIOStreamPlugin } from "./SocketIOStreamPlugin.js";
 import type { WorldConfig } from "../types/WorldTypes.js";
 import type { AgentConfig } from "../types/AgentTypes.js";
 import type { WorldSimPlugin } from "../types/PluginTypes.js";
+import { ChatPlugin } from "../plugins/built-in/ChatPlugin.js";
 import type {
   ServerToClientEvents,
   ClientToServerEvents,
@@ -135,8 +136,34 @@ export class WorldSimServer {
     // Notify connected clients that the world is starting
     this.io.emit("world:status", { status: "bootstrapping" });
 
+    // Configure ChatPlugin if registered
+    this.configureChatPlugin();
+
     // Start the engine (this blocks until maxTicks or stop)
     await this.engine.start();
+  }
+
+  /**
+   * Wires the ChatPlugin with agent resolver and memory persister
+   * after the engine is ready. Safe to call if ChatPlugin is not registered.
+   */
+  private configureChatPlugin(): void {
+    const chatPlugin = this.engine.getPlugin("chat") as ChatPlugin | undefined;
+    if (!chatPlugin || typeof chatPlugin.configure !== "function") return;
+
+    const engine = this.engine;
+    const deps: Parameters<ChatPlugin["configure"]>[0] = {
+      agentResolver: (id: string) => engine.getAgent(id),
+      memoryPersister: async (entries, worldId) => {
+        const brain = engine.getBrainMemory();
+        if (brain) {
+          await brain.saveBatch(entries, worldId);
+        }
+      },
+    };
+    const rules = engine.getRulesContext();
+    if (rules) deps.rulesContext = rules;
+    chatPlugin.configure(deps);
   }
 
   /** Stop the world and close the server. */
@@ -291,6 +318,56 @@ export class WorldSimServer {
             message: `Failed to stop world: ${(err as Error).message}`,
           });
         });
+      });
+
+      // ─── GPS position push ───
+      socket.on("command:update-position", (data) => {
+        try {
+          this.engine.updateAgentPosition(data.agentId, data.latitude, data.longitude, data.label);
+          this.io.emit("agent:moved", {
+            agentId: data.agentId,
+            agentName: this.streamPlugin.getAgentName(data.agentId),
+            from: null,
+            to: { latitude: data.latitude, longitude: data.longitude, label: data.label },
+            tick: this.engine.getContext().tickCount,
+            source: "external_gps",
+            timestamp: new Date().toISOString(),
+          });
+        } catch (err) {
+          socket.emit("error", {
+            message: `Failed to update position for ${data.agentId}: ${(err as Error).message}`,
+          });
+        }
+      });
+
+      // ─── Chat with agent ───
+      socket.on("chat:send", (data) => {
+        const chatPlugin = this.engine.getPlugin("chat") as ChatPlugin | undefined;
+        if (!chatPlugin || typeof chatPlugin.handleChat !== "function") {
+          socket.emit("error", { message: "Chat plugin not registered" });
+          return;
+        }
+        const userId = socket.id;
+        chatPlugin
+          .handleChat(data.agentId, userId, data.message, data.sessionId)
+          .then((response) => {
+            socket.emit("chat:response", response);
+          })
+          .catch((err: unknown) => {
+            socket.emit("error", {
+              message: `Chat failed: ${(err as Error).message}`,
+            });
+          });
+      });
+
+      socket.on("chat:history", (data) => {
+        const chatPlugin = this.engine.getPlugin("chat") as ChatPlugin | undefined;
+        if (!chatPlugin || typeof chatPlugin.getHistory !== "function") {
+          socket.emit("error", { message: "Chat plugin not registered" });
+          return;
+        }
+        const history = chatPlugin.getHistory(data.agentId, data.sessionId);
+        socket.emit("chat:history", history);
       });
     });
   }

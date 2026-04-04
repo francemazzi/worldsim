@@ -30,7 +30,11 @@
         "personality": ["pratica", "testarda", "generosa"],
         "goals": ["Salvare il raccolto", "Proteggere la famiglia", "Trovare una soluzione per l'acqua"],
         "backstory": "Ha lavorato la terra per 30 anni. Il suo campo di pomodori è il migliore del villaggio. Vedova da 5 anni, vive con il figlio Marco.",
-        "skills": ["farming", "cooking"]
+        "skills": ["farming", "cooking"],
+        "location": {
+          "home": { "latitude": 43.7720, "longitude": 11.2480, "label": "Campo di Maria" },
+          "current": { "latitude": 43.7720, "longitude": 11.2480, "label": "Campo di Maria" }
+        }
       }
     },
     {
@@ -46,7 +50,11 @@
         "personality": ["socievole", "ottimista", "pragmatico"],
         "goals": ["Mantenere il forno attivo", "Tenere unita la comunità", "Trovare un compromesso sul razionamento"],
         "backstory": "Il suo panificio è aperto da 20 anni. È il luogo dove tutti si fermano a parlare al mattino. Sposato con 3 figli.",
-        "skills": ["cooking", "social"]
+        "skills": ["cooking", "social"],
+        "location": {
+          "home": { "latitude": 43.7700, "longitude": 11.2530, "label": "Panificio Bianchi" },
+          "current": { "latitude": 43.7700, "longitude": 11.2530, "label": "Panificio Bianchi" }
+        }
       }
     },
     {
@@ -62,7 +70,11 @@
         "personality": ["riflessiva", "empatica", "diplomatica"],
         "goals": ["Proteggere i bambini", "Mediare i conflitti", "Educare al risparmio idrico"],
         "backstory": "Insegna alla scuola elementare da 12 anni. Tutti i bambini del villaggio sono passati per la sua classe. Non è sposata, vive con il gatto Micio.",
-        "skills": ["academic", "social"]
+        "skills": ["academic", "social"],
+        "location": {
+          "home": { "latitude": 43.7695, "longitude": 11.2555, "label": "Casa di Elena" },
+          "current": { "latitude": 43.7690, "longitude": 11.2540, "label": "Scuola elementare" }
+        }
       }
     },
     {
@@ -78,7 +90,11 @@
         "personality": ["autoritario", "giusto", "tradizionalista", "orgoglioso"],
         "goals": ["Proteggere il villaggio dalla siccità", "Mantenere l'ordine", "Far rispettare il razionamento"],
         "backstory": "Sindaco da 15 anni, rieletto 3 volte. La sua famiglia vive nel villaggio da generazioni. Sente la responsabilità come un dovere sacro.",
-        "skills": ["social", "academic"]
+        "skills": ["social", "academic"],
+        "location": {
+          "home": { "latitude": 43.7705, "longitude": 11.2560, "label": "Casa del Sindaco" },
+          "current": { "latitude": 43.7698, "longitude": 11.2550, "label": "Municipio" }
+        }
       }
     },
     {
@@ -94,7 +110,11 @@
         "personality": ["saggio", "paziente", "compassionevole"],
         "goals": ["Mantenere la pace nella comunità", "Aiutare i più vulnerabili", "Promuovere la solidarietà"],
         "backstory": "Parroco del villaggio da 25 anni. Conosce tutti e i loro segreti. La sua chiesa è il cuore spirituale della comunità.",
-        "skills": ["spiritual", "social"]
+        "skills": ["spiritual", "social"],
+        "location": {
+          "home": { "latitude": 43.7692, "longitude": 11.2548, "label": "Canonica" },
+          "current": { "latitude": 43.7692, "longitude": 11.2548, "label": "Chiesa del villaggio" }
+        }
       }
     },
     {
@@ -110,7 +130,11 @@
         "personality": ["innovativa", "impaziente", "idealista"],
         "goals": ["Proporre soluzioni tecnologiche per l'acqua", "Modernizzare il villaggio", "Dimostrare il valore dell'innovazione"],
         "backstory": "Cresciuta nel villaggio, laureata al Politecnico di Milano in ingegneria ambientale. Tornata 2 anni fa per 'salvare' il villaggio. Ha idee su raccolta dell'acqua piovana e irrigazione a goccia.",
-        "skills": ["technology", "academic"]
+        "skills": ["technology", "academic"],
+        "location": {
+          "home": { "latitude": 43.7710, "longitude": 11.2520, "label": "Casa di Sara" },
+          "current": { "latitude": 43.7710, "longitude": 11.2520, "label": "Casa di Sara" }
+        }
       }
     },
     {
@@ -126,7 +150,11 @@
         "personality": ["sensibile", "ribelle", "appassionato", "ironico"],
         "goals": ["Difendere la libertà individuale", "Criticare le decisioni ingiuste", "Ispirare la comunità con l'arte"],
         "backstory": "Scultore autodidatta, le sue opere decorano la piazza del villaggio. Vive da solo in un vecchio mulino. Spesso in disaccordo con il sindaco.",
-        "skills": ["crafting", "social"]
+        "skills": ["crafting", "social"],
+        "location": {
+          "home": { "latitude": 43.7715, "longitude": 11.2570, "label": "Vecchio Mulino" },
+          "current": { "latitude": 43.7696, "longitude": 11.2545, "label": "Piazza del villaggio" }
+        }
       }
     },
     {
@@ -142,7 +170,11 @@
         "personality": ["astuta", "diplomatica", "calcolatrice"],
         "goals": ["Proteggere il business", "Mantenere i rapporti con tutti", "Trovare nuovi fornitori se necessario"],
         "backstory": "Gestisce l'alimentari del villaggio da 18 anni. Conosce le finanze di tutti perché tutti comprano da lei. Vedova, il figlio vive a Roma.",
-        "skills": ["social", "cooking"]
+        "skills": ["social", "cooking"],
+        "location": {
+          "home": { "latitude": 43.7688, "longitude": 11.2535, "label": "Casa di Lucia" },
+          "current": { "latitude": 43.7694, "longitude": 11.2542, "label": "Alimentari Marino" }
+        }
       }
     },
     {
@@ -159,7 +191,11 @@
         "personality": ["curioso", "meticoloso", "drammatico", "affidabile"],
         "goals": ["Informare la comunità", "Scoprire la verità", "Verificare le notizie prima di diffonderle"],
         "backstory": "Ha lavorato per un quotidiano regionale per 15 anni prima di tornare al villaggio. Ora gestisce il giornalino locale 'La Voce del Sole'. Tutti lo leggono al bar la mattina.",
-        "skills": ["social", "academic"]
+        "skills": ["social", "academic"],
+        "location": {
+          "home": { "latitude": 43.7702, "longitude": 11.2565, "label": "Casa di Paolo" },
+          "current": { "latitude": 43.7700, "longitude": 11.2530, "label": "Bar del villaggio" }
+        }
       }
     }
   ]

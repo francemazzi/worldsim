@@ -1,6 +1,8 @@
 import type { AgentAction, AgentStatus, AgentControlEvent, AgentInternalState, AgentProfile } from "../types/AgentTypes.js";
 import type { WorldEvent, WorldStatus } from "../types/WorldTypes.js";
 import type { Message } from "../messaging/Message.js";
+import type { GeoLocation } from "../types/LocationTypes.js";
+import type { ChatSendPayload, ChatResponsePayload, ChatHistoryPayload } from "../types/ChatTypes.js";
 
 // ─── Server → Client events ─────────────────────────────────────────
 
@@ -28,6 +30,15 @@ export interface ServerToClientEvents {
 
   /** Generic world event from the event log. */
   "world:event": (data: WorldEvent) => void;
+
+  /** Emitted when an agent moves (via tool or external GPS push). */
+  "agent:moved": (data: AgentMovedEvent) => void;
+
+  /** Chat response from an agent. */
+  "chat:response": (data: ChatResponsePayload) => void;
+
+  /** Chat session history. */
+  "chat:history": (data: ChatHistoryPayload) => void;
 
   /** Error events. */
   "error": (data: { message: string }) => void;
@@ -62,6 +73,15 @@ export interface ClientToServerEvents {
 
   /** Stop the world. */
   "command:world:stop": () => void;
+
+  /** Push a real-world GPS position for an agent. */
+  "command:update-position": (data: { agentId: string; latitude: number; longitude: number; label?: string }) => void;
+
+  /** Send a chat message to an agent. */
+  "chat:send": (data: ChatSendPayload) => void;
+
+  /** Request chat history for a session. */
+  "chat:history": (data: { agentId: string; sessionId: string }) => void;
 }
 
 // ─── Event payloads ──────────────────────────────────────────────────
@@ -118,5 +138,15 @@ export interface WorldSnapshot {
   tick: number;
   agents: AgentSnapshot[];
   recentEvents: WorldEvent[];
+  timestamp: string;
+}
+
+export interface AgentMovedEvent {
+  agentId: string;
+  agentName: string;
+  from: GeoLocation | null;
+  to: GeoLocation;
+  tick: number;
+  source: "agent_tool" | "external_gps";
   timestamp: string;
 }

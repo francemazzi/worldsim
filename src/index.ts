@@ -11,6 +11,10 @@ export { RelationshipPlugin } from "./plugins/built-in/RelationshipPlugin.js";
 export type { RelationshipPluginOptions, RelationshipMeta } from "./plugins/built-in/RelationshipPlugin.js";
 export { AssetPlugin } from "./plugins/built-in/AssetPlugin.js";
 export type { AssetPluginOptions } from "./plugins/built-in/AssetPlugin.js";
+export { MovementPlugin } from "./plugins/built-in/MovementPlugin.js";
+export type { MovementPluginOptions, MovementRecord } from "./types/MovementTypes.js";
+export { ChatPlugin } from "./plugins/built-in/ChatPlugin.js";
+export type { ChatPluginOptions } from "./plugins/built-in/ChatPlugin.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
 
 // ─── Core Types ─────────────────────────────────────────────────────
@@ -66,7 +70,15 @@ export type {
   AgentStateEvent,
   AgentSnapshot,
   WorldSnapshot,
+  AgentMovedEvent,
 } from "./streaming/types.js";
+export type {
+  ChatMessage,
+  ChatSession,
+  ChatSendPayload,
+  ChatResponsePayload,
+  ChatHistoryPayload,
+} from "./types/ChatTypes.js";
 
 // ─── Scenario Loader ────────────────────────────────────────────────
 export { loadScenario } from "./studio/ScenarioLoader.js";

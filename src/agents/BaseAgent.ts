@@ -141,6 +141,25 @@ export abstract class BaseAgent {
     return this.internalState;
   }
 
+  getLLM(): LLMAdapter {
+    return this.llm;
+  }
+
+  getConfig(): Readonly<AgentConfig> {
+    return this.config;
+  }
+
+  /**
+   * Builds the full agent context for chat mode.
+   * Override in subclasses to include memories, relationships, etc.
+   */
+  async buildChatContext(
+    rules: RulesContext,
+  ): Promise<{ systemPrompt: string; state: AgentInternalState }> {
+    const systemPrompt = this.buildSystemPrompt(rules);
+    return { systemPrompt, state: { ...this.internalState } };
+  }
+
   updateInternalState(updates: Partial<AgentInternalState>): void {
     if (updates.mood != null) this.internalState.mood = updates.mood;
     if (updates.energy != null) this.internalState.energy = updates.energy;

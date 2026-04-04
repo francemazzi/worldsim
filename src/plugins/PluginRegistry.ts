@@ -158,6 +158,10 @@ export class PluginRegistry {
     return all.filter((t) => names.includes(t.name));
   }
 
+  getPlugin(name: string): WorldSimPlugin | undefined {
+    return this.plugins.find((p) => p.name === name);
+  }
+
   getPlugins(): readonly WorldSimPlugin[] {
     return this.plugins;
   }

@@ -5,7 +5,7 @@ import { buildPersonGraph } from "../graph/PersonGraph.js";
 import { createMessageId } from "../messaging/MessageBus.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
 import type { LLMAdapter } from "../llm/LLMAdapter.js";
-import type { AgentConfig, AgentAction, AgentMessage } from "../types/AgentTypes.js";
+import type { AgentConfig, AgentAction, AgentMessage, AgentInternalState } from "../types/AgentTypes.js";
 import type { WorldContext } from "../types/WorldTypes.js";
 import type { RulesContext } from "../types/RulesTypes.js";
 import type { AgentTool } from "../types/PluginTypes.js";
@@ -31,6 +31,17 @@ export class PersonAgent extends BaseAgent {
     for (const t of pluginTools) toolMap.set(t.name, t);
     for (const t of configTools) toolMap.set(t.name, t);
     this.externalTools = Array.from(toolMap.values());
+  }
+
+  /**
+   * Builds the full agent context for chat mode, including memories and relationships.
+   */
+  override async buildChatContext(
+    rules: RulesContext,
+  ): Promise<{ systemPrompt: string; state: AgentInternalState }> {
+    const tickContext = await this.gatherTickContext();
+    const systemPrompt = this.buildSystemPrompt(rules, tickContext);
+    return { systemPrompt, state: { ...this.internalState } };
   }
 
   async tick(ctx: WorldContext, rules: RulesContext): Promise<AgentAction[]> {
@@ -462,11 +473,16 @@ REGOLE DI RISPOSTA:
 }`,
     });
 
+    const agentCtx: WorldContext = {
+      ...ctx,
+      metadata: { ...ctx.metadata, currentAgentId: this.id },
+    };
+
     const graph = buildPersonGraph({
       llm: this.llm,
       tools: this.externalTools,
       maxIterations: 3,
-      worldContext: ctx,
+      worldContext: agentCtx,
     });
 
     const result = await graph.invoke({ messages });

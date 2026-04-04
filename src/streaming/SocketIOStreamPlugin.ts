@@ -46,6 +46,10 @@ export class SocketIOStreamPlugin implements WorldSimPlugin {
     this.agentNames.set(agentId, name);
   }
 
+  getAgentName(agentId: string): string {
+    return this.agentNames.get(agentId) ?? agentId;
+  }
+
   /**
    * Called by WorldSimServer to set agent counts for tick events.
    */

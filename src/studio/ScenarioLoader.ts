@@ -5,7 +5,10 @@ import { ConsoleLoggerPlugin } from "../plugins/built-in/ConsoleLoggerPlugin.js"
 import { reportGeneratorPlugin } from "../plugins/built-in/ReportGeneratorPlugin.js";
 import { RealWorldToolsPlugin, type RealWorldDataSources } from "../plugins/built-in/RealWorldToolsPlugin.js";
 import { RelationshipPlugin } from "../plugins/built-in/RelationshipPlugin.js";
+import { MovementPlugin } from "../plugins/built-in/MovementPlugin.js";
+import { LocationIndex } from "../location/LocationIndex.js";
 import type { RelationshipTypeDefinition } from "../types/GraphTypes.js";
+import type { LocationConfig } from "../types/LocationTypes.js";
 import type { LLMConfig } from "../types/WorldTypes.js";
 import type { SimulationReport } from "../types/ReportTypes.js";
 
@@ -46,6 +49,7 @@ export interface ScenarioAgentConfig {
     goals: string[];
     backstory?: string;
     skills?: string[];
+    location?: LocationConfig;
   };
   /** Relationships declared as part of this agent's identity */
   relationships?: Array<{
@@ -94,6 +98,25 @@ export function loadScenario(
   // Register real-world tools if data sources are configured
   if (scenario.dataSources) {
     engine.use(new RealWorldToolsPlugin({ dataSources: scenario.dataSources }));
+  }
+
+  // Register movement plugin if any agent has location
+  const hasLocations = scenario.agents.some((a) => a.profile?.location);
+  if (hasLocations) {
+    const locationIndex = new LocationIndex();
+    const movementPlugin = new MovementPlugin(locationIndex);
+
+    for (const agent of scenario.agents) {
+      const loc = agent.profile?.location;
+      if (loc?.current) {
+        locationIndex.update(agent.id, loc.current);
+      }
+      if (loc?.home) {
+        movementPlugin.registerHome(agent.id, loc.home);
+      }
+    }
+
+    engine.use(movementPlugin);
   }
 
   const report = reportGeneratorPlugin({ engine });

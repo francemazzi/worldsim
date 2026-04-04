@@ -29,6 +29,7 @@ import type {
 } from "../types/WorldTypes.js";
 import type { AgentConfig, AgentStatus } from "../types/AgentTypes.js";
 import type { WorldSimPlugin } from "../types/PluginTypes.js";
+import type { RulesContext } from "../types/RulesTypes.js";
 import type { BaseAgent } from "../agents/BaseAgent.js";
 import type { ConsolidationResult } from "../types/ConsolidationTypes.js";
 
@@ -201,6 +202,26 @@ export class WorldEngine {
     return result;
   }
 
+  /**
+   * Push a real-world GPS position for an agent.
+   * If the MovementPlugin is registered, delegates to it (records history + events).
+   * Otherwise falls back to updating the LocationIndex directly.
+   */
+  updateAgentPosition(agentId: string, latitude: number, longitude: number, label?: string): this {
+    const movementPlugin = this.runtime.pluginRegistry
+      .getPlugins()
+      .find((p) => p.name === "movement") as
+      | (WorldSimPlugin & { updateRealPosition(id: string, lat: number, lng: number, lbl?: string): void })
+      | undefined;
+
+    if (movementPlugin && typeof movementPlugin.updateRealPosition === "function") {
+      movementPlugin.updateRealPosition(agentId, latitude, longitude, label);
+    } else {
+      this.runtime.locationIndex.update(agentId, { latitude, longitude, label });
+    }
+    return this;
+  }
+
   getStatus(): WorldStatus {
     return this.runtime.status;
   }
@@ -215,6 +236,18 @@ export class WorldEngine {
 
   getAgent(id: string): BaseAgent | undefined {
     return this.runtime.agentRegistry.get(id);
+  }
+
+  getPlugin(name: string): WorldSimPlugin | undefined {
+    return this.runtime.pluginRegistry.getPlugin(name);
+  }
+
+  getRulesContext(): RulesContext | null {
+    return this.runtime.rulesContext;
+  }
+
+  getBrainMemory(): import("../memory/BrainMemory.js").BrainMemory | undefined {
+    return this.runtime.brainMemory;
   }
 
   async consolidate(): Promise<ConsolidationResult[]> {
