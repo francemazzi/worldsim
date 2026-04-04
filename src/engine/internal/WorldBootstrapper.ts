@@ -56,6 +56,7 @@ export class WorldBootstrapper {
         vectorStore: this.runtime.config.vectorStore,
         persistenceStore: this.runtime.config.persistenceStore,
         embeddingAdapter: this.runtime.config.embeddingAdapter,
+        assetStore: this.runtime.config.assetStore,
         brainMemory: this.runtime.brainMemory,
         activityScheduler: this.runtime.activityScheduler,
         tokenBudgetTracker: this.runtime.tokenBudgetTracker,

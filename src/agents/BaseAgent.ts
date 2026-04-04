@@ -9,6 +9,7 @@ import {
   buildPersonalityEnforcement,
   buildSocialDynamics,
   buildConflictInstructions,
+  buildAssetPrompt,
 } from "./ProfilePromptBuilder.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
 import { createMessageId } from "../messaging/MessageBus.js";
@@ -44,6 +45,7 @@ export interface AgentStoreOptions {
   vectorStore?: VectorStore | undefined;
   persistenceStore?: PersistenceStore | undefined;
   embeddingAdapter?: EmbeddingAdapter | undefined;
+  assetStore?: import("../types/AssetTypes.js").AssetStore | undefined;
   brainMemory?: BrainMemory | undefined;
   activityScheduler?: ActivityScheduler | undefined;
   tokenBudgetTracker?: TokenBudgetTracker | undefined;
@@ -59,6 +61,9 @@ export interface TickContext {
   relationships: Relationship[];
   relevantMemories?: MemoryEntry[] | undefined;
   knowledge?: ConsolidatedKnowledge[] | undefined;
+  assets?: import("../types/AssetTypes.js").Asset[] | undefined;
+  household?: import("../types/AssetTypes.js").Household | undefined;
+  currentVenue?: import("../types/AssetTypes.js").Venue | undefined;
 }
 
 const DEFAULT_INTERNAL_STATE: AgentInternalState = {
@@ -77,6 +82,7 @@ export abstract class BaseAgent {
   protected memoryStore?: MemoryStore | undefined;
   protected graphStore?: GraphStore | undefined;
   protected brainMemory?: BrainMemory | undefined;
+  protected assetStore?: import("../types/AssetTypes.js").AssetStore | undefined;
   protected activityScheduler?: ActivityScheduler | undefined;
   protected tokenBudgetTracker?: TokenBudgetTracker | undefined;
   protected neighborhoodManager?: NeighborhoodManager | undefined;
@@ -104,6 +110,7 @@ export abstract class BaseAgent {
     this.conversationManager = options?.conversationManager;
     this.locationIndex = options?.locationIndex;
     this.defaultBroadcastRadius = options?.defaultBroadcastRadius;
+    this.assetStore = options?.assetStore;
     this.internalState = {
       ...DEFAULT_INTERNAL_STATE,
       ...config.initialState,
@@ -254,6 +261,16 @@ export abstract class BaseAgent {
 
       const relSection = buildRelationshipPrompt(tickContext.relationships);
       if (relSection) sections.push(relSection);
+
+      // Assets & venue context
+      if (tickContext.assets && tickContext.assets.length > 0) {
+        const assetSection = buildAssetPrompt(
+          tickContext.assets,
+          tickContext.household,
+          tickContext.currentVenue,
+        );
+        if (assetSection) sections.push(assetSection);
+      }
 
       // Personality enforcement + social dynamics (only for person agents with profiles)
       if (this.config.role === "person" && this.config.profile) {

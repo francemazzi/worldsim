@@ -180,11 +180,29 @@ export class PersonAgent extends BaseAgent {
           : Promise.resolve([]),
       ]);
 
-      return {
+      const tickCtx: TickContext = {
         memories: recallResult.memories,
         relationships,
         knowledge: degraded ? undefined : recallResult.knowledge,
       };
+
+      // Load assets if available
+      if (this.assetStore) {
+        const [agentAssets, household, currentVenue, householdAssets, communityAssets] = await Promise.all([
+          this.assetStore.getAgentAssets(this.id),
+          this.assetStore.getAgentHousehold(this.id),
+          this.assetStore.getAgentCurrentVenue(this.id),
+          this.assetStore.getAgentHousehold(this.id).then(
+            (h) => h ? this.assetStore!.getHouseholdAssets(h.id) : [],
+          ),
+          this.assetStore.getCommunityAssets(),
+        ]);
+        tickCtx.assets = [...agentAssets, ...householdAssets, ...communityAssets];
+        tickCtx.household = household ?? undefined;
+        tickCtx.currentVenue = currentVenue ?? undefined;
+      }
+
+      return tickCtx;
     }
 
     const [memories, relationships] = await Promise.all([
@@ -195,6 +213,27 @@ export class PersonAgent extends BaseAgent {
         ? this.graphStore.getRelationships({ agentId: this.id, limit: relLimit })
         : Promise.resolve([]),
     ]);
+
+    // Load assets if available
+    if (this.assetStore) {
+      const [agentAssets, household, currentVenue, householdAssets, communityAssets] = await Promise.all([
+        this.assetStore.getAgentAssets(this.id),
+        this.assetStore.getAgentHousehold(this.id),
+        this.assetStore.getAgentCurrentVenue(this.id),
+        this.assetStore.getAgentHousehold(this.id).then(
+          (h) => h ? this.assetStore!.getHouseholdAssets(h.id) : [],
+        ),
+        this.assetStore.getCommunityAssets(),
+      ]);
+      return {
+        memories,
+        relationships,
+        assets: [...agentAssets, ...householdAssets, ...communityAssets],
+        household: household ?? undefined,
+        currentVenue: currentVenue ?? undefined,
+      };
+    }
+
     return { memories, relationships };
   }
 

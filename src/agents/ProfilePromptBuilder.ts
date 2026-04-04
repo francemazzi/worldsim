@@ -3,6 +3,7 @@ import type { MemoryEntry } from "../types/MemoryTypes.js";
 import type { Relationship, RelationshipTypeDefinition } from "../types/GraphTypes.js";
 import type { ConsolidatedKnowledge } from "../types/PersistenceTypes.js";
 import type { LocationConfig } from "../types/LocationTypes.js";
+import type { Asset, Household, Venue } from "../types/AssetTypes.js";
 
 export function buildProfilePrompt(profile: AgentProfile): string {
   const sections: string[] = [];
@@ -229,6 +230,75 @@ export function buildSocialDynamics(
   lines.push("- Se qualcuno ti offende o ti contraddice, reagisci come farebbe il tuo personaggio.");
   lines.push("- Non ripetere quello che dicono gli altri. Aggiungi la TUA prospettiva unica.");
   return `--- DINAMICHE SOCIALI ---\n${lines.join("\n")}`;
+}
+
+export function buildAssetPrompt(
+  assets: Asset[],
+  household?: Household | undefined,
+  currentVenue?: Venue | undefined,
+): string {
+  if (assets.length === 0 && !household && !currentVenue) return "";
+
+  const sections: string[] = [];
+
+  // Personal assets
+  const personal = assets.filter((a) => a.ownerType === "agent");
+  if (personal.length > 0) {
+    sections.push("Proprietà personali:");
+    for (const a of personal) {
+      const parts = [a.name];
+      if (a.type === "resource" && a.quantity != null) parts.push(`${a.quantity}%`);
+      else if (a.quantity != null) parts.push(`${a.quantity}`);
+      if (a.value != null) parts.push(`€${a.value.toLocaleString()}`);
+      if (a.condition != null) {
+        const cond = a.condition > 0.8 ? "ottima" : a.condition > 0.6 ? "buona" : a.condition > 0.4 ? "discreta" : a.condition > 0.2 ? "scarsa" : "pessima";
+        parts.push(`condizione: ${cond}`);
+      }
+      if (a.description) parts.push(a.description);
+      sections.push(`  - ${parts.join(", ")}`);
+    }
+  }
+
+  // Household assets
+  if (household) {
+    const familyAssets = assets.filter((a) => a.ownerType === "household" && a.owner === household.id);
+    sections.push(`Famiglia: ${household.name} (membri: ${household.members.join(", ")})`);
+    if (familyAssets.length > 0) {
+      sections.push("Beni della famiglia:");
+      for (const a of familyAssets) {
+        const parts = [a.name];
+        if (a.value != null) parts.push(`€${a.value.toLocaleString()}`);
+        sections.push(`  - ${parts.join(", ")}`);
+      }
+    }
+  }
+
+  // Community assets
+  const community = assets.filter((a) => a.ownerType === "community");
+  if (community.length > 0) {
+    sections.push("Risorse della comunità:");
+    for (const a of community) {
+      const parts = [a.name];
+      if (a.condition != null) {
+        const cond = a.condition > 0.6 ? "buona" : a.condition > 0.3 ? "discreta" : "scarsa";
+        parts.push(`condizione: ${cond}`);
+      }
+      sections.push(`  - ${parts.join(", ")}`);
+    }
+  }
+
+  // Current venue
+  if (currentVenue) {
+    const visitors = currentVenue.currentVisitors ?? [];
+    sections.push(`Luogo attuale: ${currentVenue.name} (${currentVenue.venueType})`);
+    if (visitors.length > 0) {
+      sections.push(`  Presenti: ${visitors.join(", ")}`);
+    } else {
+      sections.push("  Il posto è vuoto.");
+    }
+  }
+
+  return `--- PROPRIETÀ E RISORSE ---\n${sections.join("\n")}`;
 }
 
 export function buildConflictInstructions(): string {

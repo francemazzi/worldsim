@@ -9,6 +9,8 @@ export { RealWorldToolsPlugin } from "./plugins/built-in/RealWorldToolsPlugin.js
 export type { RealWorldToolsOptions, RealWorldDataSources, WeatherDataSource, NewsDataSource, EnvironmentDataSource } from "./plugins/built-in/RealWorldToolsPlugin.js";
 export { RelationshipPlugin } from "./plugins/built-in/RelationshipPlugin.js";
 export type { RelationshipPluginOptions, RelationshipMeta } from "./plugins/built-in/RelationshipPlugin.js";
+export { AssetPlugin } from "./plugins/built-in/AssetPlugin.js";
+export type { AssetPluginOptions } from "./plugins/built-in/AssetPlugin.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
 
 // ─── Core Types ─────────────────────────────────────────────────────
@@ -69,6 +71,20 @@ export type {
 // ─── Scenario Loader ────────────────────────────────────────────────
 export { loadScenario } from "./studio/ScenarioLoader.js";
 export type { ScenarioConfig, ScenarioAgentConfig, ScenarioResult } from "./studio/ScenarioLoader.js";
+
+// ─── Asset Types ────────────────────────────────────────────────────
+export type {
+  Asset,
+  AssetType,
+  Venue,
+  VenueType,
+  Household,
+  AssetStore,
+  AssetLocation,
+} from "./types/AssetTypes.js";
+
+// ─── Stores (zero-dependency) — Assets ──────────────────────────────
+export { InMemoryAssetStore } from "./stores/InMemoryAssetStore.js";
 
 // ─── Store Interfaces ───────────────────────────────────────────────
 export type {

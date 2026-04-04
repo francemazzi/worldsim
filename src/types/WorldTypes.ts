@@ -3,6 +3,7 @@ import type { GraphStore } from "./GraphTypes.js";
 import type { VectorStore, EmbeddingAdapter } from "./VectorTypes.js";
 import type { PersistenceStore } from "./PersistenceTypes.js";
 import type { ConsolidationConfig } from "./ConsolidationTypes.js";
+import type { AssetStore } from "./AssetTypes.js";
 
 export interface WorldContext {
   worldId: string;
@@ -33,6 +34,7 @@ export interface WorldConfig {
   vectorStore?: VectorStore | undefined;
   embeddingAdapter?: EmbeddingAdapter | undefined;
   persistenceStore?: PersistenceStore | undefined;
+  assetStore?: AssetStore | undefined;
   consolidation?: Partial<ConsolidationConfig> | undefined;
   /**
    * LLM config for "light" tier agents (e.g. gpt-4o-mini).
