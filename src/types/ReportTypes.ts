@@ -37,6 +37,37 @@ export interface ActionDistribution {
   finish: number;
 }
 
+export interface AgentObservabilityMetrics {
+  tokenUsage: {
+    tickTokens: number;
+    hourTokens: number;
+    lifetimeTokens: number;
+    tickRequests: number;
+    hourRequests: number;
+    lifetimeRequests: number;
+  };
+  latency: {
+    avgMs: number;
+    lastMs: number;
+    maxMs: number;
+  };
+  cost: {
+    estimated: number;
+    currency: string;
+  };
+  storage?: {
+    memoryEntries: number;
+    stateSnapshots: number;
+    conversations: number;
+    consolidatedKnowledge: number;
+    estimatedBytes: number;
+  } | undefined;
+  graph?: {
+    relationships: number;
+    averageStrength: number;
+  } | undefined;
+}
+
 /** Per-agent report section. */
 export interface AgentReport {
   agentId: string;
@@ -48,6 +79,7 @@ export interface AgentReport {
   moodTrajectory: AgentTickSnapshot[];
   energyTrajectory: AgentTickSnapshot[];
   statusChanges: { tick: number; from: string; to: string; reason?: string }[];
+  observability?: AgentObservabilityMetrics | undefined;
 }
 
 /** Relationship state at a given tick. */
@@ -78,6 +110,9 @@ export interface SimulationMetrics {
   totalToolCalls: number;
   ruleViolations: number;
   statusChanges: number;
+  totalTokens: number;
+  avgLatencyMs: number;
+  estimatedCost: { amount: number; currency: string };
   averageMoodByTick: { tick: number; avgMood: string }[];
   averageEnergyByTick: { tick: number; avgEnergy: number }[];
 }
@@ -130,5 +165,8 @@ export interface ReportCompareResponse {
     totalSpeaksDelta: number;
     averageEnergyDelta: number;
     ruleViolationsDelta: number;
+    totalTokensDelta: number;
+    avgLatencyDelta: number;
+    estimatedCostDelta: number;
   };
 }

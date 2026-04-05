@@ -15,6 +15,8 @@ export { MovementPlugin } from "./plugins/built-in/MovementPlugin.js";
 export type { MovementPluginOptions, MovementRecord } from "./types/MovementTypes.js";
 export { ChatPlugin } from "./plugins/built-in/ChatPlugin.js";
 export type { ChatPluginOptions } from "./plugins/built-in/ChatPlugin.js";
+export { privacyCompliancePlugin } from "./plugins/built-in/PrivacyCompliancePlugin.js";
+export type { PrivacyCompliancePluginOptions } from "./plugins/built-in/PrivacyCompliancePlugin.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
 
 // ─── Core Types ─────────────────────────────────────────────────────
@@ -25,6 +27,17 @@ export type {
   WorldEvent,
   LLMConfig,
 } from "./types/WorldTypes.js";
+export type {
+  PrivacyConsentMode,
+  PrivacyDataCategory,
+  PrivacyRedactionLevel,
+  PrivacyConsentStatus,
+  PrivacyCategoryRule,
+  WorldPrivacyConfig,
+  TokenPriceConfig,
+  CostLatencyAlertConfig,
+  ObservabilityConfig,
+} from "./types/PrivacyTypes.js";
 export type {
   AgentConfig,
   AgentAction,
@@ -129,6 +142,9 @@ export type {
   StateSnapshot,
   ConversationRecord,
   ConsolidatedKnowledge,
+  PrivacyConsentRecord,
+  PrivacyPolicyAuditRecord,
+  AgentStorageUsage,
 } from "./types/PersistenceTypes.js";
 
 // ─── Advanced: LLM ─────────────────────────────────────────────────

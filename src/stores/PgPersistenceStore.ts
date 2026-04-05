@@ -7,9 +7,13 @@ import type {
   StateSnapshot,
   ConversationRecord,
   ConsolidatedKnowledge,
+  PrivacyConsentRecord,
+  PrivacyPolicyAuditRecord,
+  AgentStorageUsage,
 } from "../types/PersistenceTypes.js";
 import type { MemoryEntry } from "../types/MemoryTypes.js";
 import type { AgentInternalState } from "../types/AgentTypes.js";
+import type { PrivacyConsentStatus, PrivacyDataCategory } from "../types/PrivacyTypes.js";
 import * as schema from "./schema/tables.js";
 
 export class PgPersistenceStore implements PersistenceStore {
@@ -359,6 +363,261 @@ export class PgPersistenceStore implements PersistenceStore {
       .where(inArray(schema.consolidatedKnowledge.id, ids));
   }
 
+  // --- Privacy consent & policy audit ---
+
+  async upsertConsent(record: PrivacyConsentRecord): Promise<void> {
+    await this.db
+      .insert(schema.privacyConsents)
+      .values({
+        id: record.id,
+        worldId: record.worldId,
+        subjectId: record.subjectId,
+        category: record.category,
+        regulatoryProfile: record.regulatoryProfile,
+        policyVersion: record.policyVersion,
+        status: record.status,
+        source: record.source ?? null,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      })
+      .onConflictDoUpdate({
+        target: [schema.privacyConsents.id],
+        set: {
+          worldId: record.worldId,
+          subjectId: record.subjectId,
+          category: record.category,
+          regulatoryProfile: record.regulatoryProfile,
+          policyVersion: record.policyVersion,
+          status: record.status,
+          source: record.source ?? null,
+          updatedAt: record.updatedAt,
+        },
+      });
+  }
+
+  async getConsent(
+    worldId: string,
+    subjectId: string,
+    category: PrivacyDataCategory,
+  ): Promise<PrivacyConsentRecord | null> {
+    const rows = await this.db
+      .select()
+      .from(schema.privacyConsents)
+      .where(
+        and(
+          eq(schema.privacyConsents.worldId, worldId),
+          eq(schema.privacyConsents.subjectId, subjectId),
+          eq(schema.privacyConsents.category, category),
+        ),
+      )
+      .orderBy(desc(schema.privacyConsents.updatedAt))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      worldId: row.worldId,
+      subjectId: row.subjectId,
+      category: row.category as PrivacyDataCategory,
+      regulatoryProfile: row.regulatoryProfile,
+      policyVersion: row.policyVersion,
+      status: row.status as PrivacyConsentStatus,
+      source: row.source ?? undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  async listConsents(
+    worldId: string,
+    opts?: {
+      subjectId?: string;
+      category?: PrivacyDataCategory;
+      status?: PrivacyConsentStatus;
+      limit?: number;
+    },
+  ): Promise<PrivacyConsentRecord[]> {
+    const conditions = [eq(schema.privacyConsents.worldId, worldId)];
+    if (opts?.subjectId) {
+      conditions.push(eq(schema.privacyConsents.subjectId, opts.subjectId));
+    }
+    if (opts?.category) {
+      conditions.push(eq(schema.privacyConsents.category, opts.category));
+    }
+    if (opts?.status) {
+      conditions.push(eq(schema.privacyConsents.status, opts.status));
+    }
+
+    const base = this.db
+      .select()
+      .from(schema.privacyConsents)
+      .where(and(...conditions))
+      .orderBy(desc(schema.privacyConsents.updatedAt));
+    const rows = opts?.limit != null ? await base.limit(opts.limit) : await base;
+    return rows.map((row) => ({
+      id: row.id,
+      worldId: row.worldId,
+      subjectId: row.subjectId,
+      category: row.category as PrivacyDataCategory,
+      regulatoryProfile: row.regulatoryProfile,
+      policyVersion: row.policyVersion,
+      status: row.status as PrivacyConsentStatus,
+      source: row.source ?? undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
+  }
+
+  async savePolicyAudit(record: PrivacyPolicyAuditRecord): Promise<void> {
+    await this.db.insert(schema.privacyPolicyAudits).values({
+      id: record.id,
+      worldId: record.worldId,
+      agentId: record.agentId,
+      category: record.category,
+      decision: record.decision,
+      reasonCode: record.reasonCode,
+      tick: record.tick,
+      policyVersion: record.policyVersion ?? null,
+      details: record.details ?? null,
+      timestamp: record.timestamp,
+    });
+  }
+
+  async listPolicyAudits(
+    worldId: string,
+    opts?: {
+      agentId?: string;
+      category?: PrivacyDataCategory;
+      decision?: "allow" | "reduce" | "deny";
+      limit?: number;
+    },
+  ): Promise<PrivacyPolicyAuditRecord[]> {
+    const conditions = [eq(schema.privacyPolicyAudits.worldId, worldId)];
+    if (opts?.agentId) {
+      conditions.push(eq(schema.privacyPolicyAudits.agentId, opts.agentId));
+    }
+    if (opts?.category) {
+      conditions.push(eq(schema.privacyPolicyAudits.category, opts.category));
+    }
+    if (opts?.decision) {
+      conditions.push(eq(schema.privacyPolicyAudits.decision, opts.decision));
+    }
+    const base = this.db
+      .select()
+      .from(schema.privacyPolicyAudits)
+      .where(and(...conditions))
+      .orderBy(desc(schema.privacyPolicyAudits.timestamp));
+    const rows = opts?.limit != null ? await base.limit(opts.limit) : await base;
+    return rows.map((row) => ({
+      id: row.id,
+      worldId: row.worldId,
+      agentId: row.agentId,
+      category: row.category as PrivacyDataCategory,
+      decision: row.decision as "allow" | "reduce" | "deny",
+      reasonCode: row.reasonCode,
+      tick: row.tick,
+      policyVersion: row.policyVersion ?? undefined,
+      details: (row.details as Record<string, unknown>) ?? undefined,
+      timestamp: row.timestamp,
+    }));
+  }
+
+  async estimateAgentStorageUsage(
+    agentId: string,
+    worldId: string,
+  ): Promise<AgentStorageUsage> {
+    const [memoryCount, snapshotCount, conversationCount, knowledgeCount, bytesResult] = await Promise.all([
+      this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.memoryEntries)
+        .where(and(eq(schema.memoryEntries.agentId, agentId), eq(schema.memoryEntries.worldId, worldId))),
+      this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.stateSnapshots)
+        .where(and(eq(schema.stateSnapshots.agentId, agentId), eq(schema.stateSnapshots.worldId, worldId))),
+      this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.conversations)
+        .where(and(
+          eq(schema.conversations.worldId, worldId),
+          sql`(${schema.conversations.fromAgentId} = ${agentId} OR ${schema.conversations.toAgentId} = ${agentId})`,
+        )),
+      this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.consolidatedKnowledge)
+        .where(and(eq(schema.consolidatedKnowledge.agentId, agentId), eq(schema.consolidatedKnowledge.worldId, worldId))),
+      this.pool.query(
+        `
+          select (
+            coalesce((select sum(length(content)) from memory_entries where agent_id = $1 and world_id = $2), 0) +
+            coalesce((select sum(length(content)) from conversations where world_id = $2 and (from_agent_id = $1 or to_agent_id = $1)), 0) +
+            coalesce((select sum(length(summary)) from consolidated_knowledge where agent_id = $1 and world_id = $2), 0)
+          )::int as approx
+        `,
+        [agentId, worldId],
+      ),
+    ]);
+
+    return {
+      worldId,
+      agentId,
+      memoryEntries: memoryCount[0]?.count ?? 0,
+      stateSnapshots: snapshotCount[0]?.count ?? 0,
+      conversations: conversationCount[0]?.count ?? 0,
+      consolidatedKnowledge: knowledgeCount[0]?.count ?? 0,
+      estimatedBytes: Number((bytesResult.rows[0] as { approx?: number } | undefined)?.approx ?? 0),
+    };
+  }
+
+  async deleteAgentData(
+    agentId: string,
+    worldId: string,
+  ): Promise<{
+    memoryEntries: number;
+    stateSnapshots: number;
+    conversations: number;
+    consolidatedKnowledge: number;
+    policyAudits: number;
+    consents: number;
+  }> {
+    const memoryEntries = await this.db
+      .delete(schema.memoryEntries)
+      .where(and(eq(schema.memoryEntries.agentId, agentId), eq(schema.memoryEntries.worldId, worldId)))
+      .returning({ id: schema.memoryEntries.id });
+    const stateSnapshots = await this.db
+      .delete(schema.stateSnapshots)
+      .where(and(eq(schema.stateSnapshots.agentId, agentId), eq(schema.stateSnapshots.worldId, worldId)))
+      .returning({ id: schema.stateSnapshots.id });
+    const conversations = await this.db
+      .delete(schema.conversations)
+      .where(and(
+        eq(schema.conversations.worldId, worldId),
+        sql`(${schema.conversations.fromAgentId} = ${agentId} OR ${schema.conversations.toAgentId} = ${agentId})`,
+      ))
+      .returning({ id: schema.conversations.id });
+    const consolidatedKnowledge = await this.db
+      .delete(schema.consolidatedKnowledge)
+      .where(and(eq(schema.consolidatedKnowledge.agentId, agentId), eq(schema.consolidatedKnowledge.worldId, worldId)))
+      .returning({ id: schema.consolidatedKnowledge.id });
+    const policyAudits = await this.db
+      .delete(schema.privacyPolicyAudits)
+      .where(and(eq(schema.privacyPolicyAudits.agentId, agentId), eq(schema.privacyPolicyAudits.worldId, worldId)))
+      .returning({ id: schema.privacyPolicyAudits.id });
+    const consents = await this.db
+      .delete(schema.privacyConsents)
+      .where(and(eq(schema.privacyConsents.subjectId, agentId), eq(schema.privacyConsents.worldId, worldId)))
+      .returning({ id: schema.privacyConsents.id });
+
+    return {
+      memoryEntries: memoryEntries.length,
+      stateSnapshots: stateSnapshots.length,
+      conversations: conversations.length,
+      consolidatedKnowledge: consolidatedKnowledge.length,
+      policyAudits: policyAudits.length,
+      consents: consents.length,
+    };
+  }
+
   // --- Lifecycle ---
 
   async createTables(): Promise<void> {
@@ -440,11 +699,47 @@ export class PgPersistenceStore implements PersistenceStore {
       );
       CREATE INDEX IF NOT EXISTS idx_relationships_world
         ON relationships (world_id, from_agent, to_agent);
+
+      CREATE TABLE IF NOT EXISTS privacy_consents (
+        id TEXT PRIMARY KEY,
+        world_id TEXT NOT NULL,
+        subject_id TEXT NOT NULL,
+        category TEXT NOT NULL,
+        regulatory_profile TEXT NOT NULL,
+        policy_version TEXT NOT NULL,
+        status TEXT NOT NULL,
+        source TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_privacy_consents_world_subject
+        ON privacy_consents (world_id, subject_id);
+      CREATE INDEX IF NOT EXISTS idx_privacy_consents_lookup
+        ON privacy_consents (world_id, subject_id, category, status);
+
+      CREATE TABLE IF NOT EXISTS privacy_policy_audits (
+        id TEXT PRIMARY KEY,
+        world_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        category TEXT NOT NULL,
+        decision TEXT NOT NULL,
+        reason_code TEXT NOT NULL,
+        tick INTEGER NOT NULL,
+        policy_version TEXT,
+        details JSONB,
+        timestamp TIMESTAMPTZ NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_privacy_audits_world_tick
+        ON privacy_policy_audits (world_id, tick);
+      CREATE INDEX IF NOT EXISTS idx_privacy_audits_agent
+        ON privacy_policy_audits (world_id, agent_id, timestamp DESC);
     `);
   }
 
   async dropTables(): Promise<void> {
     await this.pool.query(`
+      DROP TABLE IF EXISTS privacy_policy_audits CASCADE;
+      DROP TABLE IF EXISTS privacy_consents CASCADE;
       DROP TABLE IF EXISTS relationships CASCADE;
       DROP TABLE IF EXISTS consolidated_knowledge CASCADE;
       DROP TABLE IF EXISTS conversations CASCADE;

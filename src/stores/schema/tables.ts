@@ -131,3 +131,48 @@ export const relationships = pgTable(
     index("idx_relationships_world").on(table.worldId, table.fromAgent, table.toAgent),
   ],
 );
+
+export const privacyConsents = pgTable(
+  "privacy_consents",
+  {
+    id: text("id").primaryKey(),
+    worldId: text("world_id").notNull(),
+    subjectId: text("subject_id").notNull(),
+    category: text("category").notNull(),
+    regulatoryProfile: text("regulatory_profile").notNull(),
+    policyVersion: text("policy_version").notNull(),
+    status: text("status").notNull(),
+    source: text("source"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_privacy_consents_world_subject").on(table.worldId, table.subjectId),
+    index("idx_privacy_consents_lookup").on(
+      table.worldId,
+      table.subjectId,
+      table.category,
+      table.status,
+    ),
+  ],
+);
+
+export const privacyPolicyAudits = pgTable(
+  "privacy_policy_audits",
+  {
+    id: text("id").primaryKey(),
+    worldId: text("world_id").notNull(),
+    agentId: text("agent_id").notNull(),
+    category: text("category").notNull(),
+    decision: text("decision").notNull(),
+    reasonCode: text("reason_code").notNull(),
+    tick: integer("tick").notNull(),
+    policyVersion: text("policy_version"),
+    details: jsonb("details"),
+    timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("idx_privacy_audits_world_tick").on(table.worldId, table.tick),
+    index("idx_privacy_audits_agent").on(table.worldId, table.agentId, table.timestamp),
+  ],
+);

@@ -115,6 +115,22 @@ export class TickOrchestrator {
       }
     }
 
+    const transformedActions: AgentAction[] = [];
+    for (const action of allActions) {
+      const transformed = await this.runtime.pluginRegistry.runHookWithTransform(
+        "onAgentAction",
+        action,
+        {
+          agentId: action.agentId,
+          status: "running",
+          currentMessages: [],
+          loopCount: 0,
+          ephemeralMemory: { worldId: this.runtime.context.worldId },
+        },
+      ) as AgentAction;
+      transformedActions.push(transformed);
+    }
+
     // Batch decay/prune relationships for all active agents (single pass)
     if (this.runtime.config.graphStore) {
       const agentIds = activePersonAgents.map((a) => a.id);
@@ -127,11 +143,11 @@ export class TickOrchestrator {
 
     this.controlEventApplier.apply(tick);
 
-    if (this.runtime.controlAgents.length > 0 && allActions.length > 0) {
+    if (this.runtime.controlAgents.length > 0 && transformedActions.length > 0) {
       for (const ca of this.runtime.controlAgents) {
         if (!ca.isActive) continue;
         const evaluations = await ca.evaluateActions(
-          allActions,
+          transformedActions,
           this.runtime.context,
           this.runtime.rulesContext!,
           this.runtime.config.controlSamplingRate,
@@ -152,23 +168,25 @@ export class TickOrchestrator {
         }
       }
     } else {
-      for (const action of allActions) {
+      for (const action of transformedActions) {
         this.logEvent("action:executed", action.agentId, {
           actionType: action.actionType,
+          payload: action.payload,
         });
       }
     }
 
     await this.runtime.pluginRegistry.runActionHooks(
-      allActions,
+      transformedActions,
       this.runtime.context,
       (action) => ({
         agentId: action.agentId,
         status: "running",
         currentMessages: [],
         loopCount: 0,
-        ephemeralMemory: {},
+        ephemeralMemory: { worldId: this.runtime.context.worldId },
       }),
+      { skipPerAction: true },
     );
 
     for (const ca of this.runtime.controlAgents) {

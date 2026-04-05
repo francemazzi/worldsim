@@ -174,6 +174,9 @@ export class MultiWorldRegistry {
         totalSpeaksDelta: a.metrics.totalSpeaks - b.metrics.totalSpeaks,
         averageEnergyDelta: round(avgEnergyA - avgEnergyB),
         ruleViolationsDelta: a.metrics.ruleViolations - b.metrics.ruleViolations,
+        totalTokensDelta: a.metrics.totalTokens - b.metrics.totalTokens,
+        avgLatencyDelta: round(a.metrics.avgLatencyMs - b.metrics.avgLatencyMs),
+        estimatedCostDelta: round(a.metrics.estimatedCost.amount - b.metrics.estimatedCost.amount),
       },
     };
   }

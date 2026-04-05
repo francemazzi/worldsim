@@ -25,6 +25,7 @@ describe("TrackingLLMAdapter", () => {
     expect(usage).toBeDefined();
     expect(usage!.tickTokens).toBe(30);
     expect(usage!.lifetimeTokens).toBe(30);
+    expect(usage!.lifetimeRequests).toBe(1);
   });
 
   it("records token usage from chatWithTools()", async () => {
@@ -40,6 +41,7 @@ describe("TrackingLLMAdapter", () => {
     const usage = tracker.getUsage("agent-2");
     expect(usage).toBeDefined();
     expect(usage!.tickTokens).toBe(150);
+    expect(usage!.lifetimeRequests).toBe(1);
   });
 
   it("accumulates usage across multiple calls", async () => {
@@ -56,16 +58,20 @@ describe("TrackingLLMAdapter", () => {
     const usage = tracker.getUsage("agent-3");
     expect(usage!.tickTokens).toBe(20);
     expect(usage!.lifetimeTokens).toBe(20);
+    expect(usage!.lifetimeRequests).toBe(2);
   });
 
-  it("does not record when usage is undefined", async () => {
+  it("records latency even when usage is undefined", async () => {
     const tracker = new TokenBudgetTracker();
     const inner = makeMockLLM({ content: "no usage" });
     const adapter = new TrackingLLMAdapter(inner, "agent-4", tracker);
 
     await adapter.chat([{ role: "user", content: "hi" }]);
 
-    expect(tracker.getUsage("agent-4")).toBeUndefined();
+    const usage = tracker.getUsage("agent-4");
+    expect(usage).toBeDefined();
+    expect(usage!.tickTokens).toBe(0);
+    expect(usage!.lifetimeRequests).toBe(1);
   });
 
   it("delegates to inner adapter", async () => {

@@ -27,6 +27,7 @@
     selectedCompareRuns: [],
     topics: null,
     topicsLoading: false,
+    tuningAgents: [],
     // Filters
     eventTypeFilter: "",
     eventAgentFilter: "",
@@ -162,6 +163,16 @@
     render();
   }
 
+  async function loadTuning() {
+    try {
+      const data = await api(withWorld("/tuning/agents"));
+      state.tuningAgents = data.agents || [];
+    } catch {
+      state.tuningAgents = [];
+    }
+    render();
+  }
+
   // ── Navigation ─────────────────────────────────────────────────────
   function navigate(page, detail) {
     state.page = page;
@@ -175,6 +186,7 @@
     if (page === "worlds") loadWorlds();
     if (page === "scenarios") loadScenarios();
     if (page === "agentDetail") loadAgentDetail(detail);
+    if (page === "dashboard") loadTuning();
   }
 
   // ── Graph loading ──────────────────────────────────────────────────
@@ -322,9 +334,11 @@
   let agentMemories = null;
   let agentRelationships = null;
   let agentSnapshots = null;
+  let agentObservability = null;
 
   async function loadAgentDetail(id) {
     agentDetail = await api(withWorld("/agents/" + id));
+    agentObservability = await api(withWorld("/agents/" + id + "/observability")).catch(() => null);
 
     if (state.capabilities?.stores?.memory?.connected) {
       const memData = await api(withWorld("/agents/" + id + "/memories?limit=50"));
@@ -449,6 +463,7 @@
     const tick = w?.tick ?? 0;
     const status = w?.status ?? "unknown";
     const eventCount = w?.eventCount ?? state.events.length;
+    const tuningOutliers = (state.tuningAgents || []).filter((a) => (a.warnings || []).length > 0);
 
     return `
       <div class="section-title">Dashboard</div>
@@ -490,6 +505,23 @@
           <span class="card-title">Connected Stores</span>
         </div>
         ${renderStoresSummary()}
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Cost & Latency Tuning</span>
+          <span class="badge">${tuningOutliers.length} outliers</span>
+        </div>
+        <div class="event-list">
+          ${tuningOutliers.slice(0, 8).map((t) => `
+            <div class="event-row">
+              <span class="event-type">${esc(t.agentId)}</span>
+              <span class="event-agent">${(t.warnings || []).join(", ") || "ok"}</span>
+              <span class="event-payload">avgLatency=${Number(t.avgLatencyMs || 0).toFixed(1)}ms · tokens=${t.usage?.lifetimeTokens ?? 0}</span>
+            </div>
+          `).join("")}
+          ${tuningOutliers.length === 0 ? '<div class="empty-state"><div class="empty-state-text">No outliers detected with current thresholds.</div></div>' : ""}
+        </div>
       </div>
     `;
   }
@@ -572,6 +604,22 @@
           <div><span class="agent-state-label">Goals:</span> ${(a.state?.goals || []).map((g) => esc(g)).join(", ") || "—"}</div>
         </div>
       </div>
+
+      ${agentObservability ? `
+        <div class="card">
+          <div class="card-title">Observability</div>
+          <div style="margin-top:8px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div><span class="agent-state-label">Tick tokens:</span> ${agentObservability.tokenUsage?.tickTokens ?? 0}</div>
+            <div><span class="agent-state-label">Hour tokens:</span> ${agentObservability.tokenUsage?.hourTokens ?? 0}</div>
+            <div><span class="agent-state-label">Lifetime tokens:</span> ${agentObservability.tokenUsage?.lifetimeTokens ?? 0}</div>
+            <div><span class="agent-state-label">Requests:</span> ${agentObservability.tokenUsage?.lifetimeRequests ?? 0}</div>
+            <div><span class="agent-state-label">Avg latency:</span> ${Number(agentObservability.latency?.avgMs ?? 0).toFixed(1)}ms</div>
+            <div><span class="agent-state-label">Max latency:</span> ${Number(agentObservability.latency?.maxMs ?? 0).toFixed(1)}ms</div>
+            ${agentObservability.storage ? `<div><span class="agent-state-label">Storage:</span> ${agentObservability.storage.estimatedBytes} bytes</div>` : ""}
+            ${agentObservability.graph ? `<div><span class="agent-state-label">Relationships:</span> ${agentObservability.graph.relationships} (avg ${agentObservability.graph.averageStrength})</div>` : ""}
+          </div>
+        </div>
+      ` : ""}
 
       ${agentMemories !== null ? `
         <div class="card">
@@ -736,6 +784,9 @@
               <div>Δ totalSpeaks: ${state.compare.metrics.totalSpeaksDelta}</div>
               <div>Δ averageEnergy: ${state.compare.metrics.averageEnergyDelta}</div>
               <div>Δ ruleViolations: ${state.compare.metrics.ruleViolationsDelta}</div>
+              <div>Δ totalTokens: ${state.compare.metrics.totalTokensDelta}</div>
+              <div>Δ avgLatencyMs: ${state.compare.metrics.avgLatencyDelta}</div>
+              <div>Δ estimatedCost: ${state.compare.metrics.estimatedCostDelta}</div>
             </div>
           ` : '<div class="empty-state"><div class="empty-state-text">Select two runs to compare.</div></div>'}
         </div>
@@ -943,6 +994,18 @@
           <div class="stat-value">${r.metrics.ruleViolations}</div>
           <div class="stat-label">Violations</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-value">${r.metrics.totalTokens}</div>
+          <div class="stat-label">Tokens</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${r.metrics.avgLatencyMs.toFixed(1)}ms</div>
+          <div class="stat-label">Avg Latency</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${r.metrics.estimatedCost.amount.toFixed(4)} ${esc(r.metrics.estimatedCost.currency)}</div>
+          <div class="stat-label">Estimated Cost</div>
+        </div>
       </div>
 
       <div class="card">
@@ -1036,6 +1099,9 @@
                   <div class="agent-state-item"><span class="agent-state-label">Speaks:</span> ${a.actions.speak}</div>
                   <div class="agent-state-item"><span class="agent-state-label">Observes:</span> ${a.actions.observe}</div>
                   <div class="agent-state-item"><span class="agent-state-label">Tools:</span> ${a.actions.tool_call}</div>
+                  <div class="agent-state-item"><span class="agent-state-label">Tokens:</span> ${a.observability?.tokenUsage?.lifetimeTokens ?? 0}</div>
+                  <div class="agent-state-item"><span class="agent-state-label">Latency:</span> ${Number(a.observability?.latency?.avgMs ?? 0).toFixed(1)}ms</div>
+                  <div class="agent-state-item"><span class="agent-state-label">Cost:</span> ${Number(a.observability?.cost?.estimated ?? 0).toFixed(4)} ${esc(a.observability?.cost?.currency ?? "USD")}</div>
                 </div>
               </div>
             `;
@@ -1589,9 +1655,11 @@
   loadWorlds();
   loadWorld();
   loadAgents();
+  loadTuning();
   setInterval(() => {
     if (state.page === "report") loadReport();
     if (state.page === "worlds") loadWorlds();
+    if (state.page === "dashboard") loadTuning();
   }, 5000);
   render();
 })();

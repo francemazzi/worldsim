@@ -4,6 +4,7 @@ import type { VectorStore, EmbeddingAdapter } from "./VectorTypes.js";
 import type { PersistenceStore } from "./PersistenceTypes.js";
 import type { ConsolidationConfig } from "./ConsolidationTypes.js";
 import type { AssetStore } from "./AssetTypes.js";
+import type { WorldPrivacyConfig, ObservabilityConfig } from "./PrivacyTypes.js";
 
 export interface WorldContext {
   worldId: string;
@@ -68,6 +69,10 @@ export interface WorldConfig {
   enableResponseCache?: boolean | undefined;
   /** TTL in ticks for cached LLM responses. Default: 5. */
   responseCacheTtl?: number | undefined;
+  /** Privacy/compliance controls (per-world, integrator-defined profile). */
+  privacy?: WorldPrivacyConfig | undefined;
+  /** Cost/latency observability configuration (pricing, alert thresholds). */
+  observability?: ObservabilityConfig | undefined;
 }
 
 export interface LLMConfig {

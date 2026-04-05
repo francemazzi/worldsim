@@ -144,7 +144,12 @@ export class StudioServer {
       detectCapabilities(this.stores, this.worldRegistry.listRuns().length > 0 || !!this.engine);
 
     registerStoresApi(this.router, getCapabilities);
-    registerAgentsApi(this.router, getEngine);
+    registerAgentsApi(
+      this.router,
+      getEngine,
+      () => this.stores.persistenceStore,
+      () => this.stores.graphStore,
+    );
     registerEventsApi(this.router, getEngine);
     registerMemoryApi(this.router, () => this.stores.memoryStore);
     registerGraphApi(this.router, () => this.stores.graphStore, getEngine);

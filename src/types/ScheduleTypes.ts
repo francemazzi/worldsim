@@ -30,6 +30,12 @@ export interface TokenUsage {
   tickTokens: number;
   hourTokens: number;
   lifetimeTokens: number;
+  tickRequests: number;
+  hourRequests: number;
+  lifetimeRequests: number;
+  totalLatencyMs: number;
+  lastLatencyMs: number;
+  maxLatencyMs: number;
   lastResetTick: number;
   lastHourResetTick: number;
 }

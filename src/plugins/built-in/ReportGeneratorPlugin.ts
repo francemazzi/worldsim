@@ -12,6 +12,7 @@ import type {
   RelationshipEvolution,
   SimulationMetrics,
 } from "../../types/ReportTypes.js";
+import type { TokenPriceConfig } from "../../types/PrivacyTypes.js";
 
 export interface ReportGeneratorOptions {
   engine: WorldEngine;
@@ -100,7 +101,27 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
 
     // Build agent reports
     const agentReports: AgentReport[] = [];
+    const pricing: TokenPriceConfig | undefined = options.engine.getConfig().observability?.pricing;
+    let aggregateLatencyMs = 0;
+    let aggregateRequests = 0;
+    let aggregateCost = 0;
+    let aggregateTokens = 0;
     for (const c of collectors.values()) {
+      const usage = options.engine.getTokenUsage(c.agentId);
+      const inputTokens = usage?.lifetimeTokens ?? 0;
+      const outputTokens = 0;
+      const estimatedCost = estimateCost(
+        inputTokens,
+        outputTokens,
+        pricing,
+      );
+      const avgLatencyMs = usage && usage.lifetimeRequests > 0
+        ? Math.round((usage.totalLatencyMs / usage.lifetimeRequests) * 10) / 10
+        : 0;
+      aggregateLatencyMs += usage?.totalLatencyMs ?? 0;
+      aggregateRequests += usage?.lifetimeRequests ?? 0;
+      aggregateCost += estimatedCost;
+      aggregateTokens += usage?.lifetimeTokens ?? 0;
       agentReports.push({
         agentId: c.agentId,
         name: c.name,
@@ -111,6 +132,25 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
         moodTrajectory: [...c.moodTrajectory],
         energyTrajectory: [...c.energyTrajectory],
         statusChanges: [...c.statusChanges],
+        observability: {
+          tokenUsage: {
+            tickTokens: usage?.tickTokens ?? 0,
+            hourTokens: usage?.hourTokens ?? 0,
+            lifetimeTokens: usage?.lifetimeTokens ?? 0,
+            tickRequests: usage?.tickRequests ?? 0,
+            hourRequests: usage?.hourRequests ?? 0,
+            lifetimeRequests: usage?.lifetimeRequests ?? 0,
+          },
+          latency: {
+            avgMs: avgLatencyMs,
+            lastMs: usage?.lastLatencyMs ?? 0,
+            maxMs: usage?.maxLatencyMs ?? 0,
+          },
+          cost: {
+            estimated: Math.round(estimatedCost * 10000) / 10000,
+            currency: pricing?.currency ?? "USD",
+          },
+        },
       });
     }
 
@@ -160,6 +200,14 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       totalToolCalls,
       ruleViolations,
       statusChanges,
+      totalTokens: aggregateTokens,
+      avgLatencyMs: aggregateRequests > 0
+        ? Math.round((aggregateLatencyMs / aggregateRequests) * 10) / 10
+        : 0,
+      estimatedCost: {
+        amount: Math.round(aggregateCost * 10000) / 10000,
+        currency: pricing?.currency ?? "USD",
+      },
       averageMoodByTick,
       averageEnergyByTick,
     };
@@ -269,4 +317,15 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       return buildReport(ctx, events);
     },
   };
+}
+
+function estimateCost(
+  inputTokens: number,
+  outputTokens: number,
+  pricing?: TokenPriceConfig,
+): number {
+  if (!pricing) return 0;
+  const inputCost = ((pricing.inputPer1k ?? 0) * inputTokens) / 1000;
+  const outputCost = ((pricing.outputPer1k ?? 0) * outputTokens) / 1000;
+  return inputCost + outputCost;
 }

@@ -14,8 +14,9 @@ export class TrackingLLMAdapter implements LLMAdapter {
   ) {}
 
   async chat(messages: AgentMessage[], options?: ChatOptions): Promise<LLMResponse> {
+    const startedAt = Date.now();
     const response = await this.inner.chat(messages, options);
-    this.recordUsage(response);
+    this.recordUsage(response, Date.now() - startedAt);
     return response;
   }
 
@@ -24,14 +25,17 @@ export class TrackingLLMAdapter implements LLMAdapter {
     tools: AgentTool[],
     options?: ChatOptions,
   ): Promise<LLMResponse> {
+    const startedAt = Date.now();
     const response = await this.inner.chatWithTools(messages, tools, options);
-    this.recordUsage(response);
+    this.recordUsage(response, Date.now() - startedAt);
     return response;
   }
 
-  private recordUsage(response: LLMResponse): void {
-    if (response.usage) {
-      this.tracker.record(this.agentId, response.usage);
-    }
+  private recordUsage(response: LLMResponse, latencyMs: number): void {
+    this.tracker.record(
+      this.agentId,
+      response.usage ?? { inputTokens: 0, outputTokens: 0 },
+      latencyMs,
+    );
   }
 }

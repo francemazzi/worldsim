@@ -15,6 +15,7 @@ export class TokenBudgetTracker {
   record(
     agentId: string,
     tokens: { inputTokens: number; outputTokens: number },
+    latencyMs: number = 0,
   ): void {
     const total = tokens.inputTokens + tokens.outputTokens;
     const existing = this.usage.get(agentId);
@@ -24,6 +25,12 @@ export class TokenBudgetTracker {
         tickTokens: total,
         hourTokens: total,
         lifetimeTokens: total,
+        tickRequests: 1,
+        hourRequests: 1,
+        lifetimeRequests: 1,
+        totalLatencyMs: latencyMs,
+        lastLatencyMs: latencyMs,
+        maxLatencyMs: latencyMs,
         lastResetTick: 0,
         lastHourResetTick: 0,
       });
@@ -33,6 +40,12 @@ export class TokenBudgetTracker {
     existing.tickTokens += total;
     existing.hourTokens += total;
     existing.lifetimeTokens += total;
+    existing.tickRequests += 1;
+    existing.hourRequests += 1;
+    existing.lifetimeRequests += 1;
+    existing.totalLatencyMs += latencyMs;
+    existing.lastLatencyMs = latencyMs;
+    existing.maxLatencyMs = Math.max(existing.maxLatencyMs, latencyMs);
   }
 
   /**
@@ -72,6 +85,7 @@ export class TokenBudgetTracker {
     const usage = this.usage.get(agentId);
     if (usage) {
       usage.tickTokens = 0;
+      usage.tickRequests = 0;
       usage.lastResetTick = currentTick;
     }
   }
@@ -83,6 +97,7 @@ export class TokenBudgetTracker {
     const usage = this.usage.get(agentId);
     if (usage) {
       usage.hourTokens = 0;
+      usage.hourRequests = 0;
       usage.lastHourResetTick = currentTick;
     }
   }
@@ -93,10 +108,12 @@ export class TokenBudgetTracker {
   resetAllTicks(currentTick: number, hourPeriod: number = 60): void {
     for (const [agentId, usage] of this.usage) {
       usage.tickTokens = 0;
+      usage.tickRequests = 0;
       usage.lastResetTick = currentTick;
 
       if (currentTick - usage.lastHourResetTick >= hourPeriod) {
         usage.hourTokens = 0;
+        usage.hourRequests = 0;
         usage.lastHourResetTick = currentTick;
       }
     }

@@ -97,6 +97,7 @@ export class PluginRegistry {
     actions: AgentAction[],
     ctx: WorldContext,
     buildState: (action: AgentAction) => AgentState,
+    opts?: { skipPerAction?: boolean },
   ): Promise<void> {
     if (actions.length === 0) return;
 
@@ -135,7 +136,7 @@ export class PluginRegistry {
     }
 
     // Run per-action hooks for plugins without batch support
-    if (perActionPlugins.length > 0) {
+    if (!opts?.skipPerAction && perActionPlugins.length > 0) {
       for (const action of actions) {
         const state = buildState(action);
         for (const plugin of perActionPlugins) {

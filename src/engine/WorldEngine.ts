@@ -20,6 +20,7 @@ import { TokenBudgetTracker } from "../scheduling/TokenBudgetTracker.js";
 import { NeighborhoodManager } from "../graph/NeighborhoodManager.js";
 import { ConversationManager } from "../messaging/ConversationManager.js";
 import { LocationIndex } from "../location/LocationIndex.js";
+import { privacyCompliancePlugin } from "../plugins/built-in/PrivacyCompliancePlugin.js";
 import type { Conversation } from "../types/ConversationTypes.js";
 import type {
   WorldConfig,
@@ -32,6 +33,7 @@ import type { WorldSimPlugin } from "../types/PluginTypes.js";
 import type { RulesContext } from "../types/RulesTypes.js";
 import type { BaseAgent } from "../agents/BaseAgent.js";
 import type { ConsolidationResult } from "../types/ConsolidationTypes.js";
+import type { TokenUsage } from "../types/ScheduleTypes.js";
 
 export class WorldEngine {
   private runtime: WorldEngineRuntime;
@@ -80,6 +82,15 @@ export class WorldEngine {
       controlEventApplier,
       this.logEvent.bind(this),
     );
+
+    if (config.privacy) {
+      this.runtime.pluginRegistry.register(
+        privacyCompliancePlugin({
+          privacyConfig: config.privacy,
+          persistenceStore: config.persistenceStore,
+        }),
+      );
+    }
   }
 
   use(plugin: WorldSimPlugin): this {
@@ -230,6 +241,10 @@ export class WorldEngine {
     return this.runtime.context;
   }
 
+  getConfig(): Readonly<WorldConfig> {
+    return this.runtime.config;
+  }
+
   getEventLog(): Readonly<WorldEvent[]> {
     return this.runtime.eventLog.toArray();
   }
@@ -303,6 +318,19 @@ export class WorldEngine {
    */
   getConversationManager(): ConversationManager {
     return this.runtime.conversationManager;
+  }
+
+  getTokenUsage(agentId: string): TokenUsage | undefined {
+    return this.runtime.tokenBudgetTracker.getUsage(agentId);
+  }
+
+  getAllTokenUsage(): Record<string, TokenUsage> {
+    const usage: Record<string, TokenUsage> = {};
+    for (const agent of this.runtime.agentRegistry.list()) {
+      const tracked = this.runtime.tokenBudgetTracker.getUsage(agent.id);
+      if (tracked) usage[agent.id] = tracked;
+    }
+    return usage;
   }
 
   private logEvent(
