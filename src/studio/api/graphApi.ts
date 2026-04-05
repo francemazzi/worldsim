@@ -6,12 +6,12 @@ import type { WorldEngine } from "../../engine/WorldEngine.js";
 export function registerGraphApi(
   router: StudioRouter,
   getGraphStore: () => GraphStore | undefined,
-  getEngine: () => WorldEngine | null,
+  getEngine: (worldId?: string) => WorldEngine | null,
 ): void {
   // Full relationship graph (all agents)
-  router.get("/api/graph", async (_req, res) => {
+  router.get("/api/graph", async (_req, res, _params, query) => {
     const store = getGraphStore();
-    const engine = getEngine();
+    const engine = getEngine(query.worldId);
     if (!store) {
       json(res, { error: "GraphStore not connected" }, 503);
       return;

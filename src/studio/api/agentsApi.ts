@@ -4,10 +4,10 @@ import type { WorldEngine } from "../../engine/WorldEngine.js";
 
 export function registerAgentsApi(
   router: StudioRouter,
-  getEngine: () => WorldEngine | null,
+  getEngine: (worldId?: string) => WorldEngine | null,
 ): void {
-  router.get("/api/agents", async (_req, res) => {
-    const engine = getEngine();
+  router.get("/api/agents", async (_req, res, _params, query) => {
+    const engine = getEngine(query.worldId);
     if (!engine) {
       json(res, { error: "No engine connected" }, 503);
       return;
@@ -29,8 +29,8 @@ export function registerAgentsApi(
     json(res, { agents });
   });
 
-  router.get("/api/agents/:id", async (_req, res, params) => {
-    const engine = getEngine();
+  router.get("/api/agents/:id", async (_req, res, params, query) => {
+    const engine = getEngine(query.worldId);
     if (!engine) {
       json(res, { error: "No engine connected" }, 503);
       return;

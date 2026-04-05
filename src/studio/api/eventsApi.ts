@@ -4,10 +4,10 @@ import type { WorldEngine } from "../../engine/WorldEngine.js";
 
 export function registerEventsApi(
   router: StudioRouter,
-  getEngine: () => WorldEngine | null,
+  getEngine: (worldId?: string) => WorldEngine | null,
 ): void {
   router.get("/api/events", async (_req, res, _params, query) => {
-    const engine = getEngine();
+    const engine = getEngine(query.worldId);
     if (!engine) {
       json(res, { error: "No engine connected" }, 503);
       return;
@@ -35,8 +35,8 @@ export function registerEventsApi(
     json(res, { events: paged, total, limit, offset });
   });
 
-  router.get("/api/world", async (_req, res) => {
-    const engine = getEngine();
+  router.get("/api/world", async (_req, res, _params, query) => {
+    const engine = getEngine(query.worldId);
     if (!engine) {
       json(res, { error: "No engine connected" }, 503);
       return;

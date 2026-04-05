@@ -62,6 +62,12 @@ export interface ClientToServerEvents {
   /** Request current world snapshot. */
   "request:snapshot": () => void;
 
+  /** Subscribe to a specific world room. */
+  "subscribe:world": (worldId: string) => void;
+
+  /** Unsubscribe from a specific world room. */
+  "unsubscribe:world": (worldId: string) => void;
+
   /** Pause an agent. */
   "command:pause": (data: { agentId: string; reason?: string }) => void;
 
@@ -93,6 +99,7 @@ export interface ClientToServerEvents {
 // ─── Event payloads ──────────────────────────────────────────────────
 
 export interface TickEvent {
+  worldId?: string;
   tick: number;
   activeAgents: number;
   totalAgents: number;
@@ -100,6 +107,7 @@ export interface TickEvent {
 }
 
 export interface AgentActionEvent {
+  worldId?: string;
   agentId: string;
   agentName: string;
   action: AgentAction;
@@ -108,6 +116,7 @@ export interface AgentActionEvent {
 }
 
 export interface AgentStatusEvent {
+  worldId?: string;
   agentId: string;
   agentName: string;
   oldStatus: AgentStatus;
@@ -117,11 +126,13 @@ export interface AgentStatusEvent {
 }
 
 export interface MessageEvent {
+  worldId?: string;
   message: Message;
   timestamp: string;
 }
 
 export interface AgentStateEvent {
+  worldId?: string;
   agentId: string;
   agentName: string;
   state: AgentInternalState;
@@ -148,6 +159,7 @@ export interface WorldSnapshot {
 }
 
 export interface AgentMovedEvent {
+  worldId?: string;
   agentId: string;
   agentName: string;
   from: GeoLocation | null;

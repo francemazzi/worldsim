@@ -20,6 +20,13 @@
     // Scenario data
     scenarios: null,
     scenarioStarting: false,
+    worlds: [],
+    selectedWorldId: "",
+    worldRuns: [],
+    compare: null,
+    selectedCompareRuns: [],
+    topics: null,
+    topicsLoading: false,
     // Filters
     eventTypeFilter: "",
     eventAgentFilter: "",
@@ -39,6 +46,8 @@
   });
 
   socket.on("world:snapshot", (data) => {
+    if (state.selectedWorldId && data.worldId !== state.selectedWorldId) return;
+    if (!state.selectedWorldId) state.selectedWorldId = data.worldId;
     state.world = {
       worldId: data.worldId,
       status: data.status,
@@ -50,6 +59,7 @@
   });
 
   socket.on("world:tick", (data) => {
+    if (state.selectedWorldId && data.worldId && data.worldId !== state.selectedWorldId) return;
     if (state.world) {
       state.world.tick = data.tick;
       state.world.activeAgents = data.activeAgents;
@@ -59,10 +69,12 @@
 
   socket.on("world:status", (data) => {
     if (state.world) state.world.status = data.status;
+    loadWorlds();
     render();
   });
 
   socket.on("agent:action", (data) => {
+    if (state.selectedWorldId && data.worldId && data.worldId !== state.selectedWorldId) return;
     state.events.unshift({
       type: "agent:action:" + data.action.actionType,
       tick: data.tick,
@@ -76,6 +88,7 @@
   });
 
   socket.on("agent:status", (data) => {
+    if (state.selectedWorldId && data.worldId && data.worldId !== state.selectedWorldId) return;
     // Update agent status in local state
     const agent = state.agents.find((a) => a.id === data.agentId);
     if (agent) agent.status = data.newStatus;
@@ -98,8 +111,30 @@
     return res.json();
   }
 
+  function withWorld(path) {
+    if (!state.selectedWorldId) return path;
+    const hasQuery = path.includes("?");
+    return `${path}${hasQuery ? "&" : "?"}worldId=${encodeURIComponent(state.selectedWorldId)}`;
+  }
+
   async function loadCapabilities() {
     state.capabilities = await api("/stores");
+    render();
+  }
+
+  async function loadWorlds() {
+    try {
+      const data = await api("/worlds");
+      state.worlds = data.worlds || [];
+      state.worldRuns = data.runs || [];
+      if (!state.selectedWorldId && state.worlds.length > 0) {
+        const running = state.worlds.find((w) => w.status === "running");
+        state.selectedWorldId = running?.worldId || state.worlds[0].worldId || "";
+      }
+    } catch {
+      state.worlds = [];
+      state.worldRuns = [];
+    }
     render();
   }
 
@@ -107,13 +142,14 @@
     const params = new URLSearchParams({ limit: "200" });
     if (state.eventTypeFilter) params.set("type", state.eventTypeFilter);
     if (state.eventAgentFilter) params.set("agent", state.eventAgentFilter);
+    if (state.selectedWorldId) params.set("worldId", state.selectedWorldId);
     const data = await api("/events?" + params);
     state.events = data.events || [];
     render();
   }
 
   async function loadWorld() {
-    const data = await api("/world");
+    const data = await api(withWorld("/world"));
     if (!data.error) {
       state.world = data;
     }
@@ -121,7 +157,7 @@
   }
 
   async function loadAgents() {
-    const data = await api("/agents");
+    const data = await api(withWorld("/agents"));
     if (data.agents) state.agents = data.agents;
     render();
   }
@@ -136,6 +172,7 @@
     if (page === "events") loadEvents();
     if (page === "graph") loadGraph();
     if (page === "report") loadReport();
+    if (page === "worlds") loadWorlds();
     if (page === "scenarios") loadScenarios();
     if (page === "agentDetail") loadAgentDetail(detail);
   }
@@ -143,7 +180,7 @@
   // ── Graph loading ──────────────────────────────────────────────────
   async function loadGraph() {
     if (!state.capabilities?.stores?.graph?.connected) return;
-    const data = await api("/graph");
+    const data = await api(withWorld("/graph"));
     state.graph = data;
     render();
     renderGraph();
@@ -287,24 +324,24 @@
   let agentSnapshots = null;
 
   async function loadAgentDetail(id) {
-    agentDetail = await api("/agents/" + id);
+    agentDetail = await api(withWorld("/agents/" + id));
 
     if (state.capabilities?.stores?.memory?.connected) {
-      const memData = await api("/agents/" + id + "/memories?limit=50");
+      const memData = await api(withWorld("/agents/" + id + "/memories?limit=50"));
       agentMemories = memData.memories || [];
     } else {
       agentMemories = null;
     }
 
     if (state.capabilities?.stores?.graph?.connected) {
-      const relData = await api("/agents/" + id + "/relationships");
+      const relData = await api(withWorld("/agents/" + id + "/relationships"));
       agentRelationships = relData.relationships || [];
     } else {
       agentRelationships = null;
     }
 
     if (state.capabilities?.stores?.persistence?.connected) {
-      const snapData = await api("/agents/" + id + "/snapshots?limit=10");
+      const snapData = await api(withWorld("/agents/" + id + "/snapshots?limit=10"));
       agentSnapshots = snapData.snapshots || [];
     } else {
       agentSnapshots = null;
@@ -357,11 +394,18 @@
           ${navItem("graph", "Relationships", !hasGraph)}
           ${navItem("scenarios", "Scenarios")}
           ${navItem("report", "Report")}
+          ${navItem("worlds", "World Runs")}
           ${navItem("conversations", "Conversations", !hasPersistence)}
           ${navItem("search", "Semantic Search", !hasVector)}
           ${navItem("setup", "Store Setup")}
         </div>
         <div class="sidebar-status">
+          <div style="margin-bottom:8px">
+            <select id="world-selector" class="filter-select" style="width:100%">
+              <option value="">All worlds</option>
+              ${state.worlds.map((w) => `<option value="${esc(w.worldId)}" ${state.selectedWorldId === w.worldId ? "selected" : ""}>${esc(w.worldId)} (${w.status})</option>`).join("")}
+            </select>
+          </div>
           <div>WS: ${connStatus}</div>
           <div>World: <span class="status status-${worldStatus}">${worldStatus}</span></div>
           ${state.world ? `<div>Tick: ${state.world.tick ?? 0}</div>` : ""}
@@ -388,6 +432,7 @@
       case "graph": return renderGraphPage();
       case "scenarios": return renderScenariosPage();
       case "report": return renderReportPage();
+      case "worlds": return renderWorldRunsPage();
       case "conversations": return renderConversations();
       case "search": return renderSearch();
       case "setup": return renderSetup();
@@ -654,6 +699,50 @@
     `;
   }
 
+  function renderWorldRunsPage() {
+    const runs = state.worldRuns || [];
+    return `
+      <div class="section-title">World Runs</div>
+      <div class="section-subtitle">Storico run per mondo e confronto rapido tra due run</div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Runs</span>
+          <button class="btn btn-sm" id="worlds-refresh">Refresh</button>
+        </div>
+        <div class="event-list">
+          ${runs.map((r) => `
+            <div class="event-row">
+              <span class="event-type">${esc(r.worldId)}</span>
+              <span class="event-agent">${esc(r.runId.slice(0, 8))}</span>
+              <span class="event-payload">tick ${r.tick} · actions ${r.totalActions} · ${r.status}</span>
+              <button class="btn btn-sm" data-compare-run="${esc(r.runId)}">Select</button>
+            </div>
+          `).join("")}
+          ${runs.length === 0 ? '<div class="empty-state"><div class="empty-state-text">No run history available yet.</div></div>' : ""}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Compare Runs</span>
+          <button class="btn btn-sm" id="compare-clear">Clear</button>
+        </div>
+        <div id="compare-results">
+          ${state.compare ? `
+            <div style="font-family:var(--font-mono);font-size:13px;line-height:1.7">
+              <div>Runs: ${esc(state.compare.runIds.join(" vs "))}</div>
+              <div>Worlds: ${esc(state.compare.worlds.join(" vs "))}</div>
+              <div>Δ totalActions: ${state.compare.metrics.totalActionsDelta}</div>
+              <div>Δ totalToolCalls: ${state.compare.metrics.totalToolCallsDelta}</div>
+              <div>Δ totalSpeaks: ${state.compare.metrics.totalSpeaksDelta}</div>
+              <div>Δ averageEnergy: ${state.compare.metrics.averageEnergyDelta}</div>
+              <div>Δ ruleViolations: ${state.compare.metrics.ruleViolationsDelta}</div>
+            </div>
+          ` : '<div class="empty-state"><div class="empty-state-text">Select two runs to compare.</div></div>'}
+        </div>
+      </div>
+    `;
+  }
+
   // ── Scenarios ──────────────────────────────────────────────────────
   async function loadScenarios() {
     try {
@@ -777,11 +866,23 @@
   // ── Report ─────────────────────────────────────────────────────────
   async function loadReport() {
     try {
-      const data = await api("/report");
-      if (data.ready === false) {
-        state.report = null;
+      if (state.selectedWorldId) {
+        const data = await api(`/worlds/${encodeURIComponent(state.selectedWorldId)}/report/live`);
+        state.report = data.report || null;
+        const runId = data.runId;
+        if (runId) {
+          const topicsData = await fetch(`/api/reports/${encodeURIComponent(runId)}`)
+            .then((r) => r.json())
+            .catch(() => null);
+          state.topics = topicsData?.topics || null;
+        }
       } else {
-        state.report = data;
+        const data = await api("/report");
+        if (data.ready === false) {
+          state.report = null;
+        } else {
+          state.report = data;
+        }
       }
     } catch {
       state.report = null;
@@ -809,6 +910,7 @@
 
     const r = state.report;
     const s = r.summary;
+    const topTools = computeTopTools(r);
 
     return `
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -863,6 +965,40 @@
           <span class="card-title">Action Distribution</span>
         </div>
         <div class="chart-container" id="action-bars" style="height:${Math.max(180, r.agents.filter(a => a.role !== "control").length * 36 + 40)}px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Top Tools</span>
+          <span class="badge">${topTools.length}</span>
+        </div>
+        <div class="event-list">
+          ${topTools.map((t, i) => `
+            <div class="event-row">
+              <span class="event-tick">#${i + 1}</span>
+              <span class="event-type">${esc(t.name)}</span>
+              <span class="event-payload">${t.count} calls</span>
+            </div>
+          `).join("")}
+          ${topTools.length === 0 ? '<div class="empty-state"><div class="empty-state-text">No tool calls recorded.</div></div>' : ""}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Tematiche</span>
+          <button class="btn btn-sm" id="topics-refresh">Refresh</button>
+        </div>
+        <div class="event-list">
+          ${(state.topics || []).map((t) => `
+            <div class="event-row">
+              <span class="event-type">${esc(t.topic)}</span>
+              <span class="event-agent">${esc(t.trend)}</span>
+              <span class="event-payload">${esc(t.evidence)} (conf: ${Number(t.confidence || 0).toFixed(2)})</span>
+            </div>
+          `).join("")}
+          ${!state.topics || state.topics.length === 0 ? '<div class="empty-state"><div class="empty-state-text">Tematiche non ancora analizzate.</div></div>' : ""}
+        </div>
       </div>
 
       <div class="card">
@@ -1189,6 +1325,24 @@
       });
     });
 
+    const worldSelector = document.getElementById("world-selector");
+    if (worldSelector) {
+      worldSelector.addEventListener("change", () => {
+        const newWorldId = worldSelector.value || "";
+        if (state.selectedWorldId) {
+          socket.emit("unsubscribe:world", state.selectedWorldId);
+        }
+        state.selectedWorldId = newWorldId;
+        if (state.selectedWorldId) {
+          socket.emit("subscribe:world", state.selectedWorldId);
+        }
+        loadWorld();
+        loadAgents();
+        if (state.page === "events") loadEvents();
+        if (state.page === "report") loadReport();
+      });
+    }
+
     // Agent detail click
     document.querySelectorAll("[data-agent-detail]").forEach((el) => {
       el.addEventListener("click", () => {
@@ -1262,6 +1416,50 @@
       });
     }
 
+    const topicsRefresh = document.getElementById("topics-refresh");
+    if (topicsRefresh && state.selectedWorldId) {
+      topicsRefresh.addEventListener("click", async () => {
+        const live = await api(`/worlds/${encodeURIComponent(state.selectedWorldId)}/report/live`);
+        if (!live?.runId) return;
+        await fetch(`/api/reports/${encodeURIComponent(live.runId)}/topics`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ forceRefresh: true }),
+        });
+        await loadReport();
+      });
+    }
+
+    const worldsRefresh = document.getElementById("worlds-refresh");
+    if (worldsRefresh) {
+      worldsRefresh.addEventListener("click", loadWorlds);
+    }
+    const compareClear = document.getElementById("compare-clear");
+    if (compareClear) {
+      compareClear.addEventListener("click", () => {
+        state.selectedCompareRuns = [];
+        state.compare = null;
+        render();
+      });
+    }
+    document.querySelectorAll("[data-compare-run]").forEach((el) => {
+      el.addEventListener("click", async () => {
+        const runId = el.getAttribute("data-compare-run");
+        if (!runId) return;
+        if (!state.selectedCompareRuns.includes(runId)) {
+          state.selectedCompareRuns.push(runId);
+        }
+        if (state.selectedCompareRuns.length > 2) {
+          state.selectedCompareRuns.shift();
+        }
+        if (state.selectedCompareRuns.length === 2) {
+          const data = await api(`/reports/compare?runId=${encodeURIComponent(state.selectedCompareRuns.join(","))}`);
+          if (!data.error) state.compare = data;
+        }
+        render();
+      });
+    });
+
     // Search
     const searchBtn = document.getElementById("search-btn");
     if (searchBtn) {
@@ -1283,7 +1481,7 @@
       const data = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, agentId: agentId || undefined, topK: 20 }),
+        body: JSON.stringify({ query, agentId: agentId || undefined, worldId: state.selectedWorldId || undefined, topK: 20 }),
       }).then((r) => r.json());
 
       if (data.error) {
@@ -1307,7 +1505,7 @@
     if (!container) return;
 
     try {
-      const data = await api("/conversations?limit=100");
+      const data = await api(withWorld("/conversations?limit=100"));
       const convs = data.conversations || [];
 
       if (convs.length === 0) {
@@ -1355,6 +1553,28 @@
   }
 
   // ── Utilities ──────────────────────────────────────────────────────
+  function computeTopTools(report) {
+    const map = new Map();
+    const actions = report?.rawActions || [];
+    for (const action of actions) {
+      if (action.actionType !== "tool_call") continue;
+      const payload = action.payload || {};
+      const results = Array.isArray(payload.toolResults) ? payload.toolResults : [];
+      if (results.length === 0) {
+        const fallback = "unknown_tool";
+        map.set(fallback, (map.get(fallback) || 0) + 1);
+      }
+      for (const result of results) {
+        const name = result?.toolName || result?.name || "unknown_tool";
+        map.set(name, (map.get(name) || 0) + 1);
+      }
+    }
+    return [...map.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }
+
   function esc(str) {
     if (str == null) return "";
     return String(str)
@@ -1366,7 +1586,12 @@
 
   // ── Init ───────────────────────────────────────────────────────────
   loadCapabilities();
+  loadWorlds();
   loadWorld();
   loadAgents();
+  setInterval(() => {
+    if (state.page === "report") loadReport();
+    if (state.page === "worlds") loadWorlds();
+  }, 5000);
   render();
 })();

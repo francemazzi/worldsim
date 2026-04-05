@@ -48,6 +48,10 @@ export type {
   ActionDistribution,
   RelationshipEvolution,
   SimulationMetrics,
+  TopicInsight,
+  LiveReportResponse,
+  StoredRunSummary,
+  ReportCompareResponse,
 } from "./types/ReportTypes.js";
 
 // ─── Stores (zero-dependency) ───────────────────────────────────────

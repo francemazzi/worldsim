@@ -11,7 +11,7 @@ const HELP = `
 WorldSim CLI
 
 Commands:
-  studio    Launch the WorldSim Studio dashboard (post-mortem mode)
+  studio    Launch the WorldSim Studio dashboard (live + multi-world ready)
   demo      Run the built-in community simulation demo with Studio
 
 Options:
@@ -25,7 +25,7 @@ Options:
 Usage:
   npx worldsim demo                              # Run the Villaggio del Sole demo
   npx worldsim demo --model gpt-4o              # Use a specific model
-  npx worldsim studio                            # Dashboard in post-mortem mode
+  npx worldsim studio                            # Dashboard live + run history
   npx worldsim studio --port 5000
 
 Environment:
@@ -176,7 +176,8 @@ async function runStudio(values: Record<string, unknown>): Promise<void> {
 
   const shouldOpen = !values["no-open"];
 
-  console.log(`[WorldSim Studio] Starting in post-mortem mode...`);
+  const multiWorldEnabled = process.env.STUDIO_MULTI_WORLD !== "false";
+  console.log(`[WorldSim Studio] Starting in live mode (${multiWorldEnabled ? "multi-world enabled" : "single-world compatibility"})...`);
 
   const server = new StudioServer({ port });
 

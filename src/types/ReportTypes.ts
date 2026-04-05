@@ -92,3 +92,43 @@ export interface SimulationReport {
   /** Raw actions for further analysis. */
   rawActions: AgentAction[];
 }
+
+export interface TopicInsight {
+  topic: string;
+  evidence: string;
+  trend: "rising" | "stable" | "falling";
+  confidence: number;
+}
+
+export interface LiveReportResponse {
+  ready: boolean;
+  worldId: string;
+  runId: string;
+  status: "idle" | "running" | "stopped";
+  tick: number;
+  updatedAt: string;
+  report: SimulationReport | null;
+}
+
+export interface StoredRunSummary {
+  runId: string;
+  worldId: string;
+  status: "running" | "stopped";
+  startedAt: string;
+  stoppedAt?: string | undefined;
+  tick: number;
+  totalActions: number;
+  totalAgents: number;
+}
+
+export interface ReportCompareResponse {
+  runIds: string[];
+  worlds: string[];
+  metrics: {
+    totalActionsDelta: number;
+    totalToolCallsDelta: number;
+    totalSpeaksDelta: number;
+    averageEnergyDelta: number;
+    ruleViolationsDelta: number;
+  };
+}

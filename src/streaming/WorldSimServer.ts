@@ -258,6 +258,12 @@ export class WorldSimServer {
       socket.on("unsubscribe:agent", (agentId: string) => {
         socket.leave(`agent:${agentId}`);
       });
+      socket.on("subscribe:world", (worldId: string) => {
+        socket.join(`world:${worldId}`);
+      });
+      socket.on("unsubscribe:world", (worldId: string) => {
+        socket.leave(`world:${worldId}`);
+      });
 
       // ─── Request snapshot ───
       socket.on("request:snapshot", () => {
@@ -325,6 +331,7 @@ export class WorldSimServer {
         try {
           this.engine.updateAgentPosition(data.agentId, data.latitude, data.longitude, data.label);
           this.io.emit("agent:moved", {
+            worldId: this.engine.getContext().worldId,
             agentId: data.agentId,
             agentName: this.streamPlugin.getAgentName(data.agentId),
             from: null,

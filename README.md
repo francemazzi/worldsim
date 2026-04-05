@@ -76,6 +76,7 @@ npx worldsim studio
 - **Event timeline** — every action, every tick
 - **Relationship graph** — force-directed visualization of social connections
 - **Simulation report** — mood heatmaps, energy charts, action distribution, timeline
+- **Multi-world operations** — monitor and compare multiple world runs (city/country shards)
 
 Main sections available in the dashboard:
 

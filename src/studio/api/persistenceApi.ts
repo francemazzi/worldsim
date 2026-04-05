@@ -6,11 +6,11 @@ import type { WorldEngine } from "../../engine/WorldEngine.js";
 export function registerPersistenceApi(
   router: StudioRouter,
   getPersistenceStore: () => PersistenceStore | undefined,
-  getEngine: () => WorldEngine | null,
+  getEngine: (worldId?: string) => WorldEngine | null,
 ): void {
   router.get("/api/conversations", async (_req, res, _params, query) => {
     const store = getPersistenceStore();
-    const engine = getEngine();
+    const engine = getEngine(query.worldId);
     if (!store) {
       json(res, { error: "PersistenceStore not connected" }, 503);
       return;
@@ -30,7 +30,7 @@ export function registerPersistenceApi(
 
   router.get("/api/agents/:id/snapshots", async (_req, res, params, query) => {
     const store = getPersistenceStore();
-    const engine = getEngine();
+    const engine = getEngine(query.worldId);
     if (!store) {
       json(res, { error: "PersistenceStore not connected" }, 503);
       return;

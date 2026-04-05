@@ -117,6 +117,7 @@ export const consolidatedKnowledge = pgTable(
 export const relationships = pgTable(
   "relationships",
   {
+    worldId: text("world_id").notNull().default("legacy-default"),
     fromAgent: text("from_agent").notNull(),
     toAgent: text("to_agent").notNull(),
     type: text("type").notNull(),
@@ -126,6 +127,7 @@ export const relationships = pgTable(
     metadata: jsonb("metadata"),
   },
   (table) => [
-    primaryKey({ columns: [table.fromAgent, table.toAgent, table.type] }),
+    primaryKey({ columns: [table.worldId, table.fromAgent, table.toAgent, table.type] }),
+    index("idx_relationships_world").on(table.worldId, table.fromAgent, table.toAgent),
   ],
 );

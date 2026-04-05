@@ -428,6 +428,7 @@ export class PgPersistenceStore implements PersistenceStore {
         ON consolidated_knowledge (agent_id, world_id, importance DESC);
 
       CREATE TABLE IF NOT EXISTS relationships (
+        world_id TEXT NOT NULL DEFAULT 'legacy-default',
         from_agent TEXT NOT NULL,
         to_agent TEXT NOT NULL,
         type TEXT NOT NULL,
@@ -435,8 +436,10 @@ export class PgPersistenceStore implements PersistenceStore {
         since INTEGER NOT NULL,
         last_interaction INTEGER,
         metadata JSONB,
-        PRIMARY KEY (from_agent, to_agent, type)
+        PRIMARY KEY (world_id, from_agent, to_agent, type)
       );
+      CREATE INDEX IF NOT EXISTS idx_relationships_world
+        ON relationships (world_id, from_agent, to_agent);
     `);
   }
 

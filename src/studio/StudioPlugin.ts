@@ -73,10 +73,12 @@ export function studioPlugin(options: StudioOptions): WorldSimPlugin {
     },
 
     async onWorldTick(tick: number, _ctx: WorldContext): Promise<void> {
+      const worldId = options.engine.getContext().worldId;
       const statuses = options.engine.getAgentStatuses();
       const active = Object.values(statuses).filter((s) => s === "running" || s === "idle").length;
 
       server.getIO().emit("world:tick", {
+        worldId,
         tick,
         activeAgents: active,
         totalAgents: Object.keys(statuses).length,
@@ -85,7 +87,9 @@ export function studioPlugin(options: StudioOptions): WorldSimPlugin {
     },
 
     async onAgentAction(action: AgentAction, _state: AgentState): Promise<AgentAction> {
+      const worldId = options.engine.getContext().worldId;
       const event = {
+        worldId,
         agentId: action.agentId,
         agentName: agentNames.get(action.agentId) ?? action.agentId,
         action,
@@ -104,7 +108,9 @@ export function studioPlugin(options: StudioOptions): WorldSimPlugin {
       oldStatus: AgentStatus,
       newStatus: AgentStatus,
     ): Promise<void> {
+      const worldId = options.engine.getContext().worldId;
       const statusEvent = {
+        worldId,
         agentId: event.agentId,
         agentName: agentNames.get(event.agentId) ?? event.agentId,
         oldStatus,
