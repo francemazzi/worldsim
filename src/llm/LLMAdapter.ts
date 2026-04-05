@@ -26,4 +26,12 @@ export interface LLMAdapter {
     tools: AgentTool[],
     options?: ChatOptions,
   ): Promise<LLMResponse>;
+  /**
+   * Stream a chat completion, yielding text chunks as they arrive.
+   * Optional — callers should check availability before using.
+   */
+  chatStream?(
+    messages: AgentMessage[],
+    options?: ChatOptions,
+  ): AsyncIterable<string>;
 }

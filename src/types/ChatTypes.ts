@@ -23,6 +23,8 @@ export interface ChatSendPayload {
   message: string;
   /** Omit to create a new session. */
   sessionId?: string;
+  /** If true, response is streamed via chat:stream:chunk + chat:stream:end events. */
+  stream?: boolean;
 }
 
 /** Server → Client payload for a chat response. */
@@ -37,6 +39,15 @@ export interface ChatResponsePayload {
     energy: number;
     goals: string[];
   };
+}
+
+/** Server → Client payload for a streaming chat chunk. */
+export interface ChatStreamChunk {
+  agentId: string;
+  sessionId: string;
+  chunk: string;
+  /** Incremental index of this chunk within the response. */
+  index: number;
 }
 
 /** Server → Client payload for chat history. */

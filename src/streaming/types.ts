@@ -2,7 +2,7 @@ import type { AgentAction, AgentStatus, AgentControlEvent, AgentInternalState, A
 import type { WorldEvent, WorldStatus } from "../types/WorldTypes.js";
 import type { Message } from "../messaging/Message.js";
 import type { GeoLocation } from "../types/LocationTypes.js";
-import type { ChatSendPayload, ChatResponsePayload, ChatHistoryPayload } from "../types/ChatTypes.js";
+import type { ChatSendPayload, ChatResponsePayload, ChatStreamChunk, ChatHistoryPayload } from "../types/ChatTypes.js";
 
 // ─── Server → Client events ─────────────────────────────────────────
 
@@ -34,8 +34,14 @@ export interface ServerToClientEvents {
   /** Emitted when an agent moves (via tool or external GPS push). */
   "agent:moved": (data: AgentMovedEvent) => void;
 
-  /** Chat response from an agent. */
+  /** Chat response from an agent (non-streaming). */
   "chat:response": (data: ChatResponsePayload) => void;
+
+  /** Streaming chat: emitted for each text chunk. */
+  "chat:stream:chunk": (data: ChatStreamChunk) => void;
+
+  /** Streaming chat: emitted when the stream is complete. */
+  "chat:stream:end": (data: ChatResponsePayload) => void;
 
   /** Chat session history. */
   "chat:history": (data: ChatHistoryPayload) => void;

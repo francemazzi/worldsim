@@ -88,6 +88,24 @@ export class OpenAICompatAdapter implements LLMAdapter {
     };
   }
 
+  async *chatStream(
+    messages: AgentMessage[],
+    options?: ChatOptions,
+  ): AsyncIterable<string> {
+    const stream = await this.client.chat.completions.create({
+      model: options?.model ?? this.defaultModel,
+      messages: this.convertMessages(messages),
+      temperature: (options?.temperature ?? this.defaultTemperature) ?? null,
+      max_tokens: (options?.maxTokens ?? this.defaultMaxTokens) ?? null,
+      stream: true,
+    });
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) yield delta;
+    }
+  }
+
   private convertMessages(
     messages: AgentMessage[],
   ): ChatCompletionMessageParam[] {

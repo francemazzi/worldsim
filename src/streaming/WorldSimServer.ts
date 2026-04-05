@@ -348,16 +348,47 @@ export class WorldSimServer {
           return;
         }
         const userId = socket.id;
-        chatPlugin
-          .handleChat(data.agentId, userId, data.message, data.sessionId)
-          .then((response) => {
-            socket.emit("chat:response", response);
-          })
-          .catch((err: unknown) => {
-            socket.emit("error", {
-              message: `Chat failed: ${(err as Error).message}`,
+
+        if (data.stream && typeof chatPlugin.handleChatStream === "function") {
+          // Streaming mode: emit chunks as they arrive, then the final response
+          let sessionId: string | undefined = data.sessionId;
+          chatPlugin
+            .handleChatStream(
+              data.agentId,
+              userId,
+              data.message,
+              (chunk, index) => {
+                socket.emit("chat:stream:chunk", {
+                  agentId: data.agentId,
+                  sessionId: sessionId ?? "",
+                  chunk,
+                  index,
+                });
+              },
+              data.sessionId,
+            )
+            .then((response) => {
+              sessionId = response.sessionId;
+              socket.emit("chat:stream:end", response);
+            })
+            .catch((err: unknown) => {
+              socket.emit("error", {
+                message: `Chat stream failed: ${(err as Error).message}`,
+              });
             });
-          });
+        } else {
+          // Non-streaming: return full response
+          chatPlugin
+            .handleChat(data.agentId, userId, data.message, data.sessionId)
+            .then((response) => {
+              socket.emit("chat:response", response);
+            })
+            .catch((err: unknown) => {
+              socket.emit("error", {
+                message: `Chat failed: ${(err as Error).message}`,
+              });
+            });
+        }
       });
 
       socket.on("chat:history", (data) => {

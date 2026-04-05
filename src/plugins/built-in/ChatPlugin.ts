@@ -21,11 +21,20 @@ export interface ChatPluginOptions {
   chatSystemPromptSuffix?: string;
 }
 
+interface ChatContext {
+  agent: BaseAgent;
+  agentName: string;
+  session: ChatSession;
+  llmMessages: AgentMessage[];
+}
+
 /**
  * ChatPlugin enables real-time user-to-agent conversations via Socket.IO.
  *
  * The plugin bypasses the tick cycle and calls the agent's LLM directly
  * for immediate, conversational responses.
+ *
+ * Supports both non-streaming (`handleChat`) and streaming (`handleChatStream`) modes.
  */
 export class ChatPlugin implements WorldSimPlugin {
   readonly name = "chat";
@@ -75,7 +84,8 @@ export class ChatPlugin implements WorldSimPlugin {
   }
 
   /**
-   * Handle an incoming chat message from a user.
+   * Handle an incoming chat message (non-streaming).
+   * Returns the full response once the LLM is done.
    */
   async handleChat(
     agentId: string,
@@ -83,130 +93,48 @@ export class ChatPlugin implements WorldSimPlugin {
     message: string,
     sessionId?: string,
   ): Promise<ChatResponsePayload> {
-    if (!this.agentResolver) {
-      throw new Error("ChatPlugin not configured: missing agentResolver");
-    }
+    const ctx = await this.prepareChatContext(agentId, userId, message, sessionId);
 
-    const agent = this.agentResolver(agentId);
-    if (!agent) {
-      throw new Error(`Agent "${agentId}" not found`);
-    }
+    const llm = ctx.agent.getLLM();
+    const response = await llm.chat(ctx.llmMessages, { temperature: 0.8 });
+    const responseText = response.content ?? "";
 
-    if (!agent.isActive) {
-      throw new Error(`Agent "${agentId}" is not active (status: ${agent.status})`);
-    }
+    return this.finalize(ctx, message, responseText);
+  }
 
-    // Get or create session
-    const session = this.getOrCreateSession(agentId, userId, sessionId);
+  /**
+   * Handle an incoming chat message with streaming.
+   * Yields text chunks as they arrive from the LLM.
+   * The final ChatResponsePayload is returned via the callback after the stream ends.
+   */
+  async handleChatStream(
+    agentId: string,
+    userId: string,
+    message: string,
+    onChunk: (chunk: string, index: number) => void,
+    sessionId?: string,
+  ): Promise<ChatResponsePayload> {
+    const ctx = await this.prepareChatContext(agentId, userId, message, sessionId);
 
-    // Build agent context
-    const rules = this.rulesContext;
-    if (!rules) {
-      throw new Error("ChatPlugin: rules context not available (world not bootstrapped?)");
-    }
+    const llm = ctx.agent.getLLM();
 
-    const { systemPrompt, state } = await agent.buildChatContext(rules);
-    const agentName = agent.getProfile()?.name ?? agentId;
-
-    // Build chat system prompt
-    const chatSystemPrompt = this.buildChatSystemPrompt(agentName, systemPrompt);
-
-    // Build message array
-    const llmMessages: AgentMessage[] = [
-      { role: "system", content: chatSystemPrompt },
-    ];
-
-    // Add chat history (last N messages)
-    for (const msg of session.messages.slice(-this.maxHistory)) {
-      llmMessages.push({
-        role: msg.role === "user" ? "user" : "assistant",
-        content: msg.content,
-      });
-    }
-
-    // Add the new user message
-    llmMessages.push({ role: "user", content: message });
-
-    // Call LLM directly
-    const llm = agent.getLLM();
-    const response = await llm.chat(llmMessages, { temperature: 0.8 });
-
-    let responseText = response.content ?? "";
-
-    // Parse and apply state updates
-    const stateUpdateMatch = responseText.match(/\[STATE_UPDATE:\s*(\{[\s\S]*?\})\s*\]/);
-    if (stateUpdateMatch) {
-      try {
-        const updates = JSON.parse(stateUpdateMatch[1]!);
-        agent.updateInternalState(updates);
-        // Strip the directive from the visible response
-        responseText = responseText.replace(stateUpdateMatch[0], "").trim();
-      } catch {
-        // Ignore malformed state updates
+    // If the adapter supports streaming, use it
+    if (typeof llm.chatStream === "function") {
+      const chunks: string[] = [];
+      let index = 0;
+      for await (const chunk of llm.chatStream(ctx.llmMessages, { temperature: 0.8 })) {
+        chunks.push(chunk);
+        onChunk(chunk, index++);
       }
+      const fullResponse = chunks.join("");
+      return this.finalize(ctx, message, fullResponse);
     }
 
-    const now = new Date();
-    const tick = this.worldContext?.tickCount ?? 0;
-
-    // Store messages in session
-    const userMsg: ChatMessage = {
-      id: randomUUID(),
-      sessionId: session.id,
-      agentId,
-      role: "user",
-      content: message,
-      timestamp: now,
-      tick,
-    };
-    const agentMsg: ChatMessage = {
-      id: randomUUID(),
-      sessionId: session.id,
-      agentId,
-      role: "agent",
-      content: responseText,
-      timestamp: now,
-      tick,
-    };
-
-    session.messages.push(userMsg, agentMsg);
-    session.lastMessageAt = now;
-
-    // Trim history if over limit
-    if (session.messages.length > this.maxHistory) {
-      session.messages = session.messages.slice(-this.maxHistory);
-    }
-
-    // Persist to agent memory
-    if (this.persistToMemory && this.memoryPersister && this.worldContext) {
-      const memoryEntry: MemoryEntry = {
-        id: randomUUID(),
-        agentId,
-        tick,
-        type: "conversation",
-        content: `[Chat con utente] Utente: "${message}" — ${agentName}: "${responseText}"`,
-        timestamp: now,
-      };
-      this.memoryPersister([memoryEntry], this.worldContext.worldId).catch((err) => {
-        console.warn(`[ChatPlugin] Failed to persist chat memory:`, err);
-      });
-    }
-
-    // Return current state (possibly updated)
-    const currentState = agent.getInternalState();
-
-    return {
-      agentId,
-      agentName,
-      sessionId: session.id,
-      message: responseText,
-      timestamp: now.toISOString(),
-      state: {
-        mood: currentState.mood,
-        energy: currentState.energy,
-        goals: [...currentState.goals],
-      },
-    };
+    // Fallback: non-streaming, emit full response as a single chunk
+    const response = await llm.chat(ctx.llmMessages, { temperature: 0.8 });
+    const responseText = response.content ?? "";
+    onChunk(responseText, 0);
+    return this.finalize(ctx, message, responseText);
   }
 
   /**
@@ -225,13 +153,149 @@ export class ChatPlugin implements WorldSimPlugin {
    */
   getSessionsForAgent(agentId: string): string[] {
     const result: string[] = [];
-    for (const [id, session] of this.sessions) {
-      if (session.agentId === agentId) result.push(id);
+    for (const [, session] of this.sessions) {
+      if (session.agentId === agentId) result.push(session.id);
     }
     return result;
   }
 
   // ─── Private helpers ───────────────────────────────────────────────
+
+  /**
+   * Prepares the chat context: validates agent, builds LLM messages.
+   * Shared between streaming and non-streaming paths.
+   */
+  private async prepareChatContext(
+    agentId: string,
+    userId: string,
+    message: string,
+    sessionId?: string,
+  ): Promise<ChatContext> {
+    if (!this.agentResolver) {
+      throw new Error("ChatPlugin not configured: missing agentResolver");
+    }
+
+    const agent = this.agentResolver(agentId);
+    if (!agent) {
+      throw new Error(`Agent "${agentId}" not found`);
+    }
+
+    if (!agent.isActive) {
+      throw new Error(`Agent "${agentId}" is not active (status: ${agent.status})`);
+    }
+
+    const session = this.getOrCreateSession(agentId, userId, sessionId);
+
+    const rules = this.rulesContext;
+    if (!rules) {
+      throw new Error("ChatPlugin: rules context not available (world not bootstrapped?)");
+    }
+
+    const { systemPrompt } = await agent.buildChatContext(rules);
+    const agentName = agent.getProfile()?.name ?? agentId;
+    const chatSystemPrompt = this.buildChatSystemPrompt(agentName, systemPrompt);
+
+    const llmMessages: AgentMessage[] = [
+      { role: "system", content: chatSystemPrompt },
+    ];
+
+    for (const msg of session.messages.slice(-this.maxHistory)) {
+      llmMessages.push({
+        role: msg.role === "user" ? "user" : "assistant",
+        content: msg.content,
+      });
+    }
+
+    llmMessages.push({ role: "user", content: message });
+
+    return { agent, agentName, session, llmMessages };
+  }
+
+  /**
+   * Processes the full response: state updates, session storage, memory persistence.
+   * Shared between streaming and non-streaming paths.
+   */
+  private finalize(
+    ctx: ChatContext,
+    userMessage: string,
+    rawResponse: string,
+  ): ChatResponsePayload {
+    let responseText = rawResponse;
+
+    // Parse and apply state updates
+    const stateUpdateMatch = responseText.match(/\[STATE_UPDATE:\s*(\{[\s\S]*?\})\s*\]/);
+    if (stateUpdateMatch) {
+      try {
+        const updates = JSON.parse(stateUpdateMatch[1]!);
+        ctx.agent.updateInternalState(updates);
+        responseText = responseText.replace(stateUpdateMatch[0], "").trim();
+      } catch {
+        // Ignore malformed state updates
+      }
+    }
+
+    const now = new Date();
+    const tick = this.worldContext?.tickCount ?? 0;
+    const agentId = ctx.agent.id;
+
+    // Store messages in session
+    const userMsg: ChatMessage = {
+      id: randomUUID(),
+      sessionId: ctx.session.id,
+      agentId,
+      role: "user",
+      content: userMessage,
+      timestamp: now,
+      tick,
+    };
+    const agentMsg: ChatMessage = {
+      id: randomUUID(),
+      sessionId: ctx.session.id,
+      agentId,
+      role: "agent",
+      content: responseText,
+      timestamp: now,
+      tick,
+    };
+
+    ctx.session.messages.push(userMsg, agentMsg);
+    ctx.session.lastMessageAt = now;
+
+    // Trim history
+    if (ctx.session.messages.length > this.maxHistory) {
+      ctx.session.messages = ctx.session.messages.slice(-this.maxHistory);
+    }
+
+    // Persist to agent memory
+    if (this.persistToMemory && this.memoryPersister && this.worldContext) {
+      const memoryEntry: MemoryEntry = {
+        id: randomUUID(),
+        agentId,
+        tick,
+        type: "conversation",
+        content: `[Chat con utente] Utente: "${userMessage}" — ${ctx.agentName}: "${responseText}"`,
+        timestamp: now,
+      };
+      this.memoryPersister([memoryEntry], this.worldContext.worldId).catch((err) => {
+        console.warn(`[ChatPlugin] Failed to persist chat memory:`, err);
+      });
+    }
+
+    const currentState = ctx.agent.getInternalState();
+
+    return {
+      agentId,
+      agentName: ctx.agentName,
+      sessionId: ctx.session.id,
+      message: responseText,
+      timestamp: now.toISOString(),
+      state: {
+        mood: currentState.mood,
+        energy: currentState.energy,
+        goals: [...currentState.goals],
+      },
+    };
+  }
 
   private getOrCreateSession(
     agentId: string,

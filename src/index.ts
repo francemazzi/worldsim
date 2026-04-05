@@ -77,6 +77,7 @@ export type {
   ChatSession,
   ChatSendPayload,
   ChatResponsePayload,
+  ChatStreamChunk,
   ChatHistoryPayload,
 } from "./types/ChatTypes.js";
 

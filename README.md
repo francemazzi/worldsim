@@ -66,10 +66,23 @@ await world.start();
 
 WorldSim includes a built-in web dashboard for real-time simulation monitoring:
 
+```bash
+npx worldsim studio
+# Open http://localhost:4400
+# Optional: --port 5000, --no-open
+```
+
 - **Live agent state** — mood, energy, goals, status
 - **Event timeline** — every action, every tick
 - **Relationship graph** — force-directed visualization of social connections
 - **Simulation report** — mood heatmaps, energy charts, action distribution, timeline
+
+Main sections available in the dashboard:
+
+- **Agents** — inspect profile, current status, goals, mood and energy in real time
+- **Timeline** — follow what happens at each tick, with a chronological event stream
+- **Relationship Graph** — visualize who influences whom and how social ties evolve
+- **Report** — review post-run metrics, trends, and behavior distribution
 
 ```typescript
 import { studioPlugin } from "worldsim";
@@ -81,11 +94,11 @@ engine.use(studioPlugin({ engine, port: 4400, memoryStore, graphStore }));
 
 Relationship Graph view (real-time social connection map):
 
-![Relationship Graph](docs/relationships.png)
+![Relationship Graph](https://raw.githubusercontent.com/francemazzi/worldsim/main/docs/relationships.png)
 
 Agent Details view (profile, internal state, and memory timeline):
 
-![Agent Details](docs/agent_details.png)
+![Agent Details](https://raw.githubusercontent.com/francemazzi/worldsim/main/docs/agent_details.png)
 
 ## Architecture
 
