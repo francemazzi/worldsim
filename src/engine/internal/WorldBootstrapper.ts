@@ -85,7 +85,15 @@ export class WorldBootstrapper {
         const pluginTools = agentConfig.toolNames
           ? this.runtime.pluginRegistry.getToolsByNames(agentConfig.toolNames)
           : this.runtime.pluginRegistry.getAllTools();
-        agent.setTools(pluginTools);
+
+        let mcpTools: import("../../types/PluginTypes.js").AgentTool[] = [];
+        if (agentConfig.mcp?.length) {
+          mcpTools = await this.runtime.mcpClientManager.connectAgent(
+            agentConfig.id,
+            agentConfig.mcp,
+          );
+        }
+        agent.setTools([...pluginTools, ...mcpTools]);
         this.runtime.personAgents.push(agent);
         this.runtime.agentRegistry.add(agent);
 

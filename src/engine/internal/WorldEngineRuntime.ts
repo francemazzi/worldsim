@@ -13,6 +13,7 @@ import { NeighborhoodManager } from "../../graph/NeighborhoodManager.js";
 import { ConversationManager } from "../../messaging/ConversationManager.js";
 import { LocationIndex } from "../../location/LocationIndex.js";
 import { BrainMemory } from "../../memory/BrainMemory.js";
+import type { McpClientManager } from "../../mcp/McpClientManager.js";
 import type {
   WorldConfig,
   WorldContext,
@@ -46,4 +47,5 @@ export interface WorldEngineRuntime {
   neighborhoodManager: NeighborhoodManager;
   conversationManager: ConversationManager;
   locationIndex: LocationIndex;
+  mcpClientManager: McpClientManager;
 }

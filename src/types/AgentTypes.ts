@@ -36,6 +36,29 @@ export interface AgentInternalState {
   custom: Record<string, unknown>;
 }
 
+export interface McpServerConfig {
+  /** Unique name for this MCP server (used as tool name prefix: mcp_{name}_{tool}) */
+  name: string;
+  /** Transport type */
+  transport: "stdio" | "http";
+  /** For stdio: the command to spawn */
+  command?: string | undefined;
+  /** For stdio: command arguments */
+  args?: string[] | undefined;
+  /** For stdio: environment variables */
+  env?: Record<string, string> | undefined;
+  /** For stdio: working directory */
+  cwd?: string | undefined;
+  /** For http: the server URL */
+  url?: string | undefined;
+  /** For http: custom headers (e.g. auth tokens) */
+  headers?: Record<string, string> | undefined;
+  /** Only expose these tool names from this server. If omitted, all tools are exposed. */
+  toolFilter?: string[] | undefined;
+  /** Timeout in ms for individual tool calls. Default: 30000 */
+  toolCallTimeoutMs?: number | undefined;
+}
+
 export interface AgentConfig {
   id: string;
   role: AgentRole;
@@ -63,6 +86,8 @@ export interface AgentConfig {
    * Agents with explicit `llm` config override this setting.
    */
   llmTier?: "full" | "light" | undefined;
+  /** External MCP servers this agent can connect to */
+  mcp?: McpServerConfig[] | undefined;
 }
 
 export interface AgentState {

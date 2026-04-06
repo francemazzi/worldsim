@@ -1,6 +1,6 @@
 {
   "name": "worldsim",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Simulate how communities react to new rules, events, or policies — multi-agent simulation engine for TypeScript",
   "bin": {
     "wordsim": "./dist/cli/bin.js"
@@ -62,12 +62,16 @@
     "zod": "^4.3.6"
   },
   "peerDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "ioredis": "^5.10.1",
     "neo4j-driver": "^6.0.1",
     "pg": "^8.20.0",
     "drizzle-orm": "^0.45.2"
   },
   "peerDependenciesMeta": {
+    "@modelcontextprotocol/sdk": {
+      "optional": true
+    },
     "ioredis": {
       "optional": true
     },
@@ -82,6 +86,7 @@
     }
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/ioredis": "^4.28.10",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.20.0",

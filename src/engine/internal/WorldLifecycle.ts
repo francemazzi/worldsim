@@ -12,6 +12,8 @@ export class WorldLifecycle {
       }
     }
 
+    await this.runtime.mcpClientManager.disconnectAll();
+
     await this.runtime.pluginRegistry.runHook(
       "onWorldStop",
       this.runtime.context,

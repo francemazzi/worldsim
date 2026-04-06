@@ -19,6 +19,11 @@ export { privacyCompliancePlugin } from "./plugins/built-in/PrivacyCompliancePlu
 export type { PrivacyCompliancePluginOptions } from "./plugins/built-in/PrivacyCompliancePlugin.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
 
+// ─── MCP Client Support ────────────────────────────────────────────
+export type { McpServerConfig } from "./types/AgentTypes.js";
+export { McpClientManager } from "./mcp/McpClientManager.js";
+export { wrapMcpTool, listAndWrapMcpTools } from "./mcp/McpToolAdapter.js";
+
 // ─── Core Types ─────────────────────────────────────────────────────
 export type {
   WorldConfig,

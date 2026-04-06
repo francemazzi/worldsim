@@ -20,6 +20,7 @@ import { TokenBudgetTracker } from "../scheduling/TokenBudgetTracker.js";
 import { NeighborhoodManager } from "../graph/NeighborhoodManager.js";
 import { ConversationManager } from "../messaging/ConversationManager.js";
 import { LocationIndex } from "../location/LocationIndex.js";
+import { McpClientManager } from "../mcp/McpClientManager.js";
 import { privacyCompliancePlugin } from "../plugins/built-in/PrivacyCompliancePlugin.js";
 import type { Conversation } from "../types/ConversationTypes.js";
 import type {
@@ -69,6 +70,7 @@ export class WorldEngine {
       neighborhoodManager: new NeighborhoodManager(),
       conversationManager: new ConversationManager(),
       locationIndex: new LocationIndex(),
+      mcpClientManager: new McpClientManager(),
     };
 
     this.bootstrapper = new WorldBootstrapper(this.runtime);
