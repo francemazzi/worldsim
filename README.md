@@ -2,6 +2,8 @@
 
 # worldsim
 
+[![GitHub stars](https://img.shields.io/github/stars/francemazzi/worldsim?style=social)](https://github.com/francemazzi/worldsim)
+
 **Simulate how communities react to new rules, events, or policies — in TypeScript, in 5 minutes.**
 
 WorldSim is an embeddable multi-agent simulation engine for Node.js. Define agents with distinct personalities, drop in a policy change, and watch coalitions form, conflicts emerge, and consensus build — all powered by LLM reasoning loops.
