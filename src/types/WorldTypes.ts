@@ -5,6 +5,7 @@ import type { PersistenceStore } from "./PersistenceTypes.js";
 import type { ConsolidationConfig } from "./ConsolidationTypes.js";
 import type { AssetStore } from "./AssetTypes.js";
 import type { WorldPrivacyConfig, ObservabilityConfig } from "./PrivacyTypes.js";
+import type { MovementPolicy } from "../plugins/built-in/movement/MovementPolicy.js";
 
 export interface WorldContext {
   worldId: string;
@@ -73,6 +74,19 @@ export interface WorldConfig {
   privacy?: WorldPrivacyConfig | undefined;
   /** Cost/latency observability configuration (pricing, alert thresholds). */
   observability?: ObservabilityConfig | undefined;
+  /**
+   * Movement policy used by the built-in MovementPlugin.
+   * When omitted, the plugin falls back to `defaultMovementPolicy` — which
+   * allows walking within `walkingRadiusMeters` and requires an owned vehicle
+   * beyond that radius. Set this to customize for your simulation (public
+   * transit, licenses, health/fitness signals, fuel, weather, etc.).
+   */
+  movementPolicy?: MovementPolicy | undefined;
+  /**
+   * Walking radius (meters) used by the default movement policy. Ignored
+   * when `movementPolicy` is provided. Default: 1500.
+   */
+  walkingRadiusMeters?: number | undefined;
 }
 
 export interface LLMConfig {

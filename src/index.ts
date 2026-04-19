@@ -13,6 +13,29 @@ export { AssetPlugin } from "./plugins/built-in/AssetPlugin.js";
 export type { AssetPluginOptions } from "./plugins/built-in/AssetPlugin.js";
 export { MovementPlugin } from "./plugins/built-in/MovementPlugin.js";
 export type { MovementPluginOptions, MovementRecord } from "./types/MovementTypes.js";
+export { defaultMovementPolicy } from "./plugins/built-in/movement/MovementPolicy.js";
+export type {
+  MovementPolicy,
+  MovementRequest,
+  MovementDecision,
+  DefaultMovementPolicyOptions,
+} from "./plugins/built-in/movement/MovementPolicy.js";
+export { PhonePlugin } from "./plugins/built-in/PhonePlugin.js";
+export type { PhonePluginOptions } from "./plugins/built-in/PhonePlugin.js";
+export {
+  PhoneDirectory,
+  createPhoneAsset,
+  getAgentPhone,
+  getPhoneMetadata,
+  isPhoneAsset,
+  PHONE_ASSET_KIND,
+} from "./messaging/phone/PhoneDirectory.js";
+export type {
+  PhoneContact,
+  PhoneMetadata,
+  CreatePhoneAssetInput,
+} from "./messaging/phone/PhoneDirectory.js";
+export type { Message, MessageType, PhoneMessageMetadata } from "./messaging/Message.js";
 export { ChatPlugin } from "./plugins/built-in/ChatPlugin.js";
 export type { ChatPluginOptions } from "./plugins/built-in/ChatPlugin.js";
 export { privacyCompliancePlugin } from "./plugins/built-in/PrivacyCompliancePlugin.js";
@@ -182,7 +205,7 @@ export { CircularBuffer } from "./engine/CircularBuffer.js";
 export { LocationIndex } from "./location/LocationIndex.js";
 export type { NearbyResult } from "./location/LocationIndex.js";
 export { ConversationManager } from "./messaging/ConversationManager.js";
-export type { CanSpeakResult } from "./messaging/ConversationManager.js";
+export type { CanSpeakResult, StartCallOptions } from "./messaging/ConversationManager.js";
 export { NeighborhoodManager } from "./graph/NeighborhoodManager.js";
 export type { NeighborhoodConfig } from "./graph/NeighborhoodManager.js";
 export type {
@@ -197,6 +220,8 @@ export type {
 export type {
   Conversation,
   ConversationTurn,
+  ConversationKind,
+  ConversationMetadata,
 } from "./types/ConversationTypes.js";
 
 // ─── Production Stores (peer dependencies) ──────────────────────────

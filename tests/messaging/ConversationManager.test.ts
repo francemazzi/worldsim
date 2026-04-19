@@ -127,4 +127,42 @@ describe("ConversationManager", () => {
       expect(manager.activeCount).toBe(1);
     });
   });
+
+  describe("startCall / endCall", () => {
+    it("creates a call-kind conversation with caller as first speaker", () => {
+      const call = manager.startCall({
+        callerId: "alice",
+        calleeId: "bob",
+        callerNumber: "+39 111",
+        calleeNumber: "+39 222",
+        tick: 1,
+      });
+      expect(call).toBeDefined();
+      expect(call?.metadata?.kind).toBe("call");
+      expect(call?.metadata?.callerNumber).toBe("+39 111");
+      expect(call?.metadata?.calleeNumber).toBe("+39 222");
+      expect(call?.currentSpeakerId).toBe("alice");
+      expect(call?.participantIds).toEqual(["alice", "bob"]);
+      expect(manager.isCall(call!.id)).toBe(true);
+    });
+
+    it("returns undefined when the callee is already in a conversation", () => {
+      manager.startConversation("bob", ["charlie"]);
+      const call = manager.startCall({ callerId: "alice", calleeId: "bob" });
+      expect(call).toBeUndefined();
+    });
+
+    it("returns undefined when the caller is already busy", () => {
+      manager.startConversation("alice", ["dan"]);
+      const call = manager.startCall({ callerId: "alice", calleeId: "bob" });
+      expect(call).toBeUndefined();
+    });
+
+    it("endCall frees participants", () => {
+      const call = manager.startCall({ callerId: "alice", calleeId: "bob" });
+      manager.endCall(call!.id);
+      expect(manager.canSpeak("alice").allowed).toBe(true);
+      expect(manager.canSpeak("bob").allowed).toBe(true);
+    });
+  });
 });

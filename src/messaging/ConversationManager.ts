@@ -1,5 +1,15 @@
 import { randomUUID } from "node:crypto";
-import type { Conversation } from "../types/ConversationTypes.js";
+import type { Conversation, ConversationMetadata } from "../types/ConversationTypes.js";
+
+export interface StartCallOptions {
+  callerId: string;
+  calleeId: string;
+  callerNumber?: string;
+  calleeNumber?: string;
+  tick?: number;
+  /** Optional maximum number of turns for the call (default: unlimited). */
+  maxTurns?: number;
+}
 
 export interface CanSpeakResult {
   allowed: boolean;
@@ -30,6 +40,7 @@ export class ConversationManager {
     participantIds: string[],
     topic?: string,
     tick: number = 0,
+    metadata?: ConversationMetadata,
   ): Conversation {
     const allParticipants = [initiatorId, ...participantIds.filter((id) => id !== initiatorId)];
 
@@ -42,6 +53,7 @@ export class ConversationManager {
       topic,
       startTick: tick,
       status: "active",
+      metadata,
     };
 
     this.conversations.set(conversation.id, conversation);
@@ -50,6 +62,48 @@ export class ConversationManager {
     }
 
     return conversation;
+  }
+
+  /**
+   * Starts a phone call between two agents. The caller is the first speaker.
+   * The returned conversation has `metadata.kind === "call"` so the phone
+   * plugin (and any integrator) can tell calls apart from face-to-face chats.
+   *
+   * Fails (returns undefined) if either participant is already in an active
+   * conversation — mirroring a real "busy" line.
+   */
+  startCall(options: StartCallOptions): Conversation | undefined {
+    const { callerId, calleeId, callerNumber, calleeNumber, tick = 0, maxTurns } = options;
+
+    if (this.agentConversations.has(callerId)) return undefined;
+    if (this.agentConversations.has(calleeId)) return undefined;
+
+    const metadata: ConversationMetadata = {
+      kind: "call",
+      ...(callerNumber ? { callerNumber } : {}),
+      ...(calleeNumber ? { calleeNumber } : {}),
+    };
+
+    const conversation = this.startConversation(
+      callerId,
+      [calleeId],
+      callerNumber && calleeNumber ? `call:${callerNumber}->${calleeNumber}` : "call",
+      tick,
+      metadata,
+    );
+    if (maxTurns != null) conversation.maxTurns = maxTurns;
+    return conversation;
+  }
+
+  /** Ends a call (alias of endConversation with intent-revealing name). */
+  endCall(callId: string): void {
+    this.endConversation(callId);
+  }
+
+  /** True if the given conversation id is an active phone call. */
+  isCall(conversationId: string): boolean {
+    const conv = this.conversations.get(conversationId);
+    return !!conv && conv.status === "active" && conv.metadata?.kind === "call";
   }
 
   /**

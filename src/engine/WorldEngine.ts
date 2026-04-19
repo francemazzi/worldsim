@@ -322,6 +322,14 @@ export class WorldEngine {
     return this.runtime.conversationManager;
   }
 
+  /**
+   * Returns the message bus. Useful when registering plugins (e.g. PhonePlugin)
+   * that need to publish messages outside the normal agent tick.
+   */
+  getMessageBus(): MessageBus {
+    return this.runtime.messageBus;
+  }
+
   getTokenUsage(agentId: string): TokenUsage | undefined {
     return this.runtime.tokenBudgetTracker.getUsage(agentId);
   }

@@ -3,6 +3,14 @@ import type { WorldContext } from "../../types/WorldTypes.js";
 import type { GeoLocation } from "../../types/LocationTypes.js";
 import type { MovementRecord, MovementPluginOptions } from "../../types/MovementTypes.js";
 import type { LocationIndex } from "../../location/LocationIndex.js";
+import type { AssetStore, Asset } from "../../types/AssetTypes.js";
+import type { AgentRegistry } from "../../agents/AgentRegistry.js";
+import {
+  defaultMovementPolicy,
+  type MovementPolicy,
+  type MovementDecision,
+  type MovementRequest,
+} from "./movement/MovementPolicy.js";
 
 interface PendingExternalUpdate {
   agentId: string;
@@ -10,11 +18,51 @@ interface PendingExternalUpdate {
   timestamp: Date;
 }
 
+interface PolicyRuntime {
+  policy: MovementPolicy;
+  assetStore?: AssetStore | undefined;
+  agentRegistry?: AgentRegistry | undefined;
+}
+
+async function evaluatePolicy(
+  runtime: PolicyRuntime,
+  agentId: string,
+  from: GeoLocation | undefined,
+  to: GeoLocation,
+  tick: number,
+): Promise<MovementDecision> {
+  let assets: Asset[] = [];
+  if (runtime.assetStore) {
+    const [personal, household] = await Promise.all([
+      runtime.assetStore.getAgentAssets(agentId),
+      runtime.assetStore
+        .getAgentHousehold(agentId)
+        .then((h) => (h ? runtime.assetStore!.getHouseholdAssets(h.id) : [])),
+    ]);
+    assets = [...personal, ...household];
+  }
+
+  const profile = runtime.agentRegistry?.get(agentId)?.getConfig().profile;
+
+  const req: MovementRequest = {
+    agentId,
+    from: from ?? null,
+    to,
+    distanceMeters: from ? haversineKm(from, to) * 1000 : 0,
+    assets,
+    ...(profile ? { profile } : {}),
+    tick,
+  };
+
+  return runtime.policy(req);
+}
+
 function buildTools(
   locationIndex: LocationIndex,
   homeLocations: Map<string, GeoLocation>,
-  recordMovement: (agentId: string, from: GeoLocation | undefined, to: GeoLocation, tick: number, source: MovementRecord["source"]) => void,
+  recordMovement: (agentId: string, from: GeoLocation | undefined, to: GeoLocation, tick: number, source: MovementRecord["source"], mode?: string) => void,
   defaultRadius: number,
+  runtime: PolicyRuntime,
 ): AgentTool[] {
   return [
     {
@@ -67,11 +115,18 @@ function buildTools(
 
         const oldLoc = locationIndex.getLocation(agentId);
         const newLoc: GeoLocation = { latitude, longitude, label };
+
+        const decision = await evaluatePolicy(runtime, agentId, oldLoc, newLoc, ctx.tickCount);
+        if (!decision.allowed) {
+          return { errore: decision.reason ?? "Spostamento non consentito." };
+        }
+
         locationIndex.update(agentId, newLoc);
-        recordMovement(agentId, oldLoc, newLoc, ctx.tickCount, "agent_tool");
+        recordMovement(agentId, oldLoc, newLoc, ctx.tickCount, "agent_tool", decision.mode);
 
         return {
           spostato: true,
+          ...(decision.mode ? { modalità: decision.mode } : {}),
           da: oldLoc
             ? { latitude: oldLoc.latitude, longitude: oldLoc.longitude, luogo: oldLoc.label }
             : null,
@@ -128,11 +183,17 @@ function buildTools(
           newLoc = { latitude: targetLoc.latitude, longitude: targetLoc.longitude };
         }
 
+        const decision = await evaluatePolicy(runtime, agentId, oldLoc, newLoc, ctx.tickCount);
+        if (!decision.allowed) {
+          return { errore: decision.reason ?? "Spostamento non consentito." };
+        }
+
         locationIndex.update(agentId, newLoc);
-        recordMovement(agentId, oldLoc, newLoc, ctx.tickCount, "agent_tool");
+        recordMovement(agentId, oldLoc, newLoc, ctx.tickCount, "agent_tool", decision.mode);
 
         return {
           spostato: true,
+          ...(decision.mode ? { modalità: decision.mode } : {}),
           verso: targetAgentId,
           nuovaPosizione: { latitude: newLoc.latitude, longitude: newLoc.longitude },
         };
@@ -157,11 +218,18 @@ function buildTools(
 
         const oldLoc = locationIndex.getLocation(agentId);
         const newLoc: GeoLocation = { ...home, label: home.label ?? "casa" };
+
+        const decision = await evaluatePolicy(runtime, agentId, oldLoc, newLoc, ctx.tickCount);
+        if (!decision.allowed) {
+          return { errore: decision.reason ?? "Spostamento non consentito." };
+        }
+
         locationIndex.update(agentId, newLoc);
-        recordMovement(agentId, oldLoc, newLoc, ctx.tickCount, "agent_tool");
+        recordMovement(agentId, oldLoc, newLoc, ctx.tickCount, "agent_tool", decision.mode);
 
         return {
           spostato: true,
+          ...(decision.mode ? { modalità: decision.mode } : {}),
           a: { latitude: home.latitude, longitude: home.longitude, luogo: newLoc.label },
         };
       },
@@ -232,18 +300,45 @@ export class MovementPlugin implements WorldSimPlugin {
   private maxHistory: number;
   private homeLocations: Map<string, GeoLocation> = new Map();
   private pendingExternalUpdates: PendingExternalUpdate[] = [];
+  private runtime: PolicyRuntime;
 
   constructor(locationIndex: LocationIndex, options?: MovementPluginOptions) {
     this.locationIndex = locationIndex;
     this.maxHistory = options?.maxHistoryPerAgent ?? 50;
     const defaultRadius = options?.defaultNearbyRadiusKm ?? 5;
 
+    this.runtime = {
+      policy: options?.policy ?? defaultMovementPolicy({
+        ...(options?.walkingRadiusMeters != null
+          ? { walkingRadiusMeters: options.walkingRadiusMeters }
+          : {}),
+      }),
+      assetStore: options?.assetStore,
+      agentRegistry: options?.agentRegistry,
+    };
+
     this._tools = buildTools(
       this.locationIndex,
       this.homeLocations,
       this.recordMovement.bind(this),
       defaultRadius,
+      this.runtime,
     );
+  }
+
+  /** Replace the active movement policy at runtime. */
+  setPolicy(policy: MovementPolicy): void {
+    this.runtime.policy = policy;
+  }
+
+  /** Inject the asset store after construction (used by WorldBootstrapper). */
+  setAssetStore(store: AssetStore): void {
+    this.runtime.assetStore = store;
+  }
+
+  /** Inject the agent registry after construction (used by WorldBootstrapper). */
+  setAgentRegistry(registry: AgentRegistry): void {
+    this.runtime.agentRegistry = registry;
   }
 
   get tools(): AgentTool[] {
@@ -304,13 +399,22 @@ export class MovementPlugin implements WorldSimPlugin {
     to: GeoLocation,
     tick: number,
     source: MovementRecord["source"],
+    mode?: string,
   ): void {
     let records = this.history.get(agentId);
     if (!records) {
       records = [];
       this.history.set(agentId, records);
     }
-    records.push({ agentId, from, to, tick, source, timestamp: new Date() });
+    records.push({
+      agentId,
+      from,
+      to,
+      tick,
+      source,
+      timestamp: new Date(),
+      ...(mode ? { mode } : {}),
+    });
     // Ring buffer: drop oldest if over limit
     if (records.length > this.maxHistory) {
       records.splice(0, records.length - this.maxHistory);

@@ -4,6 +4,7 @@ import type { AgentStoreOptions, TickContext } from "./BaseAgent.js";
 import { buildPersonGraph } from "../graph/PersonGraph.js";
 import { createMessageId } from "../messaging/MessageBus.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
+import type { Message } from "../messaging/Message.js";
 import type { LLMAdapter } from "../llm/LLMAdapter.js";
 import type { AgentConfig, AgentAction, AgentMessage, AgentInternalState } from "../types/AgentTypes.js";
 import type { WorldContext } from "../types/WorldTypes.js";
@@ -404,21 +405,38 @@ export class PersonAgent extends BaseAgent {
   private async singleIteration(
     ctx: WorldContext,
     rules: RulesContext,
-    incomingMessages: { content: string; from: string }[],
+    incomingMessages: Message[],
     iterationIndex: number,
     tickContext: TickContext,
   ): Promise<AgentAction> {
     const systemPrompt = this.buildSystemPrompt(rules, tickContext);
 
-    const observedContent = incomingMessages
-      .map((m) => `[${m.from}]: ${m.content}`)
-      .join("\n");
+    const buckets = splitMessagesByChannel(incomingMessages);
 
     const messages: AgentMessage[] = [
       { role: "system", content: systemPrompt },
     ];
 
-    if (observedContent) {
+    if (buckets.call.length > 0) {
+      const lines = buckets.call.map((m) => formatCallLine(m)).join("\n");
+      messages.push({
+        role: "user",
+        content: `Chiamata in corso — trascrizione in diretta:\n${lines}\n\nUsa 'speak_in_call' per parlare al telefono o 'hang_up' per riattaccare.`,
+      });
+    }
+
+    if (buckets.sms.length > 0) {
+      const lines = buckets.sms.map((m) => formatSmsLine(m)).join("\n");
+      messages.push({
+        role: "user",
+        content: `SMS in arrivo:\n${lines}\n\nPuoi rispondere con 'send_sms' al numero del mittente, oppure ignorare.`,
+      });
+    }
+
+    if (buckets.voice.length > 0) {
+      const observedContent = buckets.voice
+        .map((m) => `[${m.from}]: ${m.content}`)
+        .join("\n");
       messages.push({
         role: "user",
         content: `Le seguenti persone hanno parlato o agito nella tua zona:\n${observedContent}\n\nDevi reagire a questi messaggi. Puoi essere d'accordo, in disaccordo, ignorare chi non ti interessa, o rispondere come ritieni opportuno per il tuo personaggio.`,
@@ -552,4 +570,42 @@ REGOLE DI RISPOSTA:
       tick: ctx.tickCount,
     };
   }
+}
+
+interface MessageBuckets {
+  sms: Message[];
+  call: Message[];
+  voice: Message[];
+}
+
+/**
+ * Splits a list of incoming messages into three buckets so the prompt can
+ * present each channel separately.
+ *
+ * - `call`: messages from the current phone call (type === "call_transcript")
+ * - `sms`: text messages (type === "sms")
+ * - `voice`: everything else (speak/observe/warn/system)
+ */
+function splitMessagesByChannel(messages: Message[]): MessageBuckets {
+  const buckets: MessageBuckets = { sms: [], call: [], voice: [] };
+  for (const msg of messages) {
+    if (msg.type === "call_transcript") buckets.call.push(msg);
+    else if (msg.type === "sms") buckets.sms.push(msg);
+    else buckets.voice.push(msg);
+  }
+  return buckets;
+}
+
+function formatSmsLine(msg: Message): string {
+  const number = msg.metadata?.fromNumber;
+  const label = number ? `${number} (${msg.from})` : msg.from;
+  return `[${label}]: ${msg.content}`;
+}
+
+function formatCallLine(msg: Message): string {
+  const isSystem = msg.metadata?.system === true;
+  if (isSystem) return msg.content;
+  const number = msg.metadata?.fromNumber;
+  const label = number ? `${number} (${msg.from})` : msg.from;
+  return `[${label}]: ${msg.content}`;
 }

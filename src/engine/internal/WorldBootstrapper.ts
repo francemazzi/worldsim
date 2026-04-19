@@ -5,6 +5,8 @@ import type { NeighborhoodConfig } from "../../graph/NeighborhoodManager.js";
 import { BrainMemory } from "../../memory/BrainMemory.js";
 import { TrackingLLMAdapter } from "../../llm/TrackingLLMAdapter.js";
 import { RulesLoader, buildRulesContext } from "../../rules/RulesLoader.js";
+import { MovementPlugin } from "../../plugins/built-in/MovementPlugin.js";
+import { defaultMovementPolicy } from "../../plugins/built-in/movement/MovementPolicy.js";
 import type { WorldEngineRuntime } from "./WorldEngineRuntime.js";
 
 export class WorldBootstrapper {
@@ -15,6 +17,8 @@ export class WorldBootstrapper {
     this.runtime.rulesContext = this.runtime.config.rulesPath
       ? await rulesLoader.load(this.runtime.config.rulesPath)
       : buildRulesContext([]);
+
+    this.configureMovementPlugin();
 
     await this.runtime.pluginRegistry.runHook(
       "onBootstrap",
@@ -127,6 +131,32 @@ export class WorldBootstrapper {
 
     for (const pa of this.runtime.personAgents) {
       pa.start(0);
+    }
+  }
+
+  /**
+   * Wires the built-in MovementPlugin (if registered) with the live asset
+   * store, agent registry, and `movementPolicy` from WorldConfig. This lets
+   * users plug their own movement rules without having to pass them to the
+   * plugin constructor.
+   */
+  private configureMovementPlugin(): void {
+    const plugin = this.runtime.pluginRegistry.getPlugin("movement");
+    if (!(plugin instanceof MovementPlugin)) return;
+
+    if (this.runtime.config.assetStore) {
+      plugin.setAssetStore(this.runtime.config.assetStore);
+    }
+    plugin.setAgentRegistry(this.runtime.agentRegistry);
+
+    if (this.runtime.config.movementPolicy) {
+      plugin.setPolicy(this.runtime.config.movementPolicy);
+    } else if (this.runtime.config.walkingRadiusMeters != null) {
+      plugin.setPolicy(
+        defaultMovementPolicy({
+          walkingRadiusMeters: this.runtime.config.walkingRadiusMeters,
+        }),
+      );
     }
   }
 }

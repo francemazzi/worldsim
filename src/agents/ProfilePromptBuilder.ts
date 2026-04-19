@@ -4,6 +4,7 @@ import type { Relationship, RelationshipTypeDefinition } from "../types/GraphTyp
 import type { ConsolidatedKnowledge } from "../types/PersistenceTypes.js";
 import type { LocationConfig } from "../types/LocationTypes.js";
 import type { Asset, Household, Venue } from "../types/AssetTypes.js";
+import { getPhoneMetadata } from "../messaging/phone/PhoneDirectory.js";
 
 export function buildProfilePrompt(profile: AgentProfile): string {
   const sections: string[] = [];
@@ -256,6 +257,42 @@ export function buildAssetPrompt(
       }
       if (a.description) parts.push(a.description);
       sections.push(`  - ${parts.join(", ")}`);
+    }
+
+    // Highlight communication & transportation affordances so the LLM knows
+    // which tools are actually usable (send_sms, start_call, move_*).
+    const phones = personal
+      .map((a) => ({ asset: a, meta: getPhoneMetadata(a) }))
+      .filter((x): x is { asset: Asset; meta: NonNullable<ReturnType<typeof getPhoneMetadata>> } => x.meta != null);
+    if (phones.length > 0) {
+      sections.push("Telefoni (puoi mandare SMS / chiamare):");
+      for (const { meta } of phones) {
+        const parts = [`numero: ${meta.phoneNumber}`];
+        if (meta.online === false) parts.push("offline");
+        if (meta.contacts?.length) {
+          const contactList = meta.contacts
+            .slice(0, 10)
+            .map((c) => `${c.name}=${c.phoneNumber}`)
+            .join(", ");
+          parts.push(`rubrica: ${contactList}${meta.contacts.length > 10 ? ", ..." : ""}`);
+        }
+        sections.push(`  - ${parts.join(" | ")}`);
+      }
+    }
+
+    const vehicles = personal.filter((a) => a.type === "vehicle");
+    if (vehicles.length > 0) {
+      sections.push("Veicoli (ti permettono di spostarti su lunghe distanze):");
+      for (const v of vehicles) {
+        const parts = [v.name];
+        const mode = (v.metadata as { mode?: string } | undefined)?.mode;
+        if (mode) parts.push(`tipo: ${mode}`);
+        if (v.condition != null) {
+          const cond = v.condition > 0.8 ? "ottima" : v.condition > 0.6 ? "buona" : v.condition > 0.4 ? "discreta" : v.condition > 0.2 ? "scarsa" : "pessima";
+          parts.push(`condizione: ${cond}`);
+        }
+        sections.push(`  - ${parts.join(", ")}`);
+      }
     }
   }
 
