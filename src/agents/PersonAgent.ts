@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { BaseAgent } from "./BaseAgent.js";
 import type { AgentStoreOptions, TickContext } from "./BaseAgent.js";
+import {
+  parseAgentAction,
+  applyEnergyDecay,
+} from "./internal/ActionParser.js";
+import { MessageRouter } from "./internal/MessageRouter.js";
+import { TickContextLoader } from "./internal/TickContextLoader.js";
 import { buildPersonGraph } from "../graph/PersonGraph.js";
-import { createMessageId } from "../messaging/MessageBus.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
 import type { Message } from "../messaging/Message.js";
 import type { LLMAdapter } from "../llm/LLMAdapter.js";
@@ -15,6 +20,8 @@ import type { RelationshipUpsert } from "../types/GraphTypes.js";
 export class PersonAgent extends BaseAgent {
   private iterationsPerTick: number;
   private externalTools: AgentTool[] = [];
+  private messageRouter: MessageRouter;
+  private contextLoader: TickContextLoader;
 
   constructor(
     config: AgentConfig,
@@ -24,6 +31,22 @@ export class PersonAgent extends BaseAgent {
   ) {
     super(config, llm, bus, options);
     this.iterationsPerTick = config.iterationsPerTick ?? 1;
+
+    this.messageRouter = new MessageRouter(bus, {
+      conversationManager: options?.conversationManager,
+      neighborhoodManager: options?.neighborhoodManager,
+      graphStore: options?.graphStore,
+      locationIndex: options?.locationIndex,
+      defaultBroadcastRadius: options?.defaultBroadcastRadius,
+    });
+
+    this.contextLoader = new TickContextLoader(config.id, bus, {
+      memoryStore: options?.memoryStore,
+      graphStore: options?.graphStore,
+      assetStore: options?.assetStore,
+      brainMemory: options?.brainMemory,
+      conversationManager: options?.conversationManager,
+    });
   }
 
   setTools(pluginTools: AgentTool[]): void {
@@ -125,128 +148,21 @@ export class PersonAgent extends BaseAgent {
   }
 
   /**
-   * Publishes action to neighbors (if neighborhood configured) or broadcasts to all.
+   * Publishes action to the most relevant audience via the MessageRouter
+   * (conversation → neighborhood → proximity → broadcast cascade).
    */
   private async publishAction(action: AgentAction, ctx: WorldContext): Promise<void> {
-    const msg = {
-      id: createMessageId(),
-      from: this.id,
-      type: "speak" as const,
-      content: JSON.stringify(action.payload),
-      tick: ctx.tickCount,
-    };
-
-    // If in a conversation, send only to conversation participants
-    if (this.conversationManager) {
-      const conv = this.conversationManager.getConversationForAgent(this.id);
-      if (conv) {
-        const recipients = conv.participantIds.filter((id) => id !== this.id);
-        this.bus.publishToGroup(msg, recipients);
-        return;
-      }
-    }
-
-    // If neighborhood is configured, send only to neighbors
-    if (this.neighborhoodManager && this.graphStore && this.config.neighborhood) {
-      const neighbors = await this.neighborhoodManager.getActiveNeighbors(this.id, this.graphStore);
-      if (neighbors.length > 0) {
-        this.bus.publishToGroup(msg, neighbors);
-        return;
-      }
-    }
-
-    // Proximity-based fallback: send to nearby agents instead of broadcasting
-    if (this.locationIndex && this.defaultBroadcastRadius && this.defaultBroadcastRadius > 0) {
-      const nearby = this.locationIndex.findNearby(this.id, this.defaultBroadcastRadius);
-      if (nearby.length > 0) {
-        this.bus.publishToGroup(msg, nearby.map((n) => n.agentId));
-        return;
-      }
-    }
-
-    // Last resort: broadcast to all (backward-compatible when no location/radius configured)
-    console.warn(
-      `[PersonAgent] Agent "${this.id}" falling back to broadcast at tick ${ctx.tickCount}. ` +
-      `Consider configuring neighborhood, location, or broadcastRadius.`,
+    await this.messageRouter.publish(
+      this.id,
+      action,
+      ctx.tickCount,
+      this.config.neighborhood != null,
     );
-    this.bus.publish({ ...msg, to: "*" });
   }
 
   private async gatherTickContext(): Promise<TickContext> {
     const degraded = this.isDegraded() || this.config.llmTier === "light";
-    const memoryLimit = degraded ? 5 : 20;
-    const relLimit = degraded ? 3 : 10;
-
-    if (this.brainMemory) {
-      const currentSituation = this.describeCurrentSituation();
-      const [recallResult, relationships] = await Promise.all([
-        this.brainMemory.recall({
-          agentId: this.id,
-          recentLimit: memoryLimit,
-          semanticQuery: currentSituation,
-          semanticTopK: degraded ? 0 : 5,
-          includeKnowledge: !degraded,
-        }),
-        this.graphStore
-          ? this.graphStore.getRelationships({ agentId: this.id, limit: relLimit })
-          : Promise.resolve([]),
-      ]);
-
-      const tickCtx: TickContext = {
-        memories: recallResult.memories,
-        relationships,
-        knowledge: degraded ? undefined : recallResult.knowledge,
-      };
-
-      // Load assets if available
-      if (this.assetStore) {
-        const [agentAssets, household, currentVenue, householdAssets, communityAssets] = await Promise.all([
-          this.assetStore.getAgentAssets(this.id),
-          this.assetStore.getAgentHousehold(this.id),
-          this.assetStore.getAgentCurrentVenue(this.id),
-          this.assetStore.getAgentHousehold(this.id).then(
-            (h) => h ? this.assetStore!.getHouseholdAssets(h.id) : [],
-          ),
-          this.assetStore.getCommunityAssets(),
-        ]);
-        tickCtx.assets = [...agentAssets, ...householdAssets, ...communityAssets];
-        tickCtx.household = household ?? undefined;
-        tickCtx.currentVenue = currentVenue ?? undefined;
-      }
-
-      return tickCtx;
-    }
-
-    const [memories, relationships] = await Promise.all([
-      this.memoryStore
-        ? this.memoryStore.getRecent(this.id, memoryLimit)
-        : Promise.resolve([]),
-      this.graphStore
-        ? this.graphStore.getRelationships({ agentId: this.id, limit: relLimit })
-        : Promise.resolve([]),
-    ]);
-
-    // Load assets if available
-    if (this.assetStore) {
-      const [agentAssets, household, currentVenue, householdAssets, communityAssets] = await Promise.all([
-        this.assetStore.getAgentAssets(this.id),
-        this.assetStore.getAgentHousehold(this.id),
-        this.assetStore.getAgentCurrentVenue(this.id),
-        this.assetStore.getAgentHousehold(this.id).then(
-          (h) => h ? this.assetStore!.getHouseholdAssets(h.id) : [],
-        ),
-        this.assetStore.getCommunityAssets(),
-      ]);
-      return {
-        memories,
-        relationships,
-        assets: [...agentAssets, ...householdAssets, ...communityAssets],
-        household: household ?? undefined,
-        currentVenue: currentVenue ?? undefined,
-      };
-    }
-
-    return { memories, relationships };
+    return this.contextLoader.load(degraded, this.describeCurrentSituation());
   }
 
   /**
@@ -254,22 +170,7 @@ export class PersonAgent extends BaseAgent {
    * If idle, we skip the expensive LLM call and return a "rest" action.
    */
   private isIdle(tick: number): boolean {
-    // Has incoming messages? (O(1) with recipient index)
-    if (this.bus.getMessageCount(this.id, tick) > 0) return false;
-
-    // Has active goals?
-    if (this.internalState.goals.length > 0) return false;
-
-    // Has enough energy to be active?
-    if (this.internalState.energy > 30) return false;
-
-    // Is in an active conversation?
-    if (this.conversationManager) {
-      const conv = this.conversationManager.getConversationForAgent(this.id);
-      if (conv) return false;
-    }
-
-    return true;
+    return this.contextLoader.isIdle(tick, this.internalState);
   }
 
   private describeCurrentSituation(): string {
@@ -509,48 +410,14 @@ REGOLE DI RISPOSTA:
     const hasToolCalls = result.toolResults && result.toolResults.length > 0;
 
     const lastMsg = result.messages[result.messages.length - 1];
-    let actionType: AgentAction["actionType"] = "speak";
-    let payload: unknown = lastMsg?.content ?? "";
+    const parsed = parseAgentAction(lastMsg?.content);
+    let { actionType, payload } = parsed;
 
-    try {
-      const jsonMatch = lastMsg?.content?.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as {
-          actionType?: string;
-          content?: string;
-          stateUpdate?: {
-            mood?: string;
-            energy?: number;
-            goals?: string[];
-          };
-        };
-        if (
-          parsed.actionType &&
-          ["speak", "observe", "interact", "tool_call", "finish"].includes(
-            parsed.actionType,
-          )
-        ) {
-          actionType = parsed.actionType as AgentAction["actionType"];
-        }
-        payload = parsed.content ?? parsed;
-
-        if (parsed.stateUpdate) {
-          this.updateInternalState(parsed.stateUpdate);
-        } else {
-          // Default energy decay: every action costs energy
-          const energyCost = actionType === "observe" ? 2 : actionType === "finish" ? 0 : 5;
-          if (energyCost > 0) {
-            this.updateInternalState({
-              energy: Math.max(0, this.internalState.energy - energyCost),
-            });
-          }
-        }
-      }
-    } catch {
-      payload = lastMsg?.content ?? "";
-      // Even on parse failure, decay energy
+    if (parsed.stateUpdate) {
+      this.updateInternalState(parsed.stateUpdate);
+    } else {
       this.updateInternalState({
-        energy: Math.max(0, this.internalState.energy - 5),
+        energy: applyEnergyDecay(this.internalState.energy, actionType),
       });
     }
 
@@ -559,7 +426,12 @@ REGOLE DI RISPOSTA:
       actionType = "tool_call";
       payload = {
         toolResults: result.toolResults,
-        summary: typeof payload === "string" ? payload : (payload as Record<string, unknown>)?.content ?? lastMsg?.content ?? "",
+        summary:
+          typeof payload === "string"
+            ? payload
+            : (payload as Record<string, unknown>)?.content
+              ?? lastMsg?.content
+              ?? "",
       };
     }
 

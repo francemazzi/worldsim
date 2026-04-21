@@ -38,23 +38,28 @@ import type { TokenBudgetResult } from "../scheduling/TokenBudgetTracker.js";
 import type { NeighborhoodManager } from "../graph/NeighborhoodManager.js";
 import type { ConversationManager } from "../messaging/ConversationManager.js";
 import type { LocationIndex } from "../location/LocationIndex.js";
+import type {
+  AgentStorageDeps,
+  AgentSchedulingDeps,
+  AgentSocialDeps,
+} from "./internal/AgentDeps.js";
 
-export interface AgentStoreOptions {
-  memoryStore?: MemoryStore | undefined;
-  graphStore?: GraphStore | undefined;
-  vectorStore?: VectorStore | undefined;
-  persistenceStore?: PersistenceStore | undefined;
-  embeddingAdapter?: EmbeddingAdapter | undefined;
-  assetStore?: import("../types/AssetTypes.js").AssetStore | undefined;
-  brainMemory?: BrainMemory | undefined;
-  activityScheduler?: ActivityScheduler | undefined;
-  tokenBudgetTracker?: TokenBudgetTracker | undefined;
-  neighborhoodManager?: NeighborhoodManager | undefined;
-  conversationManager?: ConversationManager | undefined;
-  locationIndex?: LocationIndex | undefined;
-  /** Radius in km for proximity-based messaging (replaces broadcast). 0 = no proximity fallback. */
-  defaultBroadcastRadius?: number | undefined;
-}
+export type {
+  AgentStorageDeps,
+  AgentSchedulingDeps,
+  AgentSocialDeps,
+} from "./internal/AgentDeps.js";
+
+/**
+ * Aggregate of every dependency an agent may need. Preserved as a single
+ * type alias for backward compatibility; internally callers are encouraged
+ * to accept only the slice of dependencies they actually use
+ * ({@link AgentStorageDeps}, {@link AgentSchedulingDeps},
+ * {@link AgentSocialDeps}).
+ */
+export type AgentStoreOptions = AgentStorageDeps &
+  AgentSchedulingDeps &
+  AgentSocialDeps;
 
 export interface TickContext {
   memories: MemoryEntry[];

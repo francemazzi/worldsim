@@ -166,4 +166,25 @@ export class PluginRegistry {
   getPlugins(): readonly WorldSimPlugin[] {
     return this.plugins;
   }
+
+  /**
+   * Returns the first plugin that satisfies the given capability predicate,
+   * or undefined if none does. This lets the engine talk to plugins through
+   * structural capability interfaces instead of concrete classes or plugin
+   * name strings.
+   */
+  getCapability<T>(
+    predicate: (p: WorldSimPlugin) => p is WorldSimPlugin & T,
+  ): (WorldSimPlugin & T) | undefined {
+    return this.plugins.find(predicate);
+  }
+
+  /**
+   * Returns every plugin that satisfies the given capability predicate.
+   */
+  getCapabilities<T>(
+    predicate: (p: WorldSimPlugin) => p is WorldSimPlugin & T,
+  ): (WorldSimPlugin & T)[] {
+    return this.plugins.filter(predicate);
+  }
 }

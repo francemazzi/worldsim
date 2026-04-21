@@ -22,6 +22,7 @@ import { ConversationManager } from "../messaging/ConversationManager.js";
 import { LocationIndex } from "../location/LocationIndex.js";
 import { McpClientManager } from "../mcp/McpClientManager.js";
 import { privacyCompliancePlugin } from "../plugins/built-in/PrivacyCompliancePlugin.js";
+import { isPositionProvider } from "../plugins/capabilities/PositionProvider.js";
 import type { Conversation } from "../types/ConversationTypes.js";
 import type {
   WorldConfig,
@@ -217,18 +218,15 @@ export class WorldEngine {
 
   /**
    * Push a real-world GPS position for an agent.
-   * If the MovementPlugin is registered, delegates to it (records history + events).
+   * If any registered plugin exposes the {@link PositionProvider} capability
+   * (e.g. MovementPlugin), delegates to it so history + events are recorded.
    * Otherwise falls back to updating the LocationIndex directly.
    */
   updateAgentPosition(agentId: string, latitude: number, longitude: number, label?: string): this {
-    const movementPlugin = this.runtime.pluginRegistry
-      .getPlugins()
-      .find((p) => p.name === "movement") as
-      | (WorldSimPlugin & { updateRealPosition(id: string, lat: number, lng: number, lbl?: string): void })
-      | undefined;
+    const provider = this.runtime.pluginRegistry.getCapability(isPositionProvider);
 
-    if (movementPlugin && typeof movementPlugin.updateRealPosition === "function") {
-      movementPlugin.updateRealPosition(agentId, latitude, longitude, label);
+    if (provider) {
+      provider.updateRealPosition(agentId, latitude, longitude, label);
     } else {
       this.runtime.locationIndex.update(agentId, { latitude, longitude, label });
     }

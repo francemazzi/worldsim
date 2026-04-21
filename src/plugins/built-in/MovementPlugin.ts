@@ -5,6 +5,11 @@ import type { MovementRecord, MovementPluginOptions } from "../../types/Movement
 import type { LocationIndex } from "../../location/LocationIndex.js";
 import type { AssetStore, Asset } from "../../types/AssetTypes.js";
 import type { AgentRegistry } from "../../agents/AgentRegistry.js";
+import type { PositionProvider } from "../capabilities/PositionProvider.js";
+import type {
+  ConfigurablePlugin,
+  PluginRuntimeContext,
+} from "../capabilities/ConfigurablePlugin.js";
 import {
   defaultMovementPolicy,
   type MovementPolicy,
@@ -289,7 +294,9 @@ function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
-export class MovementPlugin implements WorldSimPlugin {
+export class MovementPlugin
+  implements WorldSimPlugin, PositionProvider, ConfigurablePlugin
+{
   readonly name = "movement";
   readonly version = "1.0.0";
   readonly parallel = true;
@@ -339,6 +346,30 @@ export class MovementPlugin implements WorldSimPlugin {
   /** Inject the agent registry after construction (used by WorldBootstrapper). */
   setAgentRegistry(registry: AgentRegistry): void {
     this.runtime.agentRegistry = registry;
+  }
+
+  /**
+   * ConfigurablePlugin hook: called by the engine after agents are created
+   * but before the first tick. Wires this plugin with the live asset store,
+   * agent registry, and any movement policy (or walking radius) configured
+   * on the WorldConfig. Replaces the legacy `configureMovementPlugin` logic
+   * that used to live in WorldBootstrapper with an `instanceof` check.
+   */
+  onRuntimeReady(ctx: PluginRuntimeContext): void {
+    if (ctx.assetStore) {
+      this.setAssetStore(ctx.assetStore);
+    }
+    this.setAgentRegistry(ctx.agentRegistry);
+
+    if (ctx.config.movementPolicy) {
+      this.setPolicy(ctx.config.movementPolicy);
+    } else if (ctx.config.walkingRadiusMeters != null) {
+      this.setPolicy(
+        defaultMovementPolicy({
+          walkingRadiusMeters: ctx.config.walkingRadiusMeters,
+        }),
+      );
+    }
   }
 
   get tools(): AgentTool[] {

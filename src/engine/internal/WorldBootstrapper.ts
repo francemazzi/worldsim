@@ -5,8 +5,7 @@ import type { NeighborhoodConfig } from "../../graph/NeighborhoodManager.js";
 import { BrainMemory } from "../../memory/BrainMemory.js";
 import { TrackingLLMAdapter } from "../../llm/TrackingLLMAdapter.js";
 import { RulesLoader, buildRulesContext } from "../../rules/RulesLoader.js";
-import { MovementPlugin } from "../../plugins/built-in/MovementPlugin.js";
-import { defaultMovementPolicy } from "../../plugins/built-in/movement/MovementPolicy.js";
+import { isConfigurablePlugin } from "../../plugins/capabilities/ConfigurablePlugin.js";
 import type { WorldEngineRuntime } from "./WorldEngineRuntime.js";
 
 export class WorldBootstrapper {
@@ -18,7 +17,7 @@ export class WorldBootstrapper {
       ? await rulesLoader.load(this.runtime.config.rulesPath)
       : buildRulesContext([]);
 
-    this.configureMovementPlugin();
+    await this.configurePlugins();
 
     await this.runtime.pluginRegistry.runHook(
       "onBootstrap",
@@ -135,28 +134,22 @@ export class WorldBootstrapper {
   }
 
   /**
-   * Wires the built-in MovementPlugin (if registered) with the live asset
-   * store, agent registry, and `movementPolicy` from WorldConfig. This lets
-   * users plug their own movement rules without having to pass them to the
-   * plugin constructor.
+   * Invokes `onRuntimeReady` on every plugin that exposes the
+   * {@link ConfigurablePlugin} capability, passing them the runtime context
+   * (agent registry, asset store, world config). This replaces the previous
+   * hard-coded `instanceof MovementPlugin` wiring and lets third-party
+   * plugins participate in the same post-bootstrap configuration flow.
    */
-  private configureMovementPlugin(): void {
-    const plugin = this.runtime.pluginRegistry.getPlugin("movement");
-    if (!(plugin instanceof MovementPlugin)) return;
-
-    if (this.runtime.config.assetStore) {
-      plugin.setAssetStore(this.runtime.config.assetStore);
-    }
-    plugin.setAgentRegistry(this.runtime.agentRegistry);
-
-    if (this.runtime.config.movementPolicy) {
-      plugin.setPolicy(this.runtime.config.movementPolicy);
-    } else if (this.runtime.config.walkingRadiusMeters != null) {
-      plugin.setPolicy(
-        defaultMovementPolicy({
-          walkingRadiusMeters: this.runtime.config.walkingRadiusMeters,
-        }),
-      );
+  private async configurePlugins(): Promise<void> {
+    const configurables = this.runtime.pluginRegistry.getCapabilities(
+      isConfigurablePlugin,
+    );
+    for (const plugin of configurables) {
+      await plugin.onRuntimeReady({
+        agentRegistry: this.runtime.agentRegistry,
+        assetStore: this.runtime.config.assetStore,
+        config: this.runtime.config,
+      });
     }
   }
 }

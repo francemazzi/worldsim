@@ -78,6 +78,13 @@ export type {
 } from "./types/AgentTypes.js";
 export type { RuleSet, Rule, RulesContext } from "./types/RulesTypes.js";
 export type { WorldSimPlugin, AgentTool } from "./types/PluginTypes.js";
+export type { PositionProvider } from "./plugins/capabilities/PositionProvider.js";
+export { isPositionProvider } from "./plugins/capabilities/PositionProvider.js";
+export type {
+  ConfigurablePlugin,
+  PluginRuntimeContext,
+} from "./plugins/capabilities/ConfigurablePlugin.js";
+export { isConfigurablePlugin } from "./plugins/capabilities/ConfigurablePlugin.js";
 
 // ─── Report Types ───────────────────────────────────────────────────
 export type {
