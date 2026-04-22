@@ -260,6 +260,8 @@ body {
 }
 .btn:hover { background: var(--accent); }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent); filter: brightness(1.1); }
 .btn-danger { background: #6e2b28; }
 .btn-danger:hover { background: var(--red); }
 .btn-warning { background: #5c3d0f; }

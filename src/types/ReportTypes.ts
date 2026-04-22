@@ -117,6 +117,210 @@ export interface SimulationMetrics {
   averageEnergyByTick: { tick: number; avgEnergy: number }[];
 }
 
+/* ------------------------------------------------------------------ */
+/*  Sociological analysis types                                        */
+/* ------------------------------------------------------------------ */
+
+/** Lightweight descriptor for a node in the sociogram. */
+export interface AgentNode {
+  agentId: string;
+  name: string;
+  role: string;
+  personality: string[];
+  profession?: string | undefined;
+}
+
+/** Per-agent centrality measures derived from the final relationship graph. */
+export interface CentralityScore {
+  agentId: string;
+  degree: number;
+  betweenness: number;
+  eigenvector: number;
+}
+
+/** Density of the social graph at a given tick. */
+export interface DensityPoint {
+  tick: number;
+  value: number;
+}
+
+/** A connected cluster / coalition in the social graph. */
+export interface Community {
+  id: string;
+  members: string[];
+  cohesion: number;
+}
+
+/** Newman-style assortativity for a categorical attribute. */
+export interface HomophilyScore {
+  attribute: string;
+  assortativity: number;
+}
+
+/** A qualitative change in the relationship graph over time. */
+export interface RelationshipChange {
+  type: "created" | "broken" | "type_changed" | "strengthened" | "weakened";
+  from: string;
+  to: string;
+  tick: number;
+  fromType?: string | undefined;
+  toType?: string | undefined;
+  delta?: number | undefined;
+}
+
+/** Aggregated network-level analysis of the run. */
+export interface NetworkAnalysis {
+  sociogramFinal: {
+    nodes: AgentNode[];
+    edges: RelationshipSnapshot[];
+  };
+  centrality: CentralityScore[];
+  density: DensityPoint[];
+  communities: Community[];
+  reciprocity: number;
+  homophily: HomophilyScore[];
+  relationshipChanges: RelationshipChange[];
+}
+
+/** Directed (or broadcast) who-talks-to-whom count. */
+export interface SpeakEdge {
+  from: string;
+  /** Agent id of the addressee or "*" for broadcast. */
+  to: string;
+  count: number;
+}
+
+/** Per-agent volume of spoken communication. */
+export interface VoiceShare {
+  agentId: string;
+  speaks: number;
+  wordsApprox: number;
+}
+
+/** Per-agent average message length and variance. */
+export interface MessageLengthStat {
+  agentId: string;
+  avg: number;
+  stddev: number;
+}
+
+/** Aggregate statistics of the ConversationManager, when available. */
+export interface ConversationStats {
+  total: number;
+  avgTurns: number;
+  initiatedBy: Record<string, number>;
+}
+
+/** How often each agent's direct speaks receive a reply. */
+export interface ResponseRate {
+  agentId: string;
+  speaksOut: number;
+  repliesReceived: number;
+  rate: number;
+}
+
+/** Aggregated dialogical analysis of the run. */
+export interface DialogueAnalysis {
+  speakMatrix: SpeakEdge[];
+  voiceGini: number;
+  voiceByAgent: VoiceShare[];
+  avgMessageChars: MessageLengthStat[];
+  conversationStats: ConversationStats;
+  responseRate: ResponseRate[];
+}
+
+/** Aggregates measured on a time window. */
+export interface ShockWindowStats {
+  avgMood: string;
+  avgEnergy: number;
+  speakRate: number;
+  violationRate: number;
+  toolCallRate: number;
+}
+
+/** Deltas between post- and pre-trigger windows. */
+export interface ShockDeltas {
+  avgEnergy: number;
+  speakRate: number;
+  violationRate: number;
+  toolCallRate: number;
+  moodChanged: boolean;
+}
+
+/** Measures the impact of a policy trigger on the community. */
+export interface PolicyShockAnalysis {
+  triggerTick: number;
+  windowTicks: number;
+  description?: string | undefined;
+  pre: ShockWindowStats;
+  post: ShockWindowStats;
+  deltas: ShockDeltas;
+  recoveryTicks: number | null;
+}
+
+/** Reaction archetype for an agent after the policy shock. */
+export type ReactionArchetype =
+  | "compliant"
+  | "skeptic"
+  | "resistant"
+  | "apathetic";
+
+/** Agent archetype with rationale derived from heuristics. */
+export interface AgentArchetype {
+  agentId: string;
+  archetype: ReactionArchetype;
+  score: number;
+  rationale: string;
+  subScores: Record<ReactionArchetype, number>;
+}
+
+/** Per-tick correlation of mood shift with neighborhood valence. */
+export interface ContagionPoint {
+  tick: number;
+  correlationNeighbors: number;
+}
+
+/** Variance of mood valence across agents at a tick. */
+export interface MoodVariancePoint {
+  tick: number;
+  variance: number;
+}
+
+/** Aggregated archetype analysis of the run. */
+export interface ArchetypeAnalysis {
+  perAgent: AgentArchetype[];
+  emotionalContagion: ContagionPoint[];
+  moodVarianceByTick: MoodVariancePoint[];
+}
+
+/** A single arc phase description produced by the LLM narrator. */
+export interface NarrativeArc {
+  phase: "pre" | "trigger" | "post" | "full";
+  summary: string;
+}
+
+/** Per-agent narrative summary. */
+export interface AgentArc {
+  agentId: string;
+  arc: string;
+}
+
+/** An emblematic quote extracted from the timeline. */
+export interface NarrativeQuote {
+  agentId: string;
+  tick: number;
+  content: string;
+  tag: string;
+}
+
+/** Qualitative narrative section produced by an LLM (opt-in). */
+export interface NarrativeReport {
+  arc: NarrativeArc[];
+  perAgentArc: AgentArc[];
+  quotes: NarrativeQuote[];
+  generatedAt: string;
+}
+
 /** The complete simulation report. */
 export interface SimulationReport {
   summary: SimulationSummary;
@@ -126,6 +330,16 @@ export interface SimulationReport {
   metrics: SimulationMetrics;
   /** Raw actions for further analysis. */
   rawActions: AgentAction[];
+  /** Network / graph analysis (optional, populated when relationships exist). */
+  network?: NetworkAnalysis | undefined;
+  /** Dialogical analysis (optional, populated when speak actions exist). */
+  dialogue?: DialogueAnalysis | undefined;
+  /** Policy shock analysis (optional, only when a policy_trigger entry exists). */
+  shock?: PolicyShockAnalysis | null | undefined;
+  /** Reaction archetypes (optional, heuristic-based). */
+  archetypes?: ArchetypeAnalysis | undefined;
+  /** Qualitative narrative produced by an LLM (optional, opt-in). */
+  narrative?: NarrativeReport | null | undefined;
 }
 
 export interface TopicInsight {

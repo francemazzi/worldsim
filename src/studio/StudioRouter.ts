@@ -52,7 +52,14 @@ export class StudioRouter {
       if (!match) continue;
 
       const params: Record<string, string> = {};
-      route.paramNames.forEach((name, i) => { params[name] = match[i + 1] ?? ""; });
+      route.paramNames.forEach((name, i) => {
+        const raw = match[i + 1] ?? "";
+        try {
+          params[name] = decodeURIComponent(raw);
+        } catch {
+          params[name] = raw;
+        }
+      });
 
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Content-Type", "application/json");

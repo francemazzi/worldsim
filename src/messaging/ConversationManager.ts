@@ -222,6 +222,14 @@ export class ConversationManager {
     return count;
   }
 
+  /**
+   * Returns a snapshot of every conversation tracked so far (active and ended).
+   * Safe to iterate: the caller gets a detached array copy.
+   */
+  getAll(): Conversation[] {
+    return [...this.conversations.values()];
+  }
+
   clear(): void {
     this.conversations.clear();
     this.agentConversations.clear();

@@ -27,6 +27,10 @@
     selectedCompareRuns: [],
     topics: null,
     topicsLoading: false,
+    narrative: null,
+    narrativeLoading: false,
+    reportSubTab: "overview",
+    reportRunId: null,
     tuningAgents: [],
     // Filters
     eventTypeFilter: "",
@@ -921,11 +925,12 @@
         const data = await api(`/worlds/${encodeURIComponent(state.selectedWorldId)}/report/live`);
         state.report = data.report || null;
         const runId = data.runId;
+        state.reportRunId = runId || null;
         if (runId) {
-          const topicsData = await fetch(`/api/reports/${encodeURIComponent(runId)}`)
+          const runData = await fetch(`/api/reports/${encodeURIComponent(runId)}`)
             .then((r) => r.json())
             .catch(() => null);
-          state.topics = topicsData?.topics || null;
+          state.topics = runData?.topics || null;
         }
       } else {
         const data = await api("/report");
@@ -934,6 +939,7 @@
         } else {
           state.report = data;
         }
+        state.reportRunId = null;
       }
     } catch {
       state.report = null;
@@ -941,9 +947,14 @@
     render();
     if (state.report) {
       setTimeout(() => {
-        drawMoodHeatmap();
-        drawEnergyChart();
-        drawActionBars();
+        if (state.reportSubTab === "overview") {
+          drawMoodHeatmap();
+          drawEnergyChart();
+          drawActionBars();
+        }
+        if (state.reportSubTab === "network") drawNetworkViews();
+        if (state.reportSubTab === "dialogue") drawDialogueViews();
+        if (state.reportSubTab === "archetypes") drawArchetypeViews();
       }, 50);
     }
   }
@@ -961,7 +972,16 @@
 
     const r = state.report;
     const s = r.summary;
-    const topTools = computeTopTools(r);
+    const subTab = state.reportSubTab || "overview";
+
+    const tabs = [
+      { id: "overview", label: "Panoramica" },
+      { id: "network", label: "Rete" },
+      { id: "dialogue", label: "Dialogica" },
+      { id: "shock", label: "Impatto policy" },
+      { id: "archetypes", label: "Archetipi" },
+      { id: "narrative", label: "Narrativa" },
+    ];
 
     return `
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -973,39 +993,47 @@
       </div>
       <div class="section-subtitle">${esc(s.worldId)} &middot; ${(s.durationMs / 1000).toFixed(1)}s</div>
 
+      <div class="report-subnav" style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 16px">
+        ${tabs.map((t) => `
+          <button class="btn btn-sm ${subTab === t.id ? "btn-primary" : ""}" data-report-subtab="${t.id}">${t.label}</button>
+        `).join("")}
+      </div>
+
+      ${renderReportSubTab(subTab, r)}
+    `;
+  }
+
+  function renderReportSubTab(subTab, r) {
+    switch (subTab) {
+      case "overview": return renderOverviewSubTab(r);
+      case "network": return renderNetworkSubTab(r);
+      case "dialogue": return renderDialogueSubTab(r);
+      case "shock": return renderShockSubTab(r);
+      case "archetypes": return renderArchetypesSubTab(r);
+      case "narrative": return renderNarrativeSubTab(r);
+      default: return renderOverviewSubTab(r);
+    }
+  }
+
+  function exportButton(dataset, label) {
+    if (!state.reportRunId) return "";
+    const href = `/api/reports/${encodeURIComponent(state.reportRunId)}/export.csv?dataset=${encodeURIComponent(dataset)}`;
+    return `<a class="btn btn-sm" href="${href}" download>Export ${esc(label)} CSV</a>`;
+  }
+
+  function renderOverviewSubTab(r) {
+    const s = r.summary;
+    const topTools = computeTopTools(r);
+    return `
       <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-value">${s.totalTicks}</div>
-          <div class="stat-label">Ticks</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${s.agentCount}</div>
-          <div class="stat-label">Agents</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${s.totalActions}</div>
-          <div class="stat-label">Actions</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${r.metrics.totalSpeaks}</div>
-          <div class="stat-label">Speaks</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${r.metrics.ruleViolations}</div>
-          <div class="stat-label">Violations</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${r.metrics.totalTokens}</div>
-          <div class="stat-label">Tokens</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${r.metrics.avgLatencyMs.toFixed(1)}ms</div>
-          <div class="stat-label">Avg Latency</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${r.metrics.estimatedCost.amount.toFixed(4)} ${esc(r.metrics.estimatedCost.currency)}</div>
-          <div class="stat-label">Estimated Cost</div>
-        </div>
+        <div class="stat-card"><div class="stat-value">${s.totalTicks}</div><div class="stat-label">Ticks</div></div>
+        <div class="stat-card"><div class="stat-value">${s.agentCount}</div><div class="stat-label">Agents</div></div>
+        <div class="stat-card"><div class="stat-value">${s.totalActions}</div><div class="stat-label">Actions</div></div>
+        <div class="stat-card"><div class="stat-value">${r.metrics.totalSpeaks}</div><div class="stat-label">Speaks</div></div>
+        <div class="stat-card"><div class="stat-value">${r.metrics.ruleViolations}</div><div class="stat-label">Violations</div></div>
+        <div class="stat-card"><div class="stat-value">${r.metrics.totalTokens}</div><div class="stat-label">Tokens</div></div>
+        <div class="stat-card"><div class="stat-value">${r.metrics.avgLatencyMs.toFixed(1)}ms</div><div class="stat-label">Avg Latency</div></div>
+        <div class="stat-card"><div class="stat-value">${r.metrics.estimatedCost.amount.toFixed(4)} ${esc(r.metrics.estimatedCost.currency)}</div><div class="stat-label">Estimated Cost</div></div>
       </div>
 
       <div class="card">
@@ -1050,7 +1078,9 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">Tematiche</span>
-          <button class="btn btn-sm" id="topics-refresh">Refresh</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm" id="topics-refresh">Refresh</button>
+          </div>
         </div>
         <div class="event-list">
           ${(state.topics || []).map((t) => `
@@ -1067,7 +1097,10 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">Timeline</span>
-          <span class="badge">${r.timeline.length} events</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="badge">${r.timeline.length} events</span>
+            ${exportButton("timeline", "timeline")}
+          </div>
         </div>
         <div class="report-timeline">
           ${r.timeline.slice(0, 100).map((t) => `
@@ -1083,6 +1116,7 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">Per-Agent Summary</span>
+          ${exportButton("agents", "agents")}
         </div>
         <div class="agent-report-grid">
           ${r.agents.filter(a => a.role !== "control").map((a) => {
@@ -1109,6 +1143,299 @@
         </div>
       </div>
     `;
+  }
+
+  function renderNetworkSubTab(r) {
+    const net = r.network;
+    if (!net) {
+      return `<div class="empty-state" style="padding:48px"><div class="empty-state-text">Nessuna analisi di rete disponibile (nessuna relazione tracciata).</div></div>`;
+    }
+    const topCentrality = [...net.centrality].sort((a, b) => b.eigenvector - a.eigenvector).slice(0, 5);
+    const densityLast = net.density.length ? net.density[net.density.length - 1].value : 0;
+    const changes = net.relationshipChanges.slice(-20).reverse();
+    return `
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-value">${(densityLast * 100).toFixed(1)}%</div><div class="stat-label">Densità finale</div></div>
+        <div class="stat-card"><div class="stat-value">${(net.reciprocity * 100).toFixed(1)}%</div><div class="stat-label">Reciprocità</div></div>
+        <div class="stat-card"><div class="stat-value">${net.communities.length}</div><div class="stat-label">Community</div></div>
+        <div class="stat-card"><div class="stat-value">${net.sociogramFinal.edges.length}</div><div class="stat-label">Archi</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Top agenti per centralità (eigenvector)</span>
+          ${exportButton("centrality", "centrality")}
+        </div>
+        <div class="event-list">
+          ${topCentrality.map((c, i) => `
+            <div class="event-row">
+              <span class="event-tick">#${i + 1}</span>
+              <span class="event-type">${esc(c.agentId)}</span>
+              <span class="event-payload">degree ${c.degree} &middot; between ${c.betweenness.toFixed(3)} &middot; eigen ${c.eigenvector.toFixed(3)}</span>
+            </div>
+          `).join("")}
+          ${topCentrality.length === 0 ? '<div class="empty-state"><div class="empty-state-text">Grafo vuoto.</div></div>' : ""}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Community</span></div>
+        <div class="event-list">
+          ${net.communities.map((c) => `
+            <div class="event-row">
+              <span class="event-type">${esc(c.id)}</span>
+              <span class="event-agent">${c.members.length} membri</span>
+              <span class="event-payload">coesione ${c.cohesion.toFixed(3)} &middot; ${c.members.map(esc).join(", ")}</span>
+            </div>
+          `).join("")}
+          ${net.communities.length === 0 ? '<div class="empty-state"><div class="empty-state-text">Nessuna community sopra la soglia.</div></div>' : ""}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Homophily</span></div>
+        <div class="event-list">
+          ${net.homophily.map((h) => `
+            <div class="event-row">
+              <span class="event-type">${esc(h.attribute)}</span>
+              <span class="event-payload">assortatività ${h.assortativity.toFixed(3)}</span>
+            </div>
+          `).join("")}
+          ${net.homophily.length === 0 ? '<div class="empty-state"><div class="empty-state-text">Attributi insufficienti.</div></div>' : ""}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Cambiamenti di relazioni</span>
+          <span class="badge">${net.relationshipChanges.length}</span>
+          ${exportButton("relationships", "relationships")}
+        </div>
+        <div class="event-list">
+          ${changes.map((c) => `
+            <div class="event-row">
+              <span class="event-tick">T${c.tick}</span>
+              <span class="event-type">${esc(c.type)}</span>
+              <span class="event-payload">${esc(c.from)} → ${esc(c.to)} ${c.fromType ? `(${esc(c.fromType)})` : ""}${c.toType ? ` → ${esc(c.toType)}` : ""}${c.delta != null ? ` Δ ${c.delta.toFixed(2)}` : ""}</span>
+            </div>
+          `).join("")}
+          ${changes.length === 0 ? '<div class="empty-state"><div class="empty-state-text">Nessun cambiamento registrato.</div></div>' : ""}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Densità nel tempo</span></div>
+        <div class="chart-container" id="density-chart" style="height:240px"></div>
+      </div>
+    `;
+  }
+
+  function renderDialogueSubTab(r) {
+    const d = r.dialogue;
+    if (!d) {
+      return `<div class="empty-state" style="padding:48px"><div class="empty-state-text">Nessuna analisi dialogica disponibile.</div></div>`;
+    }
+    const topResponders = [...d.responseRate].sort((a, b) => b.rate - a.rate).slice(0, 8);
+    return `
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-value">${d.conversationStats.total}</div><div class="stat-label">Conversazioni</div></div>
+        <div class="stat-card"><div class="stat-value">${d.conversationStats.avgTurns.toFixed(1)}</div><div class="stat-label">Turni medi</div></div>
+        <div class="stat-card"><div class="stat-value">${d.voiceGini.toFixed(3)}</div><div class="stat-label">Voice Gini</div></div>
+        <div class="stat-card"><div class="stat-value">${d.speakMatrix.reduce((s, e) => s + e.count, 0)}</div><div class="stat-label">Messaggi</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Distribuzione dei speak per agente</span>
+          ${exportButton("voice", "voice")}
+        </div>
+        <div class="chart-container" id="voice-chart" style="height:${Math.max(180, d.voiceByAgent.length * 28 + 40)}px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Chi parla a chi (speakMatrix)</span>
+          ${exportButton("speakMatrix", "speakMatrix")}
+        </div>
+        <div class="chart-container" id="speak-heatmap" style="height:${Math.max(220, (new Set(d.speakMatrix.map(e => e.from)).size + 1) * 26 + 80)}px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Response rate</span>
+          ${exportButton("responseRate", "responseRate")}
+        </div>
+        <div class="event-list">
+          ${topResponders.map((rr) => `
+            <div class="event-row">
+              <span class="event-type">${esc(rr.agentId)}</span>
+              <span class="event-agent">${rr.speaksOut} speak</span>
+              <span class="event-payload">${rr.repliesReceived} risposte &middot; ${(rr.rate * 100).toFixed(1)}%</span>
+            </div>
+          `).join("")}
+          ${topResponders.length === 0 ? '<div class="empty-state"><div class="empty-state-text">Nessun speak diretto tracciato.</div></div>' : ""}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Lunghezza media messaggi</span></div>
+        <div class="event-list">
+          ${d.avgMessageChars.map((m) => `
+            <div class="event-row">
+              <span class="event-type">${esc(m.agentId)}</span>
+              <span class="event-payload">avg ${m.avg.toFixed(1)} char &middot; σ ${m.stddev.toFixed(1)}</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderShockSubTab(r) {
+    const s = r.shock;
+    if (!s) {
+      return `<div class="empty-state" style="padding:48px"><div class="empty-state-text">Nessun policy trigger registrato. Chiama recordPolicyTrigger(tick, desc) per attivare questa analisi.</div></div>`;
+    }
+    const rows = [
+      { label: "Mood dominante", pre: s.pre.avgMood, post: s.post.avgMood, delta: s.deltas.moodChanged ? "cambiato" : "stabile" },
+      { label: "Energia media", pre: s.pre.avgEnergy.toFixed(2), post: s.post.avgEnergy.toFixed(2), delta: formatDelta(s.deltas.avgEnergy) },
+      { label: "Speak rate (/tick/agente)", pre: s.pre.speakRate.toFixed(3), post: s.post.speakRate.toFixed(3), delta: formatDelta(s.deltas.speakRate) },
+      { label: "Violation rate (/tick)", pre: s.pre.violationRate.toFixed(3), post: s.post.violationRate.toFixed(3), delta: formatDelta(s.deltas.violationRate) },
+      { label: "Tool call rate (/tick/agente)", pre: s.pre.toolCallRate.toFixed(3), post: s.post.toolCallRate.toFixed(3), delta: formatDelta(s.deltas.toolCallRate) },
+    ];
+    return `
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-value">T${s.triggerTick}</div><div class="stat-label">Trigger tick</div></div>
+        <div class="stat-card"><div class="stat-value">${s.windowTicks}</div><div class="stat-label">Finestra</div></div>
+        <div class="stat-card"><div class="stat-value">${s.recoveryTicks == null ? "—" : s.recoveryTicks}</div><div class="stat-label">Recovery ticks</div></div>
+      </div>
+      ${s.description ? `<div class="section-subtitle">${esc(s.description)}</div>` : ""}
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Pre / Post trigger</span>
+          ${exportButton("shock", "shock")}
+        </div>
+        <div class="event-list">
+          ${rows.map((r) => `
+            <div class="event-row">
+              <span class="event-type">${esc(r.label)}</span>
+              <span class="event-agent">pre ${esc(String(r.pre))}</span>
+              <span class="event-payload">post ${esc(String(r.post))} &middot; Δ ${esc(String(r.delta))}</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderArchetypesSubTab(r) {
+    const arch = r.archetypes;
+    if (!arch || arch.perAgent.length === 0) {
+      return `<div class="empty-state" style="padding:48px"><div class="empty-state-text">Nessun archetipo calcolato.</div></div>`;
+    }
+    const grouped = new Map();
+    for (const a of arch.perAgent) {
+      if (!grouped.has(a.archetype)) grouped.set(a.archetype, []);
+      grouped.get(a.archetype).push(a);
+    }
+    return `
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Archetipi per agente</span>
+          ${exportButton("archetypes", "archetypes")}
+        </div>
+        <div class="agent-report-grid">
+          ${arch.perAgent.map((a) => `
+            <div class="agent-report-card">
+              <div class="agent-name">${esc(a.agentId)}</div>
+              <div style="margin:6px 0 8px"><span class="badge">${esc(a.archetype)}</span> <span style="color:var(--text-muted)">score ${a.score.toFixed(2)}</span></div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">${esc(a.rationale)}</div>
+              <div class="agent-state">
+                <div class="agent-state-item"><span class="agent-state-label">compliant:</span> ${a.subScores.compliant.toFixed(2)}</div>
+                <div class="agent-state-item"><span class="agent-state-label">skeptic:</span> ${a.subScores.skeptic.toFixed(2)}</div>
+                <div class="agent-state-item"><span class="agent-state-label">resistant:</span> ${a.subScores.resistant.toFixed(2)}</div>
+                <div class="agent-state-item"><span class="agent-state-label">apathetic:</span> ${a.subScores.apathetic.toFixed(2)}</div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Varianza del mood nel tempo</span>
+          ${exportButton("moodVariance", "moodVariance")}
+        </div>
+        <div class="chart-container" id="mood-variance-chart" style="height:240px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Contagio emotivo (correlazione con vicini)</span>
+        </div>
+        <div class="chart-container" id="contagion-chart" style="height:240px"></div>
+      </div>
+    `;
+  }
+
+  function renderNarrativeSubTab(r) {
+    const n = state.narrative;
+    const quotes = n?.quotes || (n ? [] : []);
+    return `
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Narrativa LLM</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm" id="narrative-generate" ${!state.reportRunId ? "disabled" : ""}>${state.narrativeLoading ? "Generazione..." : (n ? "Rigenera" : "Genera narrativa")}</button>
+          </div>
+        </div>
+        ${!state.reportRunId ? `<div class="empty-state"><div class="empty-state-text">Seleziona un mondo per generare la narrativa.</div></div>` : ""}
+        ${n ? `
+          <div class="event-list">
+            ${n.arc.map((a) => `
+              <div class="event-row">
+                <span class="event-type">${esc(a.phase)}</span>
+                <span class="event-payload">${esc(a.summary)}</span>
+              </div>
+            `).join("")}
+          </div>
+        ` : (state.reportRunId ? `<div class="empty-state"><div class="empty-state-text">Nessuna narrativa generata. Clicca "Genera narrativa".</div></div>` : "")}
+      </div>
+
+      ${n && n.perAgentArc?.length ? `
+        <div class="card">
+          <div class="card-header"><span class="card-title">Archi per agente</span></div>
+          <div class="agent-report-grid">
+            ${n.perAgentArc.map((p) => `
+              <div class="agent-report-card">
+                <div class="agent-name">${esc(p.agentId)}</div>
+                <div style="font-size:13px;color:var(--text-muted)">${esc(p.arc)}</div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      ` : ""}
+
+      ${n && quotes.length ? `
+        <div class="card">
+          <div class="card-header"><span class="card-title">Citazioni emblematiche</span></div>
+          <div class="event-list">
+            ${quotes.map((q) => `
+              <div class="event-row">
+                <span class="event-tick">T${q.tick}</span>
+                <span class="event-type">${esc(q.agentId)} · ${esc(q.tag)}</span>
+                <span class="event-payload">"${esc(q.content)}"</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      ` : ""}
+    `;
+  }
+
+  function formatDelta(v) {
+    const sign = v > 0 ? "+" : v < 0 ? "" : "";
+    return `${sign}${v.toFixed(3)}`;
   }
 
   // ── Chart drawing ───────────────────────────────────────────────────
@@ -1496,6 +1823,47 @@
       });
     }
 
+    document.querySelectorAll("[data-report-subtab]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const id = el.getAttribute("data-report-subtab");
+        if (!id || state.reportSubTab === id) return;
+        state.reportSubTab = id;
+        render();
+        setTimeout(() => {
+          if (id === "overview") {
+            drawMoodHeatmap();
+            drawEnergyChart();
+            drawActionBars();
+          }
+          if (id === "network") drawNetworkViews();
+          if (id === "dialogue") drawDialogueViews();
+          if (id === "archetypes") drawArchetypeViews();
+        }, 50);
+      });
+    });
+
+    const narrativeGen = document.getElementById("narrative-generate");
+    if (narrativeGen && state.reportRunId) {
+      narrativeGen.addEventListener("click", async () => {
+        state.narrativeLoading = true;
+        render();
+        try {
+          const res = await fetch(`/api/reports/${encodeURIComponent(state.reportRunId)}/narrative`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ forceRefresh: !!state.narrative }),
+          });
+          const data = await res.json();
+          state.narrative = data?.narrative || null;
+        } catch {
+          state.narrative = null;
+        } finally {
+          state.narrativeLoading = false;
+          render();
+        }
+      });
+    }
+
     const worldsRefresh = document.getElementById("worlds-refresh");
     if (worldsRefresh) {
       worldsRefresh.addEventListener("click", loadWorlds);
@@ -1616,6 +1984,176 @@
       }
     };
     reader.readAsText(file);
+  }
+
+  // ── Sociological analysis rendering ────────────────────────────────
+  function drawNetworkViews() {
+    const net = state.report?.network;
+    if (!net) return;
+    drawLineSeries("density-chart", net.density.map((p) => ({ x: p.tick, y: p.value })), {
+      label: "density",
+      yFormatter: (v) => (v * 100).toFixed(1) + "%",
+    });
+  }
+
+  function drawDialogueViews() {
+    const d = state.report?.dialogue;
+    if (!d) return;
+    drawBars("voice-chart", d.voiceByAgent.map((v) => ({ label: v.agentId, value: v.speaks })));
+    drawMatrixHeatmap("speak-heatmap", d.speakMatrix);
+  }
+
+  function drawArchetypeViews() {
+    const arch = state.report?.archetypes;
+    if (!arch) return;
+    drawLineSeries("mood-variance-chart", arch.moodVarianceByTick.map((p) => ({ x: p.tick, y: p.variance })), { label: "variance" });
+    drawLineSeries("contagion-chart", arch.emotionalContagion.map((p) => ({ x: p.tick, y: p.correlationNeighbors })), { label: "r", yRange: [-1, 1] });
+  }
+
+  function drawLineSeries(elementId, points, opts = {}) {
+    const container = document.getElementById(elementId);
+    if (!container) return;
+    if (!points || points.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-text">Dati non disponibili.</div></div>';
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    const rect = container.getBoundingClientRect();
+    canvas.width = Math.max(300, rect.width);
+    canvas.height = Math.max(160, rect.height);
+    container.innerHTML = "";
+    container.appendChild(canvas);
+    const ctx = canvas.getContext("2d");
+
+    const padding = { top: 20, right: 20, bottom: 28, left: 48 };
+    const chartW = canvas.width - padding.left - padding.right;
+    const chartH = canvas.height - padding.top - padding.bottom;
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    const xMin = Math.min(...xs);
+    const xMax = Math.max(...xs);
+    const yRange = opts.yRange || [Math.min(0, ...ys), Math.max(0.0001, ...ys)];
+    const yMin = yRange[0];
+    const yMax = yRange[1];
+
+    ctx.strokeStyle = "#30363d";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, padding.top + chartH);
+    ctx.lineTo(padding.left + chartW, padding.top + chartH);
+    ctx.stroke();
+
+    ctx.fillStyle = "#8b949e";
+    ctx.font = "11px monospace";
+    const fmt = opts.yFormatter || ((v) => v.toFixed(2));
+    ctx.fillText(fmt(yMax), 4, padding.top + 8);
+    ctx.fillText(fmt(yMin), 4, padding.top + chartH);
+    ctx.fillText("t=" + xMin, padding.left, canvas.height - 6);
+    ctx.fillText("t=" + xMax, padding.left + chartW - 30, canvas.height - 6);
+
+    ctx.strokeStyle = "#58a6ff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    points.forEach((p, i) => {
+      const px = padding.left + (xMax === xMin ? 0 : ((p.x - xMin) / (xMax - xMin)) * chartW);
+      const py = padding.top + chartH - ((p.y - yMin) / (yMax - yMin || 1)) * chartH;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+  }
+
+  function drawBars(elementId, items) {
+    const container = document.getElementById(elementId);
+    if (!container) return;
+    if (!items || items.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-text">Nessun dato.</div></div>';
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    const rect = container.getBoundingClientRect();
+    canvas.width = Math.max(300, rect.width);
+    canvas.height = Math.max(160, rect.height);
+    container.innerHTML = "";
+    container.appendChild(canvas);
+    const ctx = canvas.getContext("2d");
+
+    const labelWidth = 140;
+    const max = Math.max(1, ...items.map((i) => i.value));
+    const rowH = Math.min(24, (canvas.height - 20) / items.length);
+    items.forEach((item, i) => {
+      const y = 10 + i * rowH;
+      ctx.fillStyle = "#c9d1d9";
+      ctx.font = "12px monospace";
+      ctx.textBaseline = "middle";
+      ctx.fillText(item.label.slice(0, 18), 6, y + rowH / 2);
+      const barW = ((canvas.width - labelWidth - 40) * item.value) / max;
+      ctx.fillStyle = "#58a6ff";
+      ctx.fillRect(labelWidth, y + 2, Math.max(0, barW), rowH - 4);
+      ctx.fillStyle = "#8b949e";
+      ctx.fillText(String(item.value), labelWidth + barW + 6, y + rowH / 2);
+    });
+  }
+
+  function drawMatrixHeatmap(elementId, edges) {
+    const container = document.getElementById(elementId);
+    if (!container) return;
+    if (!edges || edges.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-text">Nessun messaggio.</div></div>';
+      return;
+    }
+    const froms = [...new Set(edges.map((e) => e.from))].sort();
+    const tos = [...new Set(edges.map((e) => e.to))].sort();
+    const counts = new Map();
+    let maxCount = 0;
+    for (const e of edges) {
+      counts.set(`${e.from}|${e.to}`, e.count);
+      if (e.count > maxCount) maxCount = e.count;
+    }
+
+    const canvas = document.createElement("canvas");
+    const rect = container.getBoundingClientRect();
+    canvas.width = Math.max(300, rect.width);
+    canvas.height = Math.max(200, rect.height);
+    container.innerHTML = "";
+    container.appendChild(canvas);
+    const ctx = canvas.getContext("2d");
+
+    const leftLabel = 120;
+    const topLabel = 70;
+    const cellW = Math.max(24, (canvas.width - leftLabel - 16) / tos.length);
+    const cellH = Math.max(22, (canvas.height - topLabel - 10) / froms.length);
+
+    ctx.font = "11px monospace";
+    ctx.fillStyle = "#8b949e";
+    for (let i = 0; i < tos.length; i++) {
+      const x = leftLabel + i * cellW + cellW / 2;
+      ctx.save();
+      ctx.translate(x, topLabel - 6);
+      ctx.rotate(-Math.PI / 4);
+      ctx.fillText((tos[i] || "").slice(0, 10), 0, 0);
+      ctx.restore();
+    }
+    ctx.fillStyle = "#c9d1d9";
+    for (let i = 0; i < froms.length; i++) {
+      ctx.fillText((froms[i] || "").slice(0, 12), 6, topLabel + i * cellH + cellH / 2 + 4);
+    }
+
+    for (let i = 0; i < froms.length; i++) {
+      for (let j = 0; j < tos.length; j++) {
+        const c = counts.get(`${froms[i]}|${tos[j]}`) || 0;
+        const intensity = c === 0 ? 0 : Math.min(1, c / maxCount);
+        ctx.fillStyle = intensity === 0
+          ? "#161b22"
+          : `rgba(88,166,255,${0.15 + intensity * 0.8})`;
+        ctx.fillRect(leftLabel + j * cellW + 2, topLabel + i * cellH + 2, cellW - 4, cellH - 4);
+        if (c > 0) {
+          ctx.fillStyle = intensity > 0.5 ? "#0d1117" : "#c9d1d9";
+          ctx.fillText(String(c), leftLabel + j * cellW + cellW / 2 - 4, topLabel + i * cellH + cellH / 2 + 4);
+        }
+      }
+    }
   }
 
   // ── Utilities ──────────────────────────────────────────────────────

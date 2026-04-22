@@ -3,6 +3,12 @@ import { json, readBody } from "../StudioRouter.js";
 import type { SimulationReport, TopicInsight } from "../../types/ReportTypes.js";
 import type { MultiWorldRegistry } from "../MultiWorldRegistry.js";
 import { OpenAICompatAdapter } from "../../llm/OpenAICompatAdapter.js";
+import { generateNarrative } from "../../analysis/narrative.js";
+import {
+  exportDataset,
+  isExportDataset,
+  listDatasets,
+} from "../../analysis/exports.js";
 
 export function registerReportApi(
   router: StudioRouter,
@@ -121,6 +127,86 @@ export function registerReportApi(
     registry.setRunTopics(runId, topics);
     json(res, { runId, topics, cached: false, updatedAt: new Date().toISOString() });
   });
+
+  router.post("/api/reports/:runId/narrative", async (req, res, params) => {
+    if (!registry) {
+      json(res, { error: "Multi-world mode not enabled" }, 400);
+      return;
+    }
+    const runId = params.runId;
+    if (!runId) {
+      json(res, { error: "Missing run id" }, 400);
+      return;
+    }
+    const body = (await readBody(req).catch(() => ({}))) as { forceRefresh?: boolean };
+    const cached = registry.getRunNarrative(runId);
+    if (cached && !body.forceRefresh) {
+      json(res, {
+        runId,
+        narrative: cached.narrative,
+        cached: true,
+        updatedAt: cached.updatedAt,
+      });
+      return;
+    }
+
+    const report = registry.getRunReport(runId);
+    if (!report) {
+      json(res, { error: "Run report not found" }, 404);
+      return;
+    }
+
+    const narrative = await generateNarrative(report);
+    registry.setRunNarrative(runId, narrative);
+    json(res, {
+      runId,
+      narrative,
+      cached: false,
+      updatedAt: narrative.generatedAt,
+    });
+  });
+
+  router.get("/api/reports/:runId/export.csv", async (_req, res, params, query) => {
+    if (!registry) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Multi-world mode not enabled" }));
+      return;
+    }
+    const runId = params.runId;
+    const dataset = query.dataset;
+    if (!runId) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing run id" }));
+      return;
+    }
+    if (!isExportDataset(dataset)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: "Unknown or missing dataset",
+          datasets: listDatasets(),
+        }),
+      );
+      return;
+    }
+    const report = registry.getRunReport(runId);
+    if (!report) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Run report not found" }));
+      return;
+    }
+    const csv = exportDataset(report, dataset);
+    const filename = `${sanitizeForFilename(runId)}-${dataset}.csv`;
+    res.writeHead(200, {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    });
+    res.end(csv);
+  });
+}
+
+function sanitizeForFilename(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80) || "run";
 }
 
 function extractRunIds(raw: string | undefined): string[] {

@@ -112,6 +112,7 @@ world.on("tick", (tick: number) => {
     console.log(`  POLICY TRIGGER — Tick ${tick}`);
     console.log(`  ${announcement.slice(0, 100)}...`);
     console.log(`${"=".repeat(60)}\n`);
+    report.recordPolicyTrigger(tick, announcement);
   }
 });
 

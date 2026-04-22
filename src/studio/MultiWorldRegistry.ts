@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { WorldEngine } from "../engine/WorldEngine.js";
 import type {
   LiveReportResponse,
+  NarrativeReport,
   ReportCompareResponse,
   SimulationReport,
   StoredRunSummary,
@@ -20,6 +21,8 @@ interface WorldRuntimeState {
   finalReport?: SimulationReport | undefined;
   topics?: TopicInsight[] | undefined;
   topicsUpdatedAt?: string | undefined;
+  narrative?: NarrativeReport | undefined;
+  narrativeUpdatedAt?: string | undefined;
 }
 
 export class MultiWorldRegistry {
@@ -149,6 +152,21 @@ export class MultiWorldRegistry {
     return run.topicsUpdatedAt
       ? { topics: run.topics, updatedAt: run.topicsUpdatedAt }
       : { topics: run.topics };
+  }
+
+  setRunNarrative(runId: string, narrative: NarrativeReport): void {
+    const run = this.runsById.get(runId);
+    if (!run) return;
+    run.narrative = narrative;
+    run.narrativeUpdatedAt = narrative.generatedAt;
+  }
+
+  getRunNarrative(runId: string): { narrative: NarrativeReport; updatedAt?: string } | null {
+    const run = this.runsById.get(runId);
+    if (!run?.narrative) return null;
+    return run.narrativeUpdatedAt
+      ? { narrative: run.narrative, updatedAt: run.narrativeUpdatedAt }
+      : { narrative: run.narrative };
   }
 
   compareRuns(runIdA: string, runIdB: string): ReportCompareResponse | null {

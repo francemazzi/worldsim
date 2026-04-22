@@ -10,14 +10,25 @@ import type {
   ActionDistribution,
   TimelineEntry,
   RelationshipEvolution,
+  RelationshipSnapshot,
   SimulationMetrics,
+  AgentNode,
 } from "../../types/ReportTypes.js";
 import type { TokenPriceConfig } from "../../types/PrivacyTypes.js";
+import type { GraphStore, Relationship } from "../../types/GraphTypes.js";
+import { analyzeNetwork } from "../../analysis/NetworkAnalyzer.js";
+import { analyzeDialogue } from "../../analysis/DialogueAnalyzer.js";
+import { analyzeShock } from "../../analysis/ShockAnalyzer.js";
+import { analyzeArchetypes } from "../../analysis/ArchetypeAnalyzer.js";
 
 export interface ReportGeneratorOptions {
   engine: WorldEngine;
   /** Maximum timeline entries to keep. Default 500. */
   maxTimelineEntries?: number | undefined;
+  /** Interval in ticks between graph snapshots (default 5). */
+  graphSnapshotEveryTicks?: number | undefined;
+  /** Window size (in ticks) used by the shock analyzer. Default 5. */
+  shockWindowTicks?: number | undefined;
 }
 
 interface AgentCollector {
@@ -25,6 +36,7 @@ interface AgentCollector {
   name: string;
   role: string;
   personality: string[];
+  profession?: string | undefined;
   actions: ActionDistribution;
   totalActions: number;
   moodTrajectory: AgentTickSnapshot[];
@@ -32,20 +44,24 @@ interface AgentCollector {
   statusChanges: { tick: number; from: string; to: string; reason?: string }[];
 }
 
+interface GraphSnapshot {
+  tick: number;
+  relationships: Relationship[];
+}
+
+interface PolicyTrigger {
+  tick: number;
+  description?: string | undefined;
+}
+
 /**
  * Creates a ReportGeneratorPlugin that collects simulation data and produces
  * a SimulationReport when the world stops.
- *
- * Usage:
- * ```ts
- * const report = reportGeneratorPlugin({ engine });
- * engine.use(report.plugin);
- * await engine.start();
- * const data = report.getReport(); // available after world stops
- * ```
  */
 export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
   const maxTimeline = options.maxTimelineEntries ?? 500;
+  const snapshotInterval = options.graphSnapshotEveryTicks ?? 5;
+  const shockWindow = options.shockWindowTicks ?? 5;
 
   let report: SimulationReport | null = null;
   let startTime = 0;
@@ -53,7 +69,9 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
   const allActions: AgentAction[] = [];
   const collectors = new Map<string, AgentCollector>();
   let totalEvents = 0;
-  let ruleViolations = 0;
+  const graphSnapshots: GraphSnapshot[] = [];
+  const violationsByTick = new Map<number, number>();
+  let policyTrigger: PolicyTrigger | null = null;
 
   function ensureCollector(agentId: string): AgentCollector {
     let c = collectors.get(agentId);
@@ -65,6 +83,7 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
         name: profile?.name ?? agentId,
         role: agent?.role ?? "person",
         personality: profile?.personality ?? [],
+        profession: (profile as unknown as { profession?: string } | undefined)?.profession,
         actions: { speak: 0, observe: 0, interact: 0, tool_call: 0, finish: 0 },
         totalActions: 0,
         moodTrajectory: [],
@@ -95,13 +114,40 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
     }
   }
 
+  async function captureGraphSnapshot(tick: number): Promise<void> {
+    const graphStore = options.engine.getConfig().graphStore;
+    if (!graphStore) return;
+    const rels = await dumpAllRelationships(graphStore, [...collectors.keys()]);
+    graphSnapshots.push({ tick, relationships: rels });
+  }
+
+  function countViolationsFromEvents(events: WorldEvent[]): number {
+    let count = 0;
+    for (const ev of events) {
+      if (!isViolationEvent(ev.type)) continue;
+      count++;
+      violationsByTick.set(ev.tick, (violationsByTick.get(ev.tick) ?? 0) + 1);
+      const payload = ev.payload as { reason?: string; suggestion?: string } | undefined;
+      addTimeline({
+        tick: ev.tick,
+        type: "rule_violation",
+        agentId: ev.agentId,
+        description: `${ev.agentId ?? "unknown"}: ${ev.type} — ${payload?.reason ?? payload?.suggestion ?? ""}`,
+        data: { eventType: ev.type, ...(payload ?? {}) },
+      });
+    }
+    return count;
+  }
+
   function buildReport(ctx: WorldContext, events: WorldEvent[]): SimulationReport {
     const stopTime = Date.now();
     totalEvents = events.length;
 
-    // Build agent reports
-    const agentReports: AgentReport[] = [];
+    violationsByTick.clear();
+    const ruleViolations = countViolationsFromEvents(events);
+
     const pricing: TokenPriceConfig | undefined = options.engine.getConfig().observability?.pricing;
+    const agentReports: AgentReport[] = [];
     let aggregateLatencyMs = 0;
     let aggregateRequests = 0;
     let aggregateCost = 0;
@@ -110,14 +156,11 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       const usage = options.engine.getTokenUsage(c.agentId);
       const inputTokens = usage?.lifetimeTokens ?? 0;
       const outputTokens = 0;
-      const estimatedCost = estimateCost(
-        inputTokens,
-        outputTokens,
-        pricing,
-      );
-      const avgLatencyMs = usage && usage.lifetimeRequests > 0
-        ? Math.round((usage.totalLatencyMs / usage.lifetimeRequests) * 10) / 10
-        : 0;
+      const estimatedCost = estimateCost(inputTokens, outputTokens, pricing);
+      const avgLatencyMs =
+        usage && usage.lifetimeRequests > 0
+          ? Math.round((usage.totalLatencyMs / usage.lifetimeRequests) * 10) / 10
+          : 0;
       aggregateLatencyMs += usage?.totalLatencyMs ?? 0;
       aggregateRequests += usage?.lifetimeRequests ?? 0;
       aggregateCost += estimatedCost;
@@ -154,17 +197,14 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       });
     }
 
-    // Build relationship evolution (from graph store events if available)
-    const relationships: RelationshipEvolution[] = [];
+    const relationships = buildRelationshipEvolutions(graphSnapshots);
 
-    // Build metrics
     const totalSpeaks = agentReports.reduce((s, a) => s + a.actions.speak, 0);
     const totalObservations = agentReports.reduce((s, a) => s + a.actions.observe, 0);
     const totalToolCalls = agentReports.reduce((s, a) => s + a.actions.tool_call, 0);
     const totalInteractions = agentReports.reduce((s, a) => s + a.actions.interact, 0);
     const statusChanges = agentReports.reduce((s, a) => s + a.statusChanges.length, 0);
 
-    // Average mood/energy by tick
     const tickMap = new Map<number, { moods: string[]; energies: number[] }>();
     for (const a of agentReports) {
       for (const snap of a.moodTrajectory) {
@@ -180,13 +220,15 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
     const averageMoodByTick: { tick: number; avgMood: string }[] = [];
     const averageEnergyByTick: { tick: number; avgEnergy: number }[] = [];
     for (const [tick, data] of [...tickMap.entries()].sort((a, b) => a[0] - b[0])) {
-      // Most common mood
       const moodCounts = new Map<string, number>();
       for (const m of data.moods) moodCounts.set(m, (moodCounts.get(m) ?? 0) + 1);
       let topMood = "neutral";
       let topCount = 0;
       for (const [mood, count] of moodCounts) {
-        if (count > topCount) { topMood = mood; topCount = count; }
+        if (count > topCount) {
+          topMood = mood;
+          topCount = count;
+        }
       }
       averageMoodByTick.push({ tick, avgMood: topMood });
       const avgEnergy = data.energies.reduce((s, e) => s + e, 0) / data.energies.length;
@@ -201,9 +243,10 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       ruleViolations,
       statusChanges,
       totalTokens: aggregateTokens,
-      avgLatencyMs: aggregateRequests > 0
-        ? Math.round((aggregateLatencyMs / aggregateRequests) * 10) / 10
-        : 0,
+      avgLatencyMs:
+        aggregateRequests > 0
+          ? Math.round((aggregateLatencyMs / aggregateRequests) * 10) / 10
+          : 0,
       estimatedCost: {
         amount: Math.round(aggregateCost * 10000) / 10000,
         currency: pricing?.currency ?? "USD",
@@ -212,7 +255,7 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       averageEnergyByTick,
     };
 
-    return {
+    const baseReport: SimulationReport = {
       summary: {
         worldId: ctx.worldId,
         totalTicks: ctx.tickCount,
@@ -223,17 +266,71 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
         startedAt: ctx.startedAt.toISOString(),
         stoppedAt: new Date(stopTime).toISOString(),
       },
-      timeline: [...timeline],
+      timeline: [...timeline].sort((a, b) => a.tick - b.tick),
       agents: agentReports,
       relationships,
       metrics,
       rawActions: [...allActions],
     };
+
+    const nodes = buildAgentNodes(agentReports, collectors);
+    const finalGraph =
+      graphSnapshots.length > 0 ? graphSnapshots[graphSnapshots.length - 1]!.relationships : [];
+    const initialGraph = graphSnapshots.length > 0 ? graphSnapshots[0]!.relationships : [];
+
+    if (finalGraph.length > 0 || nodes.length > 0) {
+      baseReport.network = analyzeNetwork({
+        finalRelationships: finalGraph,
+        initialRelationships: initialGraph,
+        snapshotsByTick: graphSnapshots,
+        nodes,
+      });
+    }
+
+    const conversations = options.engine.getConversationManager().getAll();
+    const personAgents = agentReports.filter((a) => a.role !== "control");
+    if (totalSpeaks > 0 || conversations.length > 0) {
+      baseReport.dialogue = analyzeDialogue({
+        rawActions: allActions,
+        conversations,
+        agentIds: personAgents.map((a) => a.agentId),
+      });
+    }
+
+    if (policyTrigger) {
+      baseReport.shock = analyzeShock({
+        triggerTick: policyTrigger.tick,
+        description: policyTrigger.description,
+        windowTicks: shockWindow,
+        rawActions: allActions,
+        agents: agentReports,
+        violationsByTick,
+        totalTicks: ctx.tickCount,
+      });
+    } else {
+      baseReport.shock = null;
+    }
+
+    if (personAgents.length > 0) {
+      baseReport.archetypes = analyzeArchetypes({
+        agents: agentReports,
+        rawActions: allActions,
+        graphSnapshotsByTick: graphSnapshots,
+        violationsByTick,
+        totalTicks: ctx.tickCount,
+        ...(policyTrigger ? { triggerTick: policyTrigger.tick } : {}),
+      });
+    }
+
+    // Narrative remains opt-in; populated lazily by the API.
+    baseReport.narrative = null;
+
+    return baseReport;
   }
 
   const plugin: WorldSimPlugin = {
     name: "report-generator",
-    version: "1.0.0",
+    version: "1.1.0",
     parallel: true,
 
     async onBootstrap(_ctx: WorldContext, _rules: RulesContext): Promise<void> {
@@ -243,9 +340,10 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       allActions.length = 0;
       collectors.clear();
       totalEvents = 0;
-      ruleViolations = 0;
+      graphSnapshots.length = 0;
+      violationsByTick.clear();
+      policyTrigger = null;
 
-      // Initialize collectors for all agents
       const statuses = options.engine.getAgentStatuses();
       for (const id of Object.keys(statuses)) {
         ensureCollector(id);
@@ -254,6 +352,9 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
 
     async onWorldTick(tick: number, _ctx: WorldContext): Promise<void> {
       snapshotAgents(tick);
+      if (tick === 1 || tick % snapshotInterval === 0) {
+        await captureGraphSnapshot(tick);
+      }
     },
 
     async onAgentAction(action: AgentAction): Promise<AgentAction> {
@@ -265,7 +366,6 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
         c.actions[aType]++;
       }
 
-      // Track speak actions in timeline
       if (action.actionType === "speak") {
         const payload = action.payload as { content?: string } | undefined;
         addTimeline({
@@ -301,6 +401,7 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
     },
 
     async onWorldStop(ctx: WorldContext, events: WorldEvent[]): Promise<void> {
+      await captureGraphSnapshot(ctx.tickCount);
       report = buildReport(ctx, events);
     },
   };
@@ -310,11 +411,24 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
     /** Returns the final report after stop, or a live partial report while running. */
     getReport(): SimulationReport | null {
       if (report) return report;
-      // Build a live partial report if simulation is in progress
       if (startTime === 0 || collectors.size === 0) return null;
       const ctx = options.engine.getContext();
       const events = [...options.engine.getEventLog()];
       return buildReport(ctx, events);
+    },
+    /**
+     * Records a policy trigger event that downstream analyzers can use to
+     * build the pre/post shock comparison. Multiple calls overwrite the
+     * previous trigger (only the most recent is analyzed).
+     */
+    recordPolicyTrigger(tick: number, description?: string): void {
+      policyTrigger = { tick, description };
+      addTimeline({
+        tick,
+        type: "policy_trigger",
+        description: description ?? `Policy trigger at tick ${tick}`,
+        data: { description },
+      });
     },
   };
 }
@@ -328,4 +442,94 @@ function estimateCost(
   const inputCost = ((pricing.inputPer1k ?? 0) * inputTokens) / 1000;
   const outputCost = ((pricing.outputPer1k ?? 0) * outputTokens) / 1000;
   return inputCost + outputCost;
+}
+
+function isViolationEvent(type: string): boolean {
+  return (
+    type === "action:blocked"
+    || type === "action:warned"
+    || type === "rule:violation"
+  );
+}
+
+/**
+ * Since GraphStore only exposes per-agent queries, we dump the full graph
+ * by querying each known agent and deduping edges by (from, to, type).
+ */
+async function dumpAllRelationships(
+  store: GraphStore,
+  agentIds: string[],
+): Promise<Relationship[]> {
+  const seen = new Map<string, Relationship>();
+  for (const id of agentIds) {
+    try {
+      const rels = await store.getRelationships({ agentId: id });
+      for (const r of rels) {
+        seen.set(`${r.from}|${r.to}|${r.type}`, r);
+      }
+    } catch {
+      // Ignore store errors on individual agents.
+    }
+  }
+  return [...seen.values()];
+}
+
+function buildRelationshipEvolutions(
+  snapshots: GraphSnapshot[],
+): RelationshipEvolution[] {
+  if (snapshots.length === 0) return [];
+  const byKey = new Map<string, { first: Relationship; last: Relationship; snaps: RelationshipSnapshot[] }>();
+
+  for (const snap of snapshots) {
+    for (const rel of snap.relationships) {
+      const key = `${rel.from}|${rel.to}|${rel.type}`;
+      let entry = byKey.get(key);
+      if (!entry) {
+        entry = { first: rel, last: rel, snaps: [] };
+        byKey.set(key, entry);
+      }
+      entry.last = rel;
+      entry.snaps.push({
+        from: rel.from,
+        to: rel.to,
+        type: rel.type,
+        strength: rel.strength,
+        tick: snap.tick,
+      });
+    }
+  }
+
+  const result: RelationshipEvolution[] = [];
+  for (const entry of byKey.values()) {
+    result.push({
+      from: entry.first.from,
+      to: entry.first.to,
+      type: entry.first.type,
+      initialStrength: entry.first.strength,
+      finalStrength: entry.last.strength,
+      delta: Math.round((entry.last.strength - entry.first.strength) * 10000) / 10000,
+      snapshots: entry.snaps,
+    });
+  }
+  result.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return result;
+}
+
+function buildAgentNodes(
+  agentReports: AgentReport[],
+  collectors: Map<string, AgentCollector>,
+): AgentNode[] {
+  return agentReports
+    .filter((a) => a.role !== "control")
+    .map((a) => {
+      const c = collectors.get(a.agentId);
+      const node: AgentNode = {
+        agentId: a.agentId,
+        name: a.name,
+        role: a.role,
+        personality: [...a.personality],
+      };
+      if (c?.profession) node.profession = c.profession;
+      return node;
+    });
 }

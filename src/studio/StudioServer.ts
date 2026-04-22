@@ -64,15 +64,6 @@ export class StudioServer {
     this.scenarioPresets = options.scenarioPresets ?? [];
     this.worldRegistry = new MultiWorldRegistry();
 
-    if (this.engine) {
-      this.worldRegistry.registerWorld(
-        this.engine.getContext().worldId,
-        this.engine,
-        this.reportGetter ?? undefined,
-      );
-      this.setupEngineEvents(this.engine);
-    }
-
     // UI directory: at build time, static assets are copied to dist/studio/ui
     // Try multiple candidate paths since __dirname varies depending on bundler output
     let currentDir: string;
@@ -104,6 +95,15 @@ export class StudioServer {
 
     this.registerRoutes();
     this.setupSocketHandlers();
+
+    if (this.engine) {
+      this.worldRegistry.registerWorld(
+        this.engine.getContext().worldId,
+        this.engine,
+        this.reportGetter ?? undefined,
+      );
+      this.setupEngineEvents(this.engine);
+    }
   }
 
   getIO(): TypedSocketIOServer {
