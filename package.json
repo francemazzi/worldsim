@@ -35,6 +35,7 @@
     "bench:e2e": "dotenv -e .env -- vitest bench benchmarks/e2e.bench.ts",
     "bench:report": "npx tsx benchmarks/run.ts",
     "bench:report:full": "dotenv -e .env -- npx tsx benchmarks/run.ts --e2e",
+    "demo:federation": "npx tsx examples/federation-two-cities/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build && npm run test"

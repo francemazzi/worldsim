@@ -7,6 +7,7 @@ import type { AssetStore } from "./AssetTypes.js";
 import type { GroupStore, GatheringStore } from "./SocialTypes.js";
 import type { WorldPrivacyConfig, ObservabilityConfig } from "./PrivacyTypes.js";
 import type { MovementPolicy } from "../plugins/built-in/movement/MovementPolicy.js";
+import type { FederationConfig } from "../federation/types.js";
 
 export interface WorldContext {
   worldId: string;
@@ -90,6 +91,13 @@ export interface WorldConfig {
    * when `movementPolicy` is provided. Default: 1500.
    */
   walkingRadiusMeters?: number | undefined;
+  /**
+   * Multi-world federation. When omitted, the engine behaves exactly as a
+   * single isolated world (no transport, no FederationBus, zero overhead).
+   * When provided, cross-world routing in MessageBus is enabled and the
+   * local world joins the federation through the supplied transport.
+   */
+  federation?: FederationConfig | undefined;
 }
 
 export interface LLMConfig {

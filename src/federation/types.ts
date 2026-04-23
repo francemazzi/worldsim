@@ -41,21 +41,12 @@ export type Unsubscribe = () => void | Promise<void>;
 
 /**
  * Forward declarations of subsystems implemented in later phases.
- * Phase 1 implements `FederationTransport`; Phase 2 the directory;
- * Phase 4 the travel map. They are referenced here to lock the shape
- * of `FederationConfig`.
+ * Phase 1 implements `FederationTransport` (in `./FederationTransport.ts`);
+ * Phase 2 the directory; Phase 4 the travel map.
  */
 
-export interface FederationTransport {
-  publish(envelope: CrossWorldEnvelope): Promise<void>;
-  subscribe(
-    worldId: string,
-    handler: (envelope: CrossWorldEnvelope) => Promise<void>,
-  ): Promise<Unsubscribe>;
-  registerNode(node: WorldNode): Promise<void>;
-  unregisterNode(worldId: string): Promise<void>;
-  listNodes(): Promise<WorldNode[]>;
-}
+import type { FederationTransport } from "./FederationTransport.js";
+export type { FederationTransport } from "./FederationTransport.js";
 
 export interface FederatedAgentDirectoryEntry {
   federatedId: FederatedAgentId;

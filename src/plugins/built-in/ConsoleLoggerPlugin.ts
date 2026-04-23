@@ -30,6 +30,21 @@ export const ConsoleLoggerPlugin: WorldSimPlugin = {
     );
   },
 
+  async onCrossWorldMessage(envelope, direction) {
+    const arrow = direction === "outbound" ? "→" : "←";
+    const peer =
+      direction === "outbound"
+        ? `${envelope.toWorldId}:${envelope.toAgentId}`
+        : `${envelope.fromWorldId}:${envelope.fromAgentId}`;
+    const local =
+      direction === "outbound"
+        ? `${envelope.fromWorldId}:${envelope.fromAgentId}`
+        : `${envelope.toWorldId}:${envelope.toAgentId}`;
+    console.log(
+      `[WorldSim][fed] ${local} ${arrow} ${peer} (${envelope.channel}, env=${envelope.id})`,
+    );
+  },
+
   async onWorldStop(ctx, events) {
     const byType = events.reduce<Record<string, number>>((acc, e) => {
       acc[e.type] = (acc[e.type] ?? 0) + 1;

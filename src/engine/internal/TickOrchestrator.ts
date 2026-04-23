@@ -41,6 +41,12 @@ export class TickOrchestrator {
     this.runtime.context.tickCount = tick;
     this.runtime.llmPool.setTick(tick);
 
+    // Federation: drain inbound envelopes BEFORE plugin/tick hooks so any
+    // arriving messages are visible to active agents during this tick.
+    if (this.runtime.federationBus) {
+      await this.runtime.federationBus.drainInbound(tick);
+    }
+
     await this.runtime.pluginRegistry.runHook(
       "onWorldTick",
       tick,
