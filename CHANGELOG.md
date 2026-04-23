@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Multi-world federation foundations (Phase 0 of the federation roadmap):
+  type vocabulary in `src/federation/`, Zod schemas, `worldId:agentId`
+  utilities, and a dedicated `worldsim/federation` sub-export.
+- Architectural overview at `docs/federation.md` and ADR
+  `docs/adr/001-federation-model.md` covering the asynchronous, namespaced,
+  opt-in design.
+
 ## [1.0.6] - 2026-04-03
 
 ### Added

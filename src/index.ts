@@ -255,3 +255,25 @@ export { OpenAIEmbeddingAdapter } from "./stores/OpenAIEmbeddingAdapter.js";
 
 // ─── Skill Resolver ─────────────────────────────────────────────────
 export { resolveToolNames } from "./plugins/built-in/skillResolver.js";
+
+// ─── Federation (multi-world) — Phase 0 ────────────────────────────
+// Re-exports of the same surface as `worldsim/federation` for ergonomic
+// access from a single import. The dedicated sub-export remains the
+// canonical way to consume federation types in tree-shakable builds.
+export type {
+  FederatedAgentId,
+  WorldCapability,
+  WorldNode,
+  CrossWorldChannel,
+  CrossWorldEnvelope,
+  Unsubscribe as FederationUnsubscribe,
+  FederationTransport,
+  FederatedAgentDirectory,
+  FederatedAgentDirectoryEntry,
+  FederatedAgentDirectoryQuery,
+  TravelMap,
+  TravelEdge,
+  TravelOption,
+  TravelMode,
+  FederationConfig,
+} from "./federation/types.js";
