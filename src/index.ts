@@ -151,6 +151,21 @@ export type {
 // ─── Stores (zero-dependency) — Assets ──────────────────────────────
 export { InMemoryAssetStore } from "./stores/InMemoryAssetStore.js";
 
+// ─── Social Types ───────────────────────────────────────────────────
+export type {
+  Group,
+  Gathering,
+  GatheringParticipant,
+  GatheringQuery,
+  GatheringStatus,
+  GroupStore,
+  GatheringStore,
+  RsvpState,
+} from "./types/SocialTypes.js";
+
+// ─── Stores (zero-dependency) — Social ──────────────────────────────
+export { InMemoryGroupStore, InMemoryGatheringStore } from "./stores/InMemorySocialStores.js";
+
 // ─── Store Interfaces ───────────────────────────────────────────────
 export type {
   MemoryStore,

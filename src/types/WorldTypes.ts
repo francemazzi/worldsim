@@ -4,6 +4,7 @@ import type { VectorStore, EmbeddingAdapter } from "./VectorTypes.js";
 import type { PersistenceStore } from "./PersistenceTypes.js";
 import type { ConsolidationConfig } from "./ConsolidationTypes.js";
 import type { AssetStore } from "./AssetTypes.js";
+import type { GroupStore, GatheringStore } from "./SocialTypes.js";
 import type { WorldPrivacyConfig, ObservabilityConfig } from "./PrivacyTypes.js";
 import type { MovementPolicy } from "../plugins/built-in/movement/MovementPolicy.js";
 
@@ -37,6 +38,8 @@ export interface WorldConfig {
   embeddingAdapter?: EmbeddingAdapter | undefined;
   persistenceStore?: PersistenceStore | undefined;
   assetStore?: AssetStore | undefined;
+  groupStore?: GroupStore | undefined;
+  gatheringStore?: GatheringStore | undefined;
   consolidation?: Partial<ConsolidationConfig> | undefined;
   /**
    * LLM config for "light" tier agents (e.g. gpt-4o-mini).

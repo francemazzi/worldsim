@@ -1,5 +1,6 @@
 export { InMemoryMemoryStore } from "./InMemoryMemoryStore.js";
 export { InMemoryGraphStore } from "./InMemoryGraphStore.js";
+export { InMemoryGroupStore, InMemoryGatheringStore } from "./InMemorySocialStores.js";
 export { RedisMemoryStore } from "./RedisMemoryStore.js";
 export { Neo4jGraphStore } from "./Neo4jGraphStore.js";
 export { PgVectorStore } from "./PgVectorStore.js";
