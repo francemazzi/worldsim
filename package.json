@@ -36,6 +36,7 @@
     "bench:report": "npx tsx benchmarks/run.ts",
     "bench:report:full": "dotenv -e .env -- npx tsx benchmarks/run.ts --e2e",
     "demo:federation": "npx tsx examples/federation-two-cities/index.ts",
+    "demo:federation-office": "npx tsx examples/federation-office-departments/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build && npm run test"

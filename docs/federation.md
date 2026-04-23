@@ -9,8 +9,8 @@ top of that, without changing the behaviour of single-world setups.
 
 | Phase | Topic                                | Status |
 |-------|--------------------------------------|--------|
-| 0     | Type vocabulary, schemas, ADR        | **In progress** (this branch) |
-| 1     | Async cross-world messaging          | Planned |
+| 0     | Type vocabulary, schemas, ADR        | Complete |
+| 1     | Async cross-world messaging          | **Complete** (this branch) |
 | 2     | Global agent directory & discovery   | Planned |
 | 3     | Synchronous cross-world calls        | Planned |
 | 4     | Agent travel & live migration        | Planned |
