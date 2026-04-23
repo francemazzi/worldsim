@@ -22,6 +22,7 @@ import type {
 } from "../../types/WorldTypes.js";
 import type { AgentConfig } from "../../types/AgentTypes.js";
 import type { RulesContext } from "../../types/RulesTypes.js";
+import type { FederationBus } from "../../federation/FederationBus.js";
 
 export type TickHandler = (tick: number) => void;
 
@@ -48,4 +49,5 @@ export interface WorldEngineRuntime {
   conversationManager: ConversationManager;
   locationIndex: LocationIndex;
   mcpClientManager: McpClientManager;
+  federationBus?: FederationBus | undefined;
 }

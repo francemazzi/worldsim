@@ -6,6 +6,9 @@ import type {
   AgentControlEvent,
 } from "./AgentTypes.js";
 import type { RulesContext } from "./RulesTypes.js";
+import type { CrossWorldEnvelope } from "../federation/types.js";
+
+export type CrossWorldMessageDirection = "inbound" | "outbound";
 
 export interface WorldSimPlugin {
   name: string;
@@ -33,6 +36,15 @@ export interface WorldSimPlugin {
     event: AgentControlEvent,
     oldStatus: AgentStatus,
     newStatus: AgentStatus,
+  ) => Promise<void>) | undefined;
+  /**
+   * Fires for every cross-world envelope the local FederationBus handles.
+   * `direction` is `"outbound"` when the envelope is leaving the local world
+   * and `"inbound"` when it has just been received and validated.
+   */
+  onCrossWorldMessage?: ((
+    envelope: CrossWorldEnvelope,
+    direction: CrossWorldMessageDirection,
   ) => Promise<void>) | undefined;
   tools?: AgentTool[] | undefined;
 }

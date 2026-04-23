@@ -21,6 +21,23 @@ export interface PhoneMessageMetadata {
   system?: boolean;
 }
 
+/**
+ * Metadata populated by the federation layer when a message either
+ * originates from a remote world (inbound) or is being routed to one
+ * (outbound, set by the agent tool before publishing). Any other key is
+ * preserved but ignored by the engine.
+ */
+export interface FederationMessageMetadata {
+  /** Set on inbound messages: the originating world id. */
+  sourceWorld?: string;
+  /** Set on inbound messages: the federation envelope id. */
+  federationEnvelopeId?: string;
+  /** Set on outbound messages by `send_cross_world_message` to choose the wire channel. */
+  federationChannel?: "sms" | "email" | "call_request" | "call_turn" | "system";
+  /** Optional correlation id for multi-turn cross-world conversations. */
+  federationCorrelationId?: string;
+}
+
 export interface Message {
   id: string;
   from: string;
@@ -28,5 +45,8 @@ export interface Message {
   type: MessageType;
   content: string;
   tick: number;
-  metadata?: (Record<string, unknown> & PhoneMessageMetadata);
+  metadata?:
+    | (Record<string, unknown>
+        & PhoneMessageMetadata
+        & FederationMessageMetadata);
 }

@@ -24,4 +24,13 @@ export default defineConfig([
     sourcemap: true,
     splitting: false,
   },
+  // Federation sub-export (worldsim/federation)
+  {
+    entry: { index: "src/federation/index.ts" },
+    format: ["cjs", "esm"],
+    outDir: "dist/federation",
+    dts: true,
+    sourcemap: true,
+    splitting: false,
+  },
 ]);

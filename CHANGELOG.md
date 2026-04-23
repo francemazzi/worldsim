@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Multi-world federation foundations (Phase 0 of the federation roadmap):
+  type vocabulary in `src/federation/`, Zod schemas, `worldId:agentId`
+  utilities, and a dedicated `worldsim/federation` sub-export.
+- Architectural overview at `docs/federation.md` and ADR
+  `docs/adr/001-federation-model.md` covering the asynchronous, namespaced,
+  opt-in design.
+- Asynchronous cross-world messaging (Phase 1):
+  `FederationTransport` interface with `InMemoryFederationTransport` (tests/demos)
+  and `RedisFederationTransport` (multi-process Pub/Sub) adapters.
+  `FederationBus` orchestrator drains an inbound queue at the start of every
+  tick and intercepts outbound messages with a `worldId:agentId` destination.
+- New optional `federation` field on `WorldConfig` — wires the local world into
+  a federation without changing single-world behaviour when absent.
+- Built-in `FederationPlugin` exposing the `send_cross_world_message` agent
+  tool (channels `sms` and `email`).
+- New plugin hook `onCrossWorldMessage(envelope, direction)` fired on both
+  inbound and outbound envelopes; `ConsoleLoggerPlugin` logs cross-world
+  traffic in a distinguishable format.
+- Demo `npm run demo:federation` (`examples/federation-two-cities/`) showing
+  end-to-end async messaging between two worlds with no LLM/Redis required.
+
 ## [1.0.6] - 2026-04-03
 
 ### Added

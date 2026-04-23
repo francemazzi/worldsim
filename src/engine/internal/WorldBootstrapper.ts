@@ -131,6 +131,13 @@ export class WorldBootstrapper {
     for (const pa of this.runtime.personAgents) {
       pa.start(0);
     }
+
+    // Federation: register the world node and subscribe to inbound envelopes
+    // *after* agents are instantiated so the inbound handler can resolve
+    // local recipients on arrival.
+    if (this.runtime.federationBus) {
+      await this.runtime.federationBus.start();
+    }
   }
 
   /**

@@ -22,7 +22,9 @@ import { ConversationManager } from "../messaging/ConversationManager.js";
 import { LocationIndex } from "../location/LocationIndex.js";
 import { McpClientManager } from "../mcp/McpClientManager.js";
 import { privacyCompliancePlugin } from "../plugins/built-in/PrivacyCompliancePlugin.js";
+import { FederationPlugin } from "../plugins/built-in/FederationPlugin.js";
 import { isPositionProvider } from "../plugins/capabilities/PositionProvider.js";
+import { FederationBus } from "../federation/FederationBus.js";
 import type { Conversation } from "../types/ConversationTypes.js";
 import type {
   WorldConfig,
@@ -94,6 +96,31 @@ export class WorldEngine {
         }),
       );
     }
+
+    if (config.federation) {
+      // Reuse the worldId declared on the federation node so MessageBus
+      // routing and the local context agree.
+      this.runtime.context.worldId = config.federation.worldNode.worldId;
+      this.runtime.federationBus = new FederationBus({
+        worldNode: config.federation.worldNode,
+        transport: config.federation.transport,
+        messageBus: this.runtime.messageBus,
+        pluginRegistry: this.runtime.pluginRegistry,
+        getCurrentTick: () => this.runtime.clock.current(),
+        hasLocalAgent: (agentId) => this.runtime.agentRegistry.get(agentId) !== undefined,
+      });
+      this.runtime.pluginRegistry.register(
+        new FederationPlugin({
+          worldId: config.federation.worldNode.worldId,
+          messageBus: this.runtime.messageBus,
+        }),
+      );
+    }
+  }
+
+  /** Returns the FederationBus when the world is part of a federation. */
+  getFederationBus(): FederationBus | undefined {
+    return this.runtime.federationBus;
   }
 
   use(plugin: WorldSimPlugin): this {

@@ -1,5 +1,10 @@
 import mitt, { type Emitter } from "mitt";
 import type { Message } from "./Message.js";
+import {
+  isExternal,
+  parse,
+  stripLocalPrefix,
+} from "../federation/FederatedAgentId.js";
 
 type BusEvents = {
   message: Message;
@@ -12,12 +17,37 @@ export function createMessageId(): string {
   return `msg-${Date.now()}-${messageIdCounter}`;
 }
 
+export type ExternalRouter = (message: Message) => void | Promise<void>;
+
 export class MessageBus {
   private emitter: Emitter<BusEvents> = mitt<BusEvents>();
   private tickMessages: Map<number, Message[]> = new Map();
   private recipientIndex: Map<number, Map<string, Message[]>> = new Map();
   private broadcastMessages: Map<number, Message[]> = new Map();
   private _currentTick = 0;
+  private externalRouter:
+    | { localWorldId: string; handler: ExternalRouter }
+    | undefined;
+
+  /**
+   * Wires the bus to a federation transport. When a published message has a
+   * `to` of the form `worldId:agentId` and that `worldId` is not the local one,
+   * the message is handed to `handler` instead of being delivered locally.
+   * Local-prefixed addresses (`localWorldId:agentId`) are stripped to the bare
+   * agent id before being dispatched normally.
+   *
+   * Calling this twice replaces the previous router. Pass `undefined` to detach.
+   */
+  setExternalRouter(
+    localWorldId: string,
+    handler: ExternalRouter | undefined,
+  ): void {
+    if (handler === undefined) {
+      this.externalRouter = undefined;
+      return;
+    }
+    this.externalRouter = { localWorldId, handler };
+  }
 
   get currentTick(): number {
     return this._currentTick;
@@ -34,6 +64,31 @@ export class MessageBus {
   }
 
   publish(message: Message): void {
+    // Federation routing — only when an external router is configured AND
+    // the destination is a federated id whose world is not the local one.
+    if (this.externalRouter && message.to !== "*") {
+      const router = this.externalRouter;
+      if (isExternal(message.to, router.localWorldId)) {
+        // Fire-and-forget: the FederationBus is responsible for awaiting its
+        // own transport and reporting errors. We do not block the publisher.
+        try {
+          void Promise.resolve(router.handler(message)).catch(
+            (err: unknown) => {
+              console.warn("[MessageBus] external router threw:", err);
+            },
+          );
+        } catch (err) {
+          console.warn("[MessageBus] external router threw:", err);
+        }
+        return;
+      }
+      // Local-prefixed address → strip to the bare local agent id.
+      const localTo = stripLocalPrefix(message.to, router.localWorldId);
+      if (localTo !== message.to) {
+        message = { ...message, to: localTo };
+      }
+    }
+
     const msgs = this.tickMessages.get(this._currentTick);
     if (msgs) {
       msgs.push(message);
