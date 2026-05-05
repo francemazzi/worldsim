@@ -106,6 +106,14 @@ export interface LLMConfig {
   model: string;
   temperature?: number | undefined;
   maxTokens?: number | undefined;
+  /** Maximum retry attempts for transient provider errors. Default: 3. */
+  maxRetries?: number | undefined;
+  /** Initial exponential backoff delay in milliseconds. Default: 500. */
+  retryInitialDelayMs?: number | undefined;
+  /** Maximum retry delay in milliseconds. Default: 8000. */
+  retryMaxDelayMs?: number | undefined;
+  /** Exponential backoff multiplier. Default: 2. */
+  retryBackoffFactor?: number | undefined;
 }
 
 export type WorldStatus =

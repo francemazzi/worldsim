@@ -83,6 +83,10 @@ export class LLMAdapterPool {
         model: agentLlm.model ?? this.worldConfig.model,
         temperature: agentLlm.temperature ?? this.worldConfig.temperature,
         maxTokens: agentLlm.maxTokens ?? this.worldConfig.maxTokens,
+        maxRetries: agentLlm.maxRetries ?? this.worldConfig.maxRetries,
+        retryInitialDelayMs: agentLlm.retryInitialDelayMs ?? this.worldConfig.retryInitialDelayMs,
+        retryMaxDelayMs: agentLlm.retryMaxDelayMs ?? this.worldConfig.retryMaxDelayMs,
+        retryBackoffFactor: agentLlm.retryBackoffFactor ?? this.worldConfig.retryBackoffFactor,
       };
     }
 
