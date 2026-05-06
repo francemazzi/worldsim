@@ -2,9 +2,13 @@ import mitt, { type Emitter } from "mitt";
 import type { Message } from "./Message.js";
 import {
   isExternal,
-  parse,
   stripLocalPrefix,
 } from "../federation/FederatedAgentId.js";
+import {
+  compareTimelineMetadata,
+  IntraTickTimeline,
+} from "../engine/IntraTickTimeline.js";
+import type { TimelineMetadata } from "../types/TimelineTypes.js";
 
 type BusEvents = {
   message: Message;
@@ -28,6 +32,8 @@ export class MessageBus {
   private externalRouter:
     | { localWorldId: string; handler: ExternalRouter }
     | undefined;
+
+  constructor(private readonly timeline: IntraTickTimeline = new IntraTickTimeline()) {}
 
   /**
    * Wires the bus to a federation transport. When a published message has a
@@ -58,6 +64,7 @@ export class MessageBus {
     this.recipientIndex.delete(this._currentTick);
     this.broadcastMessages.delete(this._currentTick);
     this._currentTick = tick;
+    this.timeline.reset(tick);
     this.tickMessages.set(tick, []);
     this.recipientIndex.set(tick, new Map());
     this.broadcastMessages.set(tick, []);
@@ -88,6 +95,8 @@ export class MessageBus {
         message = { ...message, to: localTo };
       }
     }
+
+    message = this.ensureTimelineMetadata(message);
 
     const msgs = this.tickMessages.get(this._currentTick);
     if (msgs) {
@@ -139,9 +148,9 @@ export class MessageBus {
   getMessages(agentId: string, tick: number): Message[] {
     const directed = this.recipientIndex.get(tick)?.get(agentId) ?? [];
     const broadcasts = this.broadcastMessages.get(tick) ?? [];
-    if (directed.length === 0) return broadcasts;
-    if (broadcasts.length === 0) return directed;
-    return [...directed, ...broadcasts];
+    if (directed.length === 0) return sortMessagesByTimeline(broadcasts);
+    if (broadcasts.length === 0) return sortMessagesByTimeline(directed);
+    return sortMessagesByTimeline([...directed, ...broadcasts]);
   }
 
   /**
@@ -169,7 +178,7 @@ export class MessageBus {
   }
 
   getAllMessagesForTick(tick: number): Message[] {
-    return this.tickMessages.get(tick) ?? [];
+    return sortMessagesByTimeline(this.tickMessages.get(tick) ?? []);
   }
 
   clear(): void {
@@ -179,4 +188,29 @@ export class MessageBus {
     this._currentTick = 0;
     this.emitter.all.clear();
   }
+
+  private ensureTimelineMetadata(message: Message): Message {
+    const metadata = message.metadata as TimelineMetadata | undefined;
+    if (typeof metadata?.tickSequence === "number" && typeof metadata.simulatedAtOffsetMs === "number") {
+      return message;
+    }
+
+    const stamp = this.timeline.nextEvent();
+    return {
+      ...message,
+      metadata: {
+        ...(message.metadata ?? {}),
+        ...stamp,
+        actionAtOffsetMs: stamp.simulatedAtOffsetMs,
+      },
+    };
+  }
+}
+
+export function sortMessagesByTimeline(messages: Message[]): Message[] {
+  return [...messages].sort((a, b) => {
+    const temporal = compareTimelineMetadata(a.metadata, b.metadata);
+    if (temporal !== 0) return temporal;
+    return a.id.localeCompare(b.id);
+  });
 }

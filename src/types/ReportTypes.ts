@@ -1,4 +1,5 @@
 import type { AgentAction } from "./AgentTypes.js";
+import type { TimelineMetadata } from "./TimelineTypes.js";
 
 /** Summary of the entire simulation run. */
 export interface SimulationSummary {
@@ -19,6 +20,7 @@ export interface TimelineEntry {
   agentId?: string | undefined;
   description: string;
   data?: unknown | undefined;
+  metadata?: TimelineMetadata | undefined;
 }
 
 /** Per-tick snapshot of an agent's internal state. */

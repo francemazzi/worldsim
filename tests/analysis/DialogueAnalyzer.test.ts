@@ -12,6 +12,25 @@ function speak(agentId: string, tick: number, content: string, target?: string):
   };
 }
 
+function timedSpeak(
+  agentId: string,
+  tick: number,
+  offset: number,
+  content: string,
+  target?: string,
+): AgentAction {
+  return {
+    ...speak(agentId, tick, content, target),
+    metadata: {
+      tickSequence: offset,
+      simulatedAtOffsetMs: offset,
+      intraTickMs: offset,
+      actionAtOffsetMs: offset,
+      emittedAt: `2026-01-01T00:00:${String(Math.floor(offset / 1000)).padStart(2, "0")}.000Z`,
+    },
+  };
+}
+
 const agents = ["a", "b", "c"];
 
 describe("analyzeDialogue", () => {
@@ -83,5 +102,18 @@ describe("analyzeDialogue", () => {
     expect(a.speaksOut).toBe(2);
     expect(a.repliesReceived).toBe(1);
     expect(a.rate).toBeCloseTo(0.5, 3);
+  });
+
+  it("uses intra-tick time when attributing replies within the same tick", () => {
+    const actions: AgentAction[] = [
+      timedSpeak("b", 1, 2000, "same tick reply", "a"),
+      timedSpeak("a", 1, 1000, "same tick prompt", "b"),
+    ];
+
+    const res = analyzeDialogue({ rawActions: actions, agentIds: agents, replyWindow: 0 });
+
+    const a = res.responseRate.find((r) => r.agentId === "a")!;
+    expect(a.speaksOut).toBe(1);
+    expect(a.repliesReceived).toBe(1);
   });
 });

@@ -1,5 +1,9 @@
 import type { AgentAction } from "../types/AgentTypes.js";
 import type { Conversation } from "../types/ConversationTypes.js";
+import {
+  compareTimelineMetadata,
+} from "../engine/IntraTickTimeline.js";
+import type { TimelineMetadata } from "../types/TimelineTypes.js";
 import type {
   ConversationStats,
   DialogueAnalysis,
@@ -52,6 +56,7 @@ interface SpeakEvent {
   tick: number;
   content: string;
   directed: boolean;
+  metadata?: TimelineMetadata | undefined;
 }
 
 function collectSpeakEvents(
@@ -71,6 +76,7 @@ function collectSpeakEvents(
         tick: a.tick,
         content,
         directed: true,
+        ...(a.metadata ? { metadata: a.metadata } : {}),
       });
       continue;
     }
@@ -78,15 +84,36 @@ function collectSpeakEvents(
     if (conv) {
       const others = conv.participantIds.filter((p) => p !== a.agentId);
       if (others.length === 1) {
-        events.push({ from: a.agentId, to: others[0]!, tick: a.tick, content, directed: true });
+        events.push({
+          from: a.agentId,
+          to: others[0]!,
+          tick: a.tick,
+          content,
+          directed: true,
+          ...(a.metadata ? { metadata: a.metadata } : {}),
+        });
         continue;
       }
       for (const o of others) {
-        events.push({ from: a.agentId, to: o, tick: a.tick, content, directed: true });
+        events.push({
+          from: a.agentId,
+          to: o,
+          tick: a.tick,
+          content,
+          directed: true,
+          ...(a.metadata ? { metadata: a.metadata } : {}),
+        });
       }
       continue;
     }
-    events.push({ from: a.agentId, to: "*", tick: a.tick, content, directed: false });
+    events.push({
+      from: a.agentId,
+      to: "*",
+      tick: a.tick,
+      content,
+      directed: false,
+      ...(a.metadata ? { metadata: a.metadata } : {}),
+    });
   }
   return events;
 }
@@ -168,7 +195,7 @@ function computeVoiceShare(events: SpeakEvent[], agentIds: string[]): VoiceShare
   // set of (from, tick, content) to dedupe.
   const seen = new Set<string>();
   for (const e of events) {
-    const key = `${e.from}|${e.tick}|${e.content}`;
+    const key = eventKey(e);
     if (seen.has(key)) continue;
     seen.add(key);
     speaks.set(e.from, (speaks.get(e.from) ?? 0) + 1);
@@ -196,7 +223,7 @@ function computeMessageLengthStats(
   const perAgent = new Map<string, number[]>();
   const seen = new Set<string>();
   for (const e of events) {
-    const key = `${e.from}|${e.tick}|${e.content}`;
+    const key = eventKey(e);
     if (seen.has(key)) continue;
     seen.add(key);
     const list = perAgent.get(e.from) ?? [];
@@ -241,7 +268,7 @@ function computeResponseRate(
   agentIds: string[],
   window: number,
 ): ResponseRate[] {
-  const sortedByTick = [...events].sort((a, b) => a.tick - b.tick);
+  const sortedByTick = [...events].sort(compareSpeakEvents);
   const speaksOut = new Map<string, number>();
   const repliesReceived = new Map<string, number>();
   const seenOut = new Set<string>();
@@ -250,7 +277,7 @@ function computeResponseRate(
     const e = sortedByTick[i]!;
     if (!e.directed || e.to === "*") continue;
     // Dedup directed speaks per (from, tick, content) across multiple recipients.
-    const key = `${e.from}|${e.tick}|${e.content}`;
+    const key = eventKey(e);
     if (!seenOut.has(key)) {
       seenOut.add(key);
       speaksOut.set(e.from, (speaksOut.get(e.from) ?? 0) + 1);
@@ -276,6 +303,22 @@ function computeResponseRate(
       rate: out === 0 ? 0 : Math.round((rep / out) * 1000) / 1000,
     };
   });
+}
+
+function compareSpeakEvents(a: SpeakEvent, b: SpeakEvent): number {
+  const tickDiff = a.tick - b.tick;
+  if (tickDiff !== 0) return tickDiff;
+
+  const temporal = compareTimelineMetadata(a.metadata, b.metadata);
+  if (temporal !== 0) return temporal;
+
+  return a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || a.content.localeCompare(b.content);
+}
+
+function eventKey(event: SpeakEvent): string {
+  const sequence = event.metadata?.tickSequence ?? "";
+  const offset = event.metadata?.actionAtOffsetMs ?? event.metadata?.simulatedAtOffsetMs ?? "";
+  return `${event.from}|${event.tick}|${offset}|${sequence}|${event.content}`;
 }
 
 function gini(values: number[]): number {

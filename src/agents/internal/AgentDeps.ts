@@ -9,6 +9,7 @@ import type { TokenBudgetTracker } from "../../scheduling/TokenBudgetTracker.js"
 import type { NeighborhoodManager } from "../../graph/NeighborhoodManager.js";
 import type { ConversationManager } from "../../messaging/ConversationManager.js";
 import type { LocationIndex } from "../../location/LocationIndex.js";
+import type { IntraTickTimeline } from "../../engine/IntraTickTimeline.js";
 
 /**
  * Persistence / recall-related dependencies. Everything an agent may need
@@ -41,4 +42,8 @@ export interface AgentSocialDeps {
   locationIndex?: LocationIndex | undefined;
   /** Radius in km for proximity-based messaging. 0 = no proximity fallback. */
   defaultBroadcastRadius?: number | undefined;
+}
+
+export interface AgentTimelineDeps {
+  timeline?: IntraTickTimeline | undefined;
 }

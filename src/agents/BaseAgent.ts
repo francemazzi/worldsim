@@ -42,12 +42,14 @@ import type {
   AgentStorageDeps,
   AgentSchedulingDeps,
   AgentSocialDeps,
+  AgentTimelineDeps,
 } from "./internal/AgentDeps.js";
 
 export type {
   AgentStorageDeps,
   AgentSchedulingDeps,
   AgentSocialDeps,
+  AgentTimelineDeps,
 } from "./internal/AgentDeps.js";
 
 /**
@@ -59,7 +61,8 @@ export type {
  */
 export type AgentStoreOptions = AgentStorageDeps &
   AgentSchedulingDeps &
-  AgentSocialDeps;
+  AgentSocialDeps &
+  AgentTimelineDeps;
 
 export interface TickContext {
   memories: MemoryEntry[];
@@ -94,6 +97,7 @@ export abstract class BaseAgent {
   protected conversationManager?: ConversationManager | undefined;
   protected locationIndex?: LocationIndex | undefined;
   protected defaultBroadcastRadius?: number | undefined;
+  protected timeline?: import("../engine/IntraTickTimeline.js").IntraTickTimeline | undefined;
   protected internalState: AgentInternalState;
   private lifecycle: AgentLifecycle = new AgentLifecycle();
 
@@ -115,6 +119,7 @@ export abstract class BaseAgent {
     this.conversationManager = options?.conversationManager;
     this.locationIndex = options?.locationIndex;
     this.defaultBroadcastRadius = options?.defaultBroadcastRadius;
+    this.timeline = options?.timeline;
     this.assetStore = options?.assetStore;
     this.internalState = {
       ...DEFAULT_INTERNAL_STATE,

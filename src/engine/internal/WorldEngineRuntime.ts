@@ -3,6 +3,7 @@ import { AgentRegistry } from "../../agents/AgentRegistry.js";
 import { ControlAgent } from "../../agents/ControlAgent.js";
 import { PersonAgent } from "../../agents/PersonAgent.js";
 import { MessageBus } from "../../messaging/MessageBus.js";
+import { IntraTickTimeline } from "../IntraTickTimeline.js";
 import { PluginRegistry } from "../../plugins/PluginRegistry.js";
 import { LLMAdapterPool } from "../../llm/LLMAdapterPool.js";
 import { BatchExecutor } from "../BatchExecutor.js";
@@ -32,6 +33,7 @@ export interface WorldEngineRuntime {
   context: WorldContext;
   agentRegistry: AgentRegistry;
   messageBus: MessageBus;
+  timeline: IntraTickTimeline;
   rulesContext: RulesContext | null;
   pluginRegistry: PluginRegistry;
   llmPool: LLMAdapterPool;

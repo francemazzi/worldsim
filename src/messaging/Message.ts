@@ -1,3 +1,5 @@
+import type { TimelineMetadata } from "../types/TimelineTypes.js";
+
 export type MessageType =
   | "speak"
   | "warn"
@@ -48,5 +50,6 @@ export interface Message {
   metadata?:
     | (Record<string, unknown>
         & PhoneMessageMetadata
-        & FederationMessageMetadata);
+        & FederationMessageMetadata
+        & TimelineMetadata);
 }

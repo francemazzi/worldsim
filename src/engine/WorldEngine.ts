@@ -3,6 +3,7 @@ import { WorldClock } from "./WorldClock.js";
 import { createWorldContext } from "./WorldContext.js";
 import { BatchExecutor } from "./BatchExecutor.js";
 import { CircularBuffer } from "./CircularBuffer.js";
+import { IntraTickTimeline } from "./IntraTickTimeline.js";
 import { WorldBootstrapper } from "./internal/WorldBootstrapper.js";
 import { ControlEventApplier } from "./internal/ControlEventApplier.js";
 import { TickOrchestrator } from "./internal/TickOrchestrator.js";
@@ -38,6 +39,7 @@ import type { RulesContext } from "../types/RulesTypes.js";
 import type { BaseAgent } from "../agents/BaseAgent.js";
 import type { ConsolidationResult } from "../types/ConsolidationTypes.js";
 import type { TokenUsage } from "../types/ScheduleTypes.js";
+import type { TimelineMetadata } from "../types/TimelineTypes.js";
 
 export class WorldEngine {
   private runtime: WorldEngineRuntime;
@@ -46,12 +48,14 @@ export class WorldEngine {
   private tickOrchestrator: TickOrchestrator;
 
   constructor(config: WorldConfig) {
+    const timeline = new IntraTickTimeline();
     this.runtime = {
       status: "idle",
       config,
       context: createWorldContext(config.worldId ?? randomUUID()),
       agentRegistry: new AgentRegistry(),
-      messageBus: new MessageBus(),
+      messageBus: new MessageBus(timeline),
+      timeline,
       rulesContext: null,
       pluginRegistry: new PluginRegistry(),
       llmPool: new LLMAdapterPool(
@@ -171,7 +175,8 @@ export class WorldEngine {
     const oldStatus = a.status;
     a.pause(this.runtime.clock.current(), "host");
 
-    this.logEvent("agent:paused", id, { reason });
+    const metadata = this.runtime.timeline.nextEvent();
+    this.logEvent("agent:paused", id, { reason }, metadata);
     this.runtime.pluginRegistry.runHook(
       "onAgentStatusChange",
       {
@@ -180,6 +185,7 @@ export class WorldEngine {
         requestedBy: "host",
         tick: this.runtime.clock.current(),
         reason,
+        metadata,
       },
       oldStatus,
       a.status,
@@ -193,7 +199,8 @@ export class WorldEngine {
     const oldStatus = a.status;
     a.resume(this.runtime.clock.current(), "host");
 
-    this.logEvent("agent:resumed", id, {});
+    const metadata = this.runtime.timeline.nextEvent();
+    this.logEvent("agent:resumed", id, {}, metadata);
     this.runtime.pluginRegistry.runHook(
       "onAgentStatusChange",
       {
@@ -201,6 +208,7 @@ export class WorldEngine {
         agentId: id,
         requestedBy: "host",
         tick: this.runtime.clock.current(),
+        metadata,
       },
       oldStatus,
       a.status,
@@ -218,7 +226,8 @@ export class WorldEngine {
     this.runtime.personAgents = this.runtime.personAgents.filter((p) => p.id !== id);
     this.runtime.controlAgents = this.runtime.controlAgents.filter((c) => c.id !== id);
 
-    this.logEvent("agent:stopped", id, { reason });
+    const metadata = this.runtime.timeline.nextEvent();
+    this.logEvent("agent:stopped", id, { reason }, metadata);
     this.runtime.pluginRegistry.runHook(
       "onAgentStatusChange",
       {
@@ -227,6 +236,7 @@ export class WorldEngine {
         requestedBy: "host",
         tick: this.runtime.clock.current(),
         reason,
+        metadata,
       },
       oldStatus,
       "stopped",
@@ -372,6 +382,7 @@ export class WorldEngine {
     type: string,
     agentId: string,
     payload: unknown,
+    metadata?: TimelineMetadata,
   ): void {
     this.runtime.eventLog.push({
       type,
@@ -379,6 +390,7 @@ export class WorldEngine {
       agentId,
       payload,
       timestamp: new Date(),
+      metadata: metadata ?? this.runtime.timeline.nextEvent(),
     });
   }
 }

@@ -8,6 +8,7 @@ import type { GroupStore, GatheringStore } from "./SocialTypes.js";
 import type { WorldPrivacyConfig, ObservabilityConfig } from "./PrivacyTypes.js";
 import type { MovementPolicy } from "../plugins/built-in/movement/MovementPolicy.js";
 import type { FederationConfig } from "../federation/types.js";
+import type { TimelineMetadata } from "./TimelineTypes.js";
 
 export interface WorldContext {
   worldId: string;
@@ -129,4 +130,5 @@ export interface WorldEvent {
   agentId?: string | undefined;
   payload: unknown;
   timestamp: Date;
+  metadata?: TimelineMetadata | undefined;
 }

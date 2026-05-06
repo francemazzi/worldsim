@@ -1,6 +1,7 @@
 import type { AgentAction } from "../../types/AgentTypes.js";
 import type { WorldEngineRuntime } from "./WorldEngineRuntime.js";
 import { ControlEventApplier } from "./ControlEventApplier.js";
+import type { TimelineMetadata } from "../../types/TimelineTypes.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -10,7 +11,7 @@ export class TickOrchestrator {
   constructor(
     private runtime: WorldEngineRuntime,
     private controlEventApplier: ControlEventApplier,
-    private logEvent: (type: string, agentId: string, payload: unknown) => void,
+    private logEvent: (type: string, agentId: string, payload: unknown, metadata?: TimelineMetadata) => void,
   ) {}
 
   async runLoop(): Promise<void> {
@@ -178,7 +179,7 @@ export class TickOrchestrator {
         this.logEvent("action:executed", action.agentId, {
           actionType: action.actionType,
           payload: action.payload,
-        });
+        }, action.metadata);
       }
     }
 

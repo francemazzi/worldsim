@@ -1,6 +1,7 @@
 import type { StudioRouter } from "../StudioRouter.js";
 import { json } from "../StudioRouter.js";
 import type { WorldEngine } from "../../engine/WorldEngine.js";
+import { compareTimelineMetadata } from "../../engine/IntraTickTimeline.js";
 
 export function registerEventsApi(
   router: StudioRouter,
@@ -27,8 +28,16 @@ export function registerEventsApi(
       events = events.filter((e) => e.agentId === agentFilter);
     }
 
-    // Newest first
-    events.reverse();
+    // Newest first, with deterministic intra-tick ordering.
+    events.sort((a, b) => {
+      const tickDiff = b.tick - a.tick;
+      if (tickDiff !== 0) return tickDiff;
+
+      const temporal = compareTimelineMetadata(b.metadata, a.metadata);
+      if (temporal !== 0) return temporal;
+
+      return b.timestamp.getTime() - a.timestamp.getTime();
+    });
     const total = events.length;
     const paged = events.slice(offset, offset + limit);
 

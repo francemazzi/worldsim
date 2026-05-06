@@ -44,13 +44,25 @@ export class MessageRouter {
       type: "speak" as const,
       content: JSON.stringify(action.payload),
       tick,
+      ...(action.metadata ? { metadata: action.metadata } : {}),
     };
 
     if (this.deps.conversationManager) {
       const conv = this.deps.conversationManager.getConversationForAgent(agentId);
       if (conv) {
         const recipients = conv.participantIds.filter((id) => id !== agentId);
-        this.bus.publishToGroup(msg, recipients);
+        this.bus.publishToGroup(
+          {
+            ...msg,
+            metadata: {
+              ...(msg.metadata ?? {}),
+              conversationId: conv.id,
+              threadId: `conversation:${conv.id}`,
+              audienceKey: audienceKey(conv.participantIds),
+            },
+          },
+          recipients,
+        );
         return;
       }
     }
@@ -65,7 +77,17 @@ export class MessageRouter {
         this.deps.graphStore,
       );
       if (neighbors.length > 0) {
-        this.bus.publishToGroup(msg, neighbors);
+        this.bus.publishToGroup(
+          {
+            ...msg,
+            metadata: {
+              ...(msg.metadata ?? {}),
+              threadId: `neighborhood:${audienceKey([agentId, ...neighbors])}`,
+              audienceKey: audienceKey([agentId, ...neighbors]),
+            },
+          },
+          neighbors,
+        );
         return;
       }
     }
@@ -80,9 +102,17 @@ export class MessageRouter {
         this.deps.defaultBroadcastRadius,
       );
       if (nearby.length > 0) {
+        const recipients = nearby.map((n) => n.agentId);
         this.bus.publishToGroup(
-          msg,
-          nearby.map((n) => n.agentId),
+          {
+            ...msg,
+            metadata: {
+              ...(msg.metadata ?? {}),
+              threadId: `proximity:${audienceKey([agentId, ...recipients])}`,
+              audienceKey: audienceKey([agentId, ...recipients]),
+            },
+          },
+          recipients,
         );
         return;
       }
@@ -92,6 +122,18 @@ export class MessageRouter {
       `[MessageRouter] Agent "${agentId}" falling back to broadcast at tick ${tick}. ` +
         `Consider configuring neighborhood, location, or broadcastRadius.`,
     );
-    this.bus.publish({ ...msg, to: "*" });
+    this.bus.publish({
+      ...msg,
+      to: "*",
+      metadata: {
+        ...(msg.metadata ?? {}),
+        threadId: "broadcast:*",
+        audienceKey: "*",
+      },
+    });
   }
+}
+
+function audienceKey(agentIds: string[]): string {
+  return [...new Set(agentIds)].sort().join("|");
 }

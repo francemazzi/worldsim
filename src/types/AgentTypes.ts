@@ -2,6 +2,7 @@ import type { AgentTool } from "./PluginTypes.js";
 import type { ActivitySchedule, TokenBudget } from "./ScheduleTypes.js";
 import type { LocationConfig } from "./LocationTypes.js";
 import type { LLMConfig } from "./WorldTypes.js";
+import type { ThinkingDelayConfig, TimelineMetadata } from "./TimelineTypes.js";
 
 export type AgentRole = "control" | "person";
 
@@ -13,6 +14,7 @@ export interface AgentControlEvent {
   requestedBy: string;
   tick: number;
   reason?: string | undefined;
+  metadata?: TimelineMetadata | undefined;
 }
 
 export interface AgentProfile {
@@ -79,6 +81,8 @@ export interface AgentConfig {
   } | undefined;
   /** If true, agent always makes LLM call even when idle. Default false. */
   alwaysThink?: boolean | undefined;
+  /** Simulated time spent thinking before each observable action. */
+  thinkingDelayMs?: ThinkingDelayConfig | undefined;
   /**
    * LLM tier for this agent.
    * - "full": uses the main world LLM config (default)
@@ -116,4 +120,5 @@ export interface AgentAction {
   actionType: "speak" | "observe" | "interact" | "tool_call" | "finish";
   payload: unknown;
   tick: number;
+  metadata?: TimelineMetadata | undefined;
 }

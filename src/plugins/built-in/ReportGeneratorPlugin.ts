@@ -20,6 +20,10 @@ import { analyzeNetwork } from "../../analysis/NetworkAnalyzer.js";
 import { analyzeDialogue } from "../../analysis/DialogueAnalyzer.js";
 import { analyzeShock } from "../../analysis/ShockAnalyzer.js";
 import { analyzeArchetypes } from "../../analysis/ArchetypeAnalyzer.js";
+import {
+  compareAgentActionsByTimeline,
+  compareTimelineMetadata,
+} from "../../engine/IntraTickTimeline.js";
 
 export interface ReportGeneratorOptions {
   engine: WorldEngine;
@@ -266,11 +270,11 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
         startedAt: ctx.startedAt.toISOString(),
         stoppedAt: new Date(stopTime).toISOString(),
       },
-      timeline: [...timeline].sort((a, b) => a.tick - b.tick),
+      timeline: [...timeline].sort(compareTimelineEntries),
       agents: agentReports,
       relationships,
       metrics,
-      rawActions: [...allActions],
+      rawActions: [...allActions].sort(compareAgentActionsByTimeline),
     };
 
     const nodes = buildAgentNodes(agentReports, collectors);
@@ -291,7 +295,7 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
     const personAgents = agentReports.filter((a) => a.role !== "control");
     if (totalSpeaks > 0 || conversations.length > 0) {
       baseReport.dialogue = analyzeDialogue({
-        rawActions: allActions,
+        rawActions: [...allActions].sort(compareAgentActionsByTimeline),
         conversations,
         agentIds: personAgents.map((a) => a.agentId),
       });
@@ -373,6 +377,7 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
           type: "action",
           agentId: action.agentId,
           description: `${c.name}: ${typeof payload?.content === "string" ? payload.content.slice(0, 120) : "spoke"}`,
+          ...(action.metadata ? { metadata: action.metadata } : {}),
         });
       }
 
@@ -431,6 +436,16 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       });
     },
   };
+}
+
+function compareTimelineEntries(a: TimelineEntry, b: TimelineEntry): number {
+  const tickDiff = a.tick - b.tick;
+  if (tickDiff !== 0) return tickDiff;
+
+  const temporal = compareTimelineMetadata(a.metadata, b.metadata);
+  if (temporal !== 0) return temporal;
+
+  return a.description.localeCompare(b.description);
 }
 
 function estimateCost(

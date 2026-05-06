@@ -37,6 +37,45 @@ describe("MessageBus", () => {
     expect(msgs).toHaveLength(2);
   });
 
+  it("assigns monotonic intra-tick metadata and resets it on newTick()", () => {
+    const bus = new MessageBus();
+    bus.newTick(1);
+    bus.publish(makeMsg({ to: "agent-b", tick: 1, content: "first" }));
+    bus.publish(makeMsg({ to: "agent-b", tick: 1, content: "second" }));
+
+    const tickOne = bus.getMessages("agent-b", 1);
+    expect(tickOne[0]!.metadata?.tickSequence).toBe(1);
+    expect(tickOne[1]!.metadata?.tickSequence).toBe(2);
+
+    bus.newTick(2);
+    bus.publish(makeMsg({ to: "agent-b", tick: 2, content: "next tick" }));
+
+    const tickTwo = bus.getMessages("agent-b", 2);
+    expect(tickTwo[0]!.metadata?.tickSequence).toBe(1);
+  });
+
+  it("orders mixed directed and broadcast messages by intra-tick time", () => {
+    const bus = new MessageBus();
+    bus.newTick(1);
+    bus.publish(makeMsg({
+      to: "agent-b",
+      tick: 1,
+      content: "later direct",
+      metadata: { tickSequence: 2, simulatedAtOffsetMs: 2000, intraTickMs: 2000, emittedAt: "2026-01-01T00:00:02.000Z" },
+    }));
+    bus.publish(makeMsg({
+      to: "*",
+      tick: 1,
+      content: "earlier broadcast",
+      metadata: { tickSequence: 1, simulatedAtOffsetMs: 1000, intraTickMs: 1000, emittedAt: "2026-01-01T00:00:01.000Z" },
+    }));
+
+    expect(bus.getMessages("agent-b", 1).map((m) => m.content)).toEqual([
+      "earlier broadcast",
+      "later direct",
+    ]);
+  });
+
   it("getMessages('world-engine', tick) returns control messages", () => {
     const bus = new MessageBus();
     bus.newTick(1);

@@ -76,6 +76,11 @@ export type {
   AgentProfile,
   AgentInternalState,
 } from "./types/AgentTypes.js";
+export type {
+  TimelineStamp,
+  TimelineMetadata,
+  ThinkingDelayConfig,
+} from "./types/TimelineTypes.js";
 export type { RuleSet, Rule, RulesContext } from "./types/RulesTypes.js";
 export type { WorldSimPlugin, AgentTool } from "./types/PluginTypes.js";
 export type { PositionProvider } from "./plugins/capabilities/PositionProvider.js";

@@ -80,6 +80,7 @@ export class PersonAgent extends BaseAgent {
         payload: { status: "resting" },
         tick: ctx.tickCount,
       };
+      this.stampActionTiming(restAction, [], 0);
       if (this.activityScheduler) {
         this.activityScheduler.recordAction(this.id, ctx.tickCount);
       }
@@ -120,6 +121,7 @@ export class PersonAgent extends BaseAgent {
         i,
         tickContext,
       );
+      this.stampActionTiming(action, incomingMessages, i);
       actions.push(action);
 
       // Publish to neighbors or broadcast
@@ -158,6 +160,35 @@ export class PersonAgent extends BaseAgent {
       ctx.tickCount,
       this.config.neighborhood != null,
     );
+  }
+
+  private stampActionTiming(
+    action: AgentAction,
+    observedMessages: Message[],
+    iterationIndex: number,
+  ): void {
+    const observedMessageIds = observedMessages.map((m) => m.id);
+    const causalMetadata = observedMessageIds.length > 0 ? { observedMessageIds } : {};
+
+    if (!this.timeline) {
+      action.metadata = {
+        ...(action.metadata ?? {}),
+        ...causalMetadata,
+      };
+      return;
+    }
+
+    action.metadata = {
+      ...(action.metadata ?? {}),
+      ...this.timeline.reserveAction({
+        agentId: this.id,
+        actionType: action.actionType,
+        observedMessages,
+        iterationIndex,
+        thinkingDelayMs: this.config.thinkingDelayMs,
+      }),
+      ...causalMetadata,
+    };
   }
 
   private async gatherTickContext(): Promise<TickContext> {

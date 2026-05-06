@@ -87,7 +87,9 @@
       agentName: data.agentName,
       payload: data.action.payload,
       timestamp: data.timestamp,
+      metadata: data.action.metadata,
     });
+    sortEventsNewestFirst(state.events);
     if (state.events.length > 500) state.events.length = 500;
     if (state.page === "events") render();
   });
@@ -105,7 +107,9 @@
       agentName: data.agentName,
       payload: { oldStatus: data.oldStatus, newStatus: data.newStatus, reason: data.event.reason },
       timestamp: data.timestamp,
+      metadata: data.event.metadata,
     });
+    sortEventsNewestFirst(state.events);
     if (state.events.length > 500) state.events.length = 500;
     render();
   });
@@ -150,6 +154,7 @@
     if (state.selectedWorldId) params.set("worldId", state.selectedWorldId);
     const data = await api("/events?" + params);
     state.events = data.events || [];
+    sortEventsNewestFirst(state.events);
     render();
   }
 
@@ -700,12 +705,42 @@
       : event.payload ? JSON.stringify(event.payload).slice(0, 120) : "";
     return `
       <div class="event-row">
-        <span class="event-tick">T${event.tick}</span>
+        <span class="event-tick">${formatSimTime(event)}</span>
         <span class="event-type">${esc(event.type)}</span>
         <span class="event-agent">${esc(event.agentName || event.agentId || "—")}</span>
         <span class="event-payload">${esc(payload)}</span>
       </div>
     `;
+  }
+
+  function sortEventsNewestFirst(events) {
+    events.sort((a, b) => compareTimelineEvent(b, a));
+  }
+
+  function compareTimelineEvent(a, b) {
+    const tickDiff = (a.tick || 0) - (b.tick || 0);
+    if (tickDiff !== 0) return tickDiff;
+
+    const offsetDiff = timelineOffset(a.metadata) - timelineOffset(b.metadata);
+    if (offsetDiff !== 0) return offsetDiff;
+
+    const seqDiff = ((a.metadata && a.metadata.tickSequence) || 0) - ((b.metadata && b.metadata.tickSequence) || 0);
+    if (seqDiff !== 0) return seqDiff;
+
+    return String(a.timestamp || "").localeCompare(String(b.timestamp || ""));
+  }
+
+  function timelineOffset(metadata) {
+    if (!metadata) return 0;
+    if (typeof metadata.actionAtOffsetMs === "number") return metadata.actionAtOffsetMs;
+    if (typeof metadata.simulatedAtOffsetMs === "number") return metadata.simulatedAtOffsetMs;
+    if (typeof metadata.intraTickMs === "number") return metadata.intraTickMs;
+    return 0;
+  }
+
+  function formatSimTime(event) {
+    const offset = timelineOffset(event.metadata);
+    return offset > 0 ? `T${event.tick}+${Math.round(offset)}ms` : `T${event.tick}`;
   }
 
   function renderGraphPage() {
@@ -1105,7 +1140,7 @@
         <div class="report-timeline">
           ${r.timeline.slice(0, 100).map((t) => `
             <div class="timeline-entry timeline-${t.type}">
-              <span class="event-tick">T${t.tick}</span>
+              <span class="event-tick">${formatSimTime(t)}</span>
               <span class="timeline-desc">${esc(t.description)}</span>
             </div>
           `).join("")}

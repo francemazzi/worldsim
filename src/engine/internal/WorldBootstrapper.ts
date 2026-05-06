@@ -67,6 +67,7 @@ export class WorldBootstrapper {
         conversationManager: this.runtime.conversationManager,
         locationIndex: this.runtime.locationIndex,
         defaultBroadcastRadius: this.runtime.config.defaultBroadcastRadius,
+        timeline: this.runtime.timeline,
       };
 
       if (agentConfig.role === "control") {
