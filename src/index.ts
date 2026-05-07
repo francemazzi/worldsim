@@ -40,6 +40,15 @@ export { ChatPlugin } from "./plugins/built-in/ChatPlugin.js";
 export type { ChatPluginOptions } from "./plugins/built-in/ChatPlugin.js";
 export { privacyCompliancePlugin } from "./plugins/built-in/PrivacyCompliancePlugin.js";
 export type { PrivacyCompliancePluginOptions } from "./plugins/built-in/PrivacyCompliancePlugin.js";
+export { NeedsSatisfierPlugin, defaultNeedsSatisfyRules } from "./plugins/built-in/NeedsSatisfierPlugin.js";
+export type {
+  NeedsSatisfierPluginOptions,
+  NeedsSatisfyRule,
+  NeedsSatisfyRuleContext,
+  SatisfyFn,
+} from "./plugins/built-in/NeedsSatisfierPlugin.js";
+export { generateNarrative, computePerceptionInsights } from "./analysis/narrative.js";
+export type { NarrativeOptions } from "./analysis/narrative.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
 
 // ─── MCP Client Support ────────────────────────────────────────────

@@ -1,11 +1,16 @@
 import { OpenAICompatAdapter } from "../llm/OpenAICompatAdapter.js";
 import type {
   AgentArc,
+  CriticalNeedMoment,
   NarrativeArc,
   NarrativeQuote,
   NarrativeReport,
+  NarrativeTopicSummary,
+  PerceptionInsights,
+  PerceptionTopicSummary,
   SimulationReport,
 } from "../types/ReportTypes.js";
+import type { AgentAction } from "../types/AgentTypes.js";
 
 export interface NarrativeOptions {
   apiKey?: string | undefined;
@@ -31,12 +36,14 @@ export async function generateNarrative(
   const baseURL =
     options.baseURL ?? process.env.LLM_BASE_URL ?? "https://api.openai.com/v1";
 
-  if (!apiKey) return fallbackNarrative(report);
+  const perceptionInsights = computePerceptionInsights(report);
+
+  if (!apiKey) return fallbackNarrative(report, perceptionInsights);
 
   const adapter = new OpenAICompatAdapter({ apiKey, model, baseURL });
 
   const [arc, perAgentArc, quotes] = await Promise.all([
-    generateArc(adapter, report).catch(() => fallbackArc(report)),
+    generateArc(adapter, report, perceptionInsights).catch(() => fallbackArc(report)),
     generatePerAgentArc(adapter, report).catch(() => fallbackPerAgentArc(report)),
     generateQuotes(adapter, report).catch(() => fallbackQuotes(report)),
   ]);
@@ -45,13 +52,33 @@ export async function generateNarrative(
     arc,
     perAgentArc,
     quotes,
+    ...(perceptionInsights ? { perceptionInsights } : {}),
     generatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Pure, LLM-free derivation of {@link PerceptionInsights} from a report.
+ * Returns `undefined` when the report has no perception metrics — keeps
+ * legacy reports unchanged.
+ */
+export function computePerceptionInsights(
+  report: SimulationReport,
+): PerceptionInsights | undefined {
+  const perception = report.metrics.perception;
+  if (!perception) return undefined;
+
+  const dominantTopics = pickDominantTopics(report);
+  const silenceRatio = computeSilenceRatio(report);
+  const criticalNeedMoments = collectCriticalNeedMoments(report);
+
+  return { dominantTopics, silenceRatio, criticalNeedMoments };
 }
 
 async function generateArc(
   adapter: OpenAICompatAdapter,
   report: SimulationReport,
+  insights: PerceptionInsights | undefined,
 ): Promise<NarrativeArc[]> {
   const triggerTick = report.shock?.triggerTick;
   const snippets = report.timeline
@@ -60,7 +87,8 @@ async function generateArc(
     .join("\n");
   const system =
     "Sei un sociologo che riassume una simulazione multi-agente in italiano. Rispondi esclusivamente con JSON valido del tipo [{\"phase\":\"pre|trigger|post|full\",\"summary\":\"...\"}].";
-  const user = `Scenario: ${report.summary.worldId}\nTrigger tick: ${triggerTick ?? "nessuno"}\nEventi:\n${snippets}\nProduci 3 fasi (pre, trigger, post) se esiste un trigger, altrimenti una sola fase full.`;
+  const perceptionBlock = insights ? buildPerceptionPromptBlock(insights) : "";
+  const user = `Scenario: ${report.summary.worldId}\nTrigger tick: ${triggerTick ?? "nessuno"}\nEventi:\n${snippets}${perceptionBlock}\nProduci 3 fasi (pre, trigger, post) se esiste un trigger, altrimenti una sola fase full.`;
   const response = await adapter.chat(
     [
       { role: "system", content: system },
@@ -111,9 +139,17 @@ async function generateQuotes(
   adapter: OpenAICompatAdapter,
   report: SimulationReport,
 ): Promise<NarrativeQuote[]> {
-  const spoken = report.rawActions
-    .filter((a) => a.actionType === "speak")
-    .slice(0, 60)
+  const speaks = report.rawActions.filter((a) => a.actionType === "speak");
+  // Prefer quotes carrying a topicId so the sociologist sees on-thread
+  // exchanges first; the rest is appended after.
+  const inTopic: AgentAction[] = [];
+  const outOfTopic: AgentAction[] = [];
+  for (const a of speaks) {
+    if (hasTopicId(a)) inTopic.push(a);
+    else outOfTopic.push(a);
+  }
+  const ordered = [...inTopic, ...outOfTopic].slice(0, 60);
+  const spoken = ordered
     .map((a) => {
       const content =
         typeof a.payload === "string"
@@ -171,11 +207,15 @@ function normalizePhase(value: string | undefined): NarrativeArc["phase"] {
   return "full";
 }
 
-function fallbackNarrative(report: SimulationReport): NarrativeReport {
+function fallbackNarrative(
+  report: SimulationReport,
+  perceptionInsights?: PerceptionInsights | undefined,
+): NarrativeReport {
   return {
     arc: fallbackArc(report),
     perAgentArc: fallbackPerAgentArc(report),
     quotes: fallbackQuotes(report),
+    ...(perceptionInsights ? { perceptionInsights } : {}),
     generatedAt: new Date().toISOString(),
   };
 }
@@ -232,4 +272,104 @@ function fallbackQuotes(report: SimulationReport): NarrativeQuote[] {
       tag: "generico",
     };
   });
+}
+
+// ── Perception insights helpers ────────────────────────────────────
+
+function pickDominantTopics(report: SimulationReport): NarrativeTopicSummary[] {
+  const topics = report.metrics.perception?.topics;
+  if (topics && topics.length > 0) {
+    return [...topics]
+      .sort((a, b) => b.stimuliCount - a.stimuliCount)
+      .slice(0, 5)
+      .map(toNarrativeTopic);
+  }
+  // Fallback: derive from rawActions metadata when the report doesn't
+  // ship enriched topic snapshots (e.g. legacy plugins, custom builds).
+  const buckets = new Map<string, { participants: Set<string>; count: number }>();
+  for (const a of report.rawActions) {
+    if (a.actionType !== "speak") continue;
+    const topicId = readTopicId(a);
+    if (!topicId) continue;
+    let bucket = buckets.get(topicId);
+    if (!bucket) {
+      bucket = { participants: new Set(), count: 0 };
+      buckets.set(topicId, bucket);
+    }
+    bucket.count += 1;
+    bucket.participants.add(a.agentId);
+  }
+  return [...buckets.entries()]
+    .map(([id, b]) => ({
+      id,
+      stimuliCount: b.count,
+      participants: [...b.participants],
+    }))
+    .sort((a, b) => b.stimuliCount - a.stimuliCount)
+    .slice(0, 5);
+}
+
+function toNarrativeTopic(t: PerceptionTopicSummary): NarrativeTopicSummary {
+  return {
+    id: t.id,
+    ...(t.label ? { label: t.label } : {}),
+    stimuliCount: t.stimuliCount,
+    participants: [...t.participants],
+  };
+}
+
+function computeSilenceRatio(report: SimulationReport): number {
+  let perceive = 0;
+  let speak = 0;
+  for (const a of report.agents) {
+    if (a.role === "control") continue;
+    perceive += a.actions.perceive ?? 0;
+    speak += a.actions.speak ?? 0;
+  }
+  const total = perceive + speak;
+  if (total === 0) return 0;
+  return Math.round((perceive / total) * 1000) / 1000;
+}
+
+function collectCriticalNeedMoments(
+  report: SimulationReport,
+): CriticalNeedMoment[] {
+  const moments: CriticalNeedMoment[] = [];
+  for (const entry of report.timeline) {
+    const meta = entry.metadata as Record<string, unknown> | undefined;
+    if (!meta) continue;
+    const needId = typeof meta["criticalNeed"] === "string" ? (meta["criticalNeed"] as string) : undefined;
+    const agentId = typeof meta["agentId"] === "string" ? (meta["agentId"] as string) : undefined;
+    if (!needId || !agentId) continue;
+    moments.push({ agentId, needId, tick: entry.tick });
+  }
+  return moments;
+}
+
+function buildPerceptionPromptBlock(insights: PerceptionInsights): string {
+  const lines: string[] = ["", "Contesto percettivo:"];
+  if (insights.dominantTopics.length > 0) {
+    lines.push("- Topic principali:");
+    for (const t of insights.dominantTopics.slice(0, 3)) {
+      const label = t.label ?? t.id;
+      const parts = t.participants.length > 0 ? t.participants.join(", ") : "(nessuno)";
+      lines.push(`  • ${label}: ${t.stimuliCount} stimoli, partecipanti ${parts}`);
+    }
+  }
+  lines.push(`- Silence ratio: ${(insights.silenceRatio * 100).toFixed(0)}% (perceive su perceive+speak)`);
+  if (insights.criticalNeedMoments.length > 0) {
+    lines.push(`- Picchi di need critici: ${insights.criticalNeedMoments.length}`);
+  }
+  return `\n${lines.join("\n")}\n`;
+}
+
+function readTopicId(action: AgentAction): string | undefined {
+  const meta = action.metadata as Record<string, unknown> | undefined;
+  if (!meta) return undefined;
+  const value = meta["topicId"];
+  return typeof value === "string" ? value : undefined;
+}
+
+function hasTopicId(action: AgentAction): boolean {
+  return readTopicId(action) !== undefined;
 }

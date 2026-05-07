@@ -610,6 +610,7 @@ Add these only when the scenario needs them:
 ## Documentation
 
 - [Architecture & internals](docs/architecture.md)
+- [Realistic simulation primitives (perception layer)](docs/perception.md)
 - [Persistence & databases](docs/persistence.md)
 - [Scaling to production](docs/scaling.md)
 - [Plugin authoring guide](docs/plugins.md)

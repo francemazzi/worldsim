@@ -126,6 +126,14 @@ export interface SimulationMetrics {
   perception?: PerceptionMetrics | undefined;
 }
 
+/** A single topic snapshot included in the perception metrics. */
+export interface PerceptionTopicSummary {
+  id: string;
+  label?: string | undefined;
+  stimuliCount: number;
+  participants: string[];
+}
+
 /** Aggregate metrics for the perception/attention/topic layer. */
 export interface PerceptionMetrics {
   /** Total stimuli emitted (speech, sound, sight, smell, signal, event). */
@@ -150,6 +158,11 @@ export interface PerceptionMetrics {
   replyRate: number;
   /** Average number of participants per topic. */
   avgParticipantsPerTopic: number;
+  /**
+   * Optional list of topics opened during the run, ordered by activity.
+   * Populated by the report generator when the topic tracker is reachable.
+   */
+  topics?: PerceptionTopicSummary[] | undefined;
 }
 
 /* ------------------------------------------------------------------ */
@@ -348,11 +361,49 @@ export interface NarrativeQuote {
   tag: string;
 }
 
+/** Dominant topic descriptor derived from the perception layer. */
+export interface NarrativeTopicSummary {
+  id: string;
+  label?: string | undefined;
+  stimuliCount: number;
+  participants: string[];
+}
+
+/** A single moment when an agent's need crossed its critical threshold. */
+export interface CriticalNeedMoment {
+  agentId: string;
+  needId: string;
+  tick: number;
+}
+
+/**
+ * Qualitative-but-deterministic insights derived from the perception
+ * layer. Always computable without an LLM call; produced even when no
+ * API key is configured so the dashboard can render them.
+ */
+export interface PerceptionInsights {
+  /** Topics with the largest stimulus volume, sorted descending. */
+  dominantTopics: NarrativeTopicSummary[];
+  /**
+   * Ratio of passive `perceive` actions over the sum of `perceive +
+   * speak`. Higher values indicate "quiet, attentive" runs; values close
+   * to zero indicate dense chatter.
+   */
+  silenceRatio: number;
+  /** Ticks/agents where a need crossed its critical threshold. */
+  criticalNeedMoments: CriticalNeedMoment[];
+}
+
 /** Qualitative narrative section produced by an LLM (opt-in). */
 export interface NarrativeReport {
   arc: NarrativeArc[];
   perAgentArc: AgentArc[];
   quotes: NarrativeQuote[];
+  /**
+   * Perception-aware insights. Populated whenever the source
+   * `SimulationReport` carries perception metrics, even without an LLM.
+   */
+  perceptionInsights?: PerceptionInsights | undefined;
   generatedAt: string;
 }
 

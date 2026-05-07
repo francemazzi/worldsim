@@ -609,6 +609,12 @@ function computePerceptionMetrics(
     }
   }
 
+  const detailedTopics: Array<{
+    id: string;
+    label?: string;
+    stimuliCount: number;
+    participants: string[];
+  }> = [];
   for (const tid of topicIds) {
     const topic = tracker.getTopic(tid);
     if (!topic) continue;
@@ -616,6 +622,12 @@ function computePerceptionMetrics(
       id: tid,
       stimulusIds: [...topic.stimulusIds],
       participants: topic.participants.size,
+    });
+    detailedTopics.push({
+      id: tid,
+      ...(topic.label ? { label: topic.label } : {}),
+      stimuliCount: topic.stimulusIds.length,
+      participants: [...topic.participants],
     });
     totalParticipants += topic.participants.size;
     if (topic.stimulusIds.length > 1) speechWithReply += 1;
@@ -626,6 +638,7 @@ function computePerceptionMetrics(
     (sum, t) => sum + t.stimulusIds.length,
     0,
   );
+  detailedTopics.sort((a, b) => b.stimuliCount - a.stimuliCount);
 
   return {
     totalStimuli,
@@ -638,6 +651,7 @@ function computePerceptionMetrics(
     replyRate: totalTopics > 0 ? round3(speechWithReply / totalTopics) : 0,
     avgParticipantsPerTopic:
       totalTopics > 0 ? Math.round((totalParticipants / totalTopics) * 100) / 100 : 0,
+    ...(detailedTopics.length > 0 ? { topics: detailedTopics } : {}),
   };
 }
 

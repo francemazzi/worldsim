@@ -190,6 +190,9 @@ export class WorldBootstrapper {
         agentRegistry: this.runtime.agentRegistry,
         assetStore: this.runtime.config.assetStore,
         config: this.runtime.config,
+        needsTracker: this.runtime.needsTracker,
+        topicTracker: this.runtime.topicTracker,
+        stimulusBus: this.runtime.stimulusBus,
       });
     }
   }

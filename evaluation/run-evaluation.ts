@@ -17,7 +17,15 @@ import {
   ConsoleLoggerPlugin,
   InMemoryMemoryStore,
   InMemoryGraphStore,
+  NeedsSatisfierPlugin,
 } from "worldsim";
+import type {
+  InteractionConfig,
+  WorldConfig,
+} from "../src/types/WorldTypes.js";
+import type { Entity } from "../src/types/EntityTypes.js";
+import type { SenseConfig, AttentionConfig } from "../src/types/PerceptionTypes.js";
+import type { NeedsState } from "../src/types/NeedsTypes.js";
 import { reportGeneratorPlugin } from "../src/plugins/built-in/ReportGeneratorPlugin.js";
 
 // ---------------------------------------------------------------------------
@@ -30,8 +38,21 @@ const __dirname = dirname(__filename);
 const SCENARIOS_DIR = resolve(__dirname, "scenarios");
 const RESULTS_DIR = resolve(__dirname, "results");
 
-const SCENARIO_NAMES = ["water-rationing", "price-shock", "rumor-spread"] as const;
+const SCENARIO_NAMES = [
+  "water-rationing",
+  "price-shock",
+  "rumor-spread",
+  "village-realistic",
+  "enclosure-animals",
+  "office-floor",
+] as const;
 type ScenarioName = (typeof SCENARIO_NAMES)[number];
+
+const PERCEPTION_SCENARIOS = new Set<ScenarioName>([
+  "village-realistic",
+  "enclosure-animals",
+  "office-floor",
+]);
 
 // ---------------------------------------------------------------------------
 // Types (matching ScenarioLoader.ScenarioConfig shape)
@@ -51,7 +72,14 @@ interface ScenarioAgentConfig {
     goals: string[];
     backstory?: string;
     skills?: string[];
+    location?: {
+      home?: { latitude: number; longitude: number; label?: string };
+      current?: { latitude: number; longitude: number; label?: string };
+    };
   };
+  senses?: SenseConfig[];
+  attention?: AttentionConfig;
+  needs?: NeedsState;
 }
 
 interface ScenarioConfig {
@@ -66,6 +94,8 @@ interface ScenarioConfig {
     addRules?: string[];
     announcement?: string;
   };
+  interaction?: InteractionConfig;
+  entities?: Entity[];
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +126,9 @@ function resolveRulePaths(
       "water-rationing": "community-rules.json",
       "price-shock": "market-rules.json",
       "rumor-spread": "community-rules.json",
+      "village-realistic": "community-rules.json",
+      "enclosure-animals": "community-rules.json",
+      "office-floor": "community-rules.json",
     };
     const baseRule = baseRuleFiles[scenarioName];
     if (baseRule) {
@@ -122,7 +155,19 @@ function resolveTriggerRulePaths(
 // Run a single scenario
 // ---------------------------------------------------------------------------
 
-async function runScenario(scenarioName: string): Promise<void> {
+interface RunOptions {
+  /** Override the scenario's `interaction` config. Useful for the legacy/perception comparison runner. */
+  interaction?: InteractionConfig | undefined;
+  /** Override the output filename. Default: `<scenarioName>.json`. */
+  outputName?: string | undefined;
+  /** Suppress per-agent printout in the console. Default: false. */
+  silent?: boolean | undefined;
+}
+
+async function runScenario(
+  scenarioName: string,
+  options: RunOptions = {},
+): Promise<void> {
   console.log(`\n${"=".repeat(70)}`);
   console.log(`  SCENARIO: ${scenarioName}`);
   console.log(`${"=".repeat(70)}\n`);
@@ -136,14 +181,17 @@ async function runScenario(scenarioName: string): Promise<void> {
   if (scenario.trigger) {
     console.log(`  Trigger: tick ${scenario.trigger.atTick}`);
   }
+  const interaction = options.interaction ?? scenario.interaction;
+  if (interaction) {
+    console.log(`  Mode:    ${interaction.mode ?? "legacy"}`);
+  }
   console.log();
 
   // Create stores
   const memoryStore = new InMemoryMemoryStore();
   const graphStore = new InMemoryGraphStore();
 
-  // Create engine
-  const engine = new WorldEngine({
+  const engineConfig: WorldConfig = {
     worldId: scenario.name,
     maxTicks: scenario.maxTicks ?? 30,
     tickIntervalMs: scenario.tickIntervalMs ?? 2000,
@@ -152,16 +200,31 @@ async function runScenario(scenarioName: string): Promise<void> {
       apiKey: process.env.OPENAI_API_KEY!,
       model: process.env.LLM_MODEL ?? "gpt-4o-mini",
     },
-    rulesPath: Object.keys(rulesPath).length > 0 ? rulesPath : undefined,
+    ...(Object.keys(rulesPath).length > 0 ? { rulesPath } : {}),
     memoryStore,
     graphStore,
-  });
+    ...(interaction ? { interaction } : {}),
+  };
+  const engine = new WorldEngine(engineConfig);
 
   // Register plugins
   engine.use(ConsoleLoggerPlugin);
 
   const report = reportGeneratorPlugin({ engine });
   engine.use(report.plugin);
+
+  // Auto-attach the satisfier plugin in perception mode so needs decay is
+  // counterbalanced when agents act on the matching keywords.
+  if (interaction?.mode === "perception") {
+    engine.use(new NeedsSatisfierPlugin());
+  }
+
+  // Seed entities (perception scenarios typically declare a few)
+  if (Array.isArray(scenario.entities)) {
+    for (const entity of scenario.entities) {
+      engine.addEntity(entity);
+    }
+  }
 
   // Add agents
   for (const agent of scenario.agents) {
@@ -205,7 +268,8 @@ async function runScenario(scenarioName: string): Promise<void> {
     // Ensure results directory exists
     mkdirSync(RESULTS_DIR, { recursive: true });
 
-    const outputPath = join(RESULTS_DIR, `${scenarioName}.json`);
+    const outputName = options.outputName ?? scenarioName;
+    const outputPath = join(RESULTS_DIR, `${outputName}.json`);
     writeFileSync(outputPath, JSON.stringify(reportData, null, 2), "utf-8");
 
     console.log(`\n  ${"—".repeat(50)}`);
@@ -216,13 +280,25 @@ async function runScenario(scenarioName: string): Promise<void> {
     console.log(`  Total actions: ${reportData.summary.totalActions}`);
     console.log(`  Total events:  ${reportData.summary.totalEvents}`);
     console.log(`  Agents:        ${reportData.summary.agentCount}`);
-    console.log();
-    console.log(`  Per-agent actions:`);
-    for (const agentReport of reportData.agents) {
-      const { name, role, totalActions, actions } = agentReport;
-      console.log(
-        `    ${name} (${role}): ${totalActions} actions — speak: ${actions.speak}, observe: ${actions.observe}, interact: ${actions.interact}, tool: ${actions.tool_call}`,
-      );
+    if (reportData.metrics.perception) {
+      const p = reportData.metrics.perception;
+      console.log();
+      console.log(`  Perception layer:`);
+      console.log(`    Total stimuli:        ${p.totalStimuli}`);
+      console.log(`    Topics opened:        ${p.totalTopics}`);
+      console.log(`    Causal coherence:     ${(p.causalCoherence * 100).toFixed(1)}%`);
+      console.log(`    Reply rate:           ${(p.replyRate * 100).toFixed(1)}%`);
+    }
+    if (!options.silent) {
+      console.log();
+      console.log(`  Per-agent actions:`);
+      for (const agentReport of reportData.agents) {
+        const { name, role, totalActions, actions } = agentReport;
+        const perceiveSegment = actions.perceive ? `, perceive: ${actions.perceive}` : "";
+        console.log(
+          `    ${name} (${role}): ${totalActions} actions — speak: ${actions.speak}, observe: ${actions.observe}, interact: ${actions.interact}, tool: ${actions.tool_call}${perceiveSegment}`,
+        );
+      }
     }
     console.log();
     console.log(`  Report written to: ${outputPath}`);
@@ -230,6 +306,8 @@ async function runScenario(scenarioName: string): Promise<void> {
     console.log(`\n  WARNING: No report generated for ${scenarioName}`);
   }
 }
+
+export { runScenario, loadScenarioFile, type RunOptions, SCENARIO_NAMES, PERCEPTION_SCENARIOS };
 
 // ---------------------------------------------------------------------------
 // Main
