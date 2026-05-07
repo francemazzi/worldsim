@@ -53,6 +53,8 @@ export class WorldBootstrapper {
         this.runtime.tokenBudgetTracker,
       );
 
+      const interaction = this.runtime.config.interaction;
+      const perceptionEnabled = this.runtime.perceptionEnabled;
       const storeOptions: AgentStoreOptions = {
         memoryStore: this.runtime.config.memoryStore,
         graphStore: this.runtime.config.graphStore,
@@ -68,6 +70,16 @@ export class WorldBootstrapper {
         locationIndex: this.runtime.locationIndex,
         defaultBroadcastRadius: this.runtime.config.defaultBroadcastRadius,
         timeline: this.runtime.timeline,
+        ...(perceptionEnabled
+          ? {
+              stimulusBus: this.runtime.stimulusBus,
+              perceptionEngine: this.runtime.perceptionEngine,
+              perceptionFallbackToLegacy:
+                interaction?.disableBroadcastFallback === false,
+              topicTracker: this.runtime.topicTracker,
+              needsTracker: this.runtime.needsTracker,
+            }
+          : {}),
       };
 
       if (agentConfig.role === "control") {
@@ -119,6 +131,27 @@ export class WorldBootstrapper {
             ?? agentConfig.profile.location.home;
           if (loc) {
             this.runtime.locationIndex.update(agent.id, loc);
+          }
+        }
+
+        // Register agent as a perceiver when the perception layer is on.
+        if (perceptionEnabled) {
+          this.runtime.perceptionEngine.registerAgent(
+            agent.id,
+            agentConfig.senses,
+          );
+
+          // Auto-initialize the agent's needs from its config or, if absent,
+          // from the world-level default template. Agents without either
+          // stay needs-less (length 0) which keeps `buildNeedsPrompt`
+          // silent and `criticalNeeds` empty.
+          if (agentConfig.needs && agentConfig.needs.needs.length > 0) {
+            this.runtime.needsTracker.init(agent.id, agentConfig.needs);
+          } else if (interaction?.defaultNeedsTemplate) {
+            this.runtime.needsTracker.initFromTemplate(
+              agent.id,
+              interaction.defaultNeedsTemplate,
+            );
           }
         }
       }

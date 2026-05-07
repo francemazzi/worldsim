@@ -2,6 +2,8 @@ import type { AgentAction } from "../../types/AgentTypes.js";
 import type { WorldEngineRuntime } from "./WorldEngineRuntime.js";
 import { ControlEventApplier } from "./ControlEventApplier.js";
 import type { TimelineMetadata } from "../../types/TimelineTypes.js";
+import { createStimulusId } from "../../perception/StimulusBus.js";
+import type { Stimulus } from "../../types/StimulusTypes.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,6 +41,7 @@ export class TickOrchestrator {
   async executeTick(): Promise<void> {
     const tick = this.runtime.clock.increment();
     this.runtime.messageBus.newTick(tick);
+    this.runtime.stimulusBus.newTick(tick);
     this.runtime.context.tickCount = tick;
     this.runtime.llmPool.setTick(tick);
 
@@ -46,6 +49,13 @@ export class TickOrchestrator {
     // arriving messages are visible to active agents during this tick.
     if (this.runtime.federationBus) {
       await this.runtime.federationBus.drainInbound(tick);
+    }
+
+    // Realistic Simulation: emit entity background stimuli (smell, ambient
+    // sound, signal sources). Stimuli emitted here are visible to all
+    // perceivers from this tick onward.
+    if (this.runtime.perceptionEnabled) {
+      this.emitEntityStimuli(tick);
     }
 
     await this.runtime.pluginRegistry.runHook(
@@ -73,12 +83,25 @@ export class TickOrchestrator {
 
     // Filter active agents, applying world-level active-set scheduling
     const defaultRatio = this.runtime.config.defaultActiveTickRatio;
+    const perceptionEnabled = this.runtime.perceptionEnabled;
     const activePersonAgents = this.runtime.personAgents
       .filter((a) => {
         if (!a.isActive) return false;
 
         // Agents with pending messages always run (they have stimulus)
         if (this.runtime.messageBus.getMessageCount(a.id, tick) > 0) return true;
+
+        // In perception mode, agents that perceive something (anything)
+        // bypass the activity ratio gate so reactions are not silently
+        // dropped. Salience-based filtering happens later in the agent.
+        if (perceptionEnabled) {
+          const percepts = this.runtime.perceptionEngine.perceiveFor(
+            a.id,
+            this.runtime.stimulusBus,
+            tick,
+          );
+          if (percepts.length > 0) return true;
+        }
 
         // Apply world-level defaultActiveTickRatio for agents without their own schedule
         if (defaultRatio != null && defaultRatio < 1.0) {
@@ -136,6 +159,19 @@ export class TickOrchestrator {
         },
       ) as AgentAction;
       transformedActions.push(transformed);
+    }
+
+    // Realistic Simulation: feed every speech stimulus from this tick into
+    // the topic tracker so subsequent ticks can frame replies as part of
+    // the same thread.
+    if (this.runtime.perceptionEnabled) {
+      for (const stim of this.runtime.stimulusBus.getForTick(tick)) {
+        this.runtime.topicTracker.ingest(stim);
+      }
+      // Tick the needs tracker for every active agent (decay/regen).
+      for (const agent of activePersonAgents) {
+        this.runtime.needsTracker.tick(agent.id);
+      }
     }
 
     // Batch decay/prune relationships for all active agents (single pass)
@@ -199,6 +235,35 @@ export class TickOrchestrator {
     for (const ca of this.runtime.controlAgents) {
       if (ca.isActive) {
         await ca.tick(this.runtime.context, this.runtime.rulesContext!);
+      }
+    }
+  }
+
+  /**
+   * Walks the entity registry and publishes a stimulus per declared,
+   * enabled emitter that fires on the current tick. Cheap when no
+   * entities have emitters.
+   */
+  private emitEntityStimuli(tick: number): void {
+    for (const entity of this.runtime.entityRegistry.values()) {
+      if (!entity.emitters || entity.emitters.length === 0) continue;
+      for (const emitter of entity.emitters) {
+        if (emitter.enabled === false) continue;
+        const period = emitter.everyNTicks ?? 1;
+        if (period <= 0) continue;
+        if (tick % period !== 0) continue;
+        const stim: Stimulus = {
+          id: createStimulusId(),
+          kind: emitter.kind,
+          channel: emitter.channel,
+          source: { kind: "entity", id: entity.id },
+          tick,
+          intensity: emitter.intensity ?? 0.5,
+          payload: emitter.payload ?? {},
+          ...(emitter.rangeKm != null ? { rangeKm: emitter.rangeKm } : {}),
+          ...(entity.position ? { position: entity.position } : {}),
+        };
+        this.runtime.stimulusBus.publish(stim);
       }
     }
   }

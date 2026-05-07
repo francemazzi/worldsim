@@ -22,6 +22,11 @@ import { NeighborhoodManager } from "../graph/NeighborhoodManager.js";
 import { ConversationManager } from "../messaging/ConversationManager.js";
 import { LocationIndex } from "../location/LocationIndex.js";
 import { McpClientManager } from "../mcp/McpClientManager.js";
+import { StimulusBus } from "../perception/StimulusBus.js";
+import { PerceptionEngine } from "../perception/PerceptionEngine.js";
+import { TopicTracker } from "../perception/TopicTracker.js";
+import { NeedsTracker } from "../needs/NeedsTracker.js";
+import { InMemoryEntityRegistry } from "../entities/InMemoryEntityRegistry.js";
 import { privacyCompliancePlugin } from "../plugins/built-in/PrivacyCompliancePlugin.js";
 import { FederationPlugin } from "../plugins/built-in/FederationPlugin.js";
 import { isPositionProvider } from "../plugins/capabilities/PositionProvider.js";
@@ -49,6 +54,25 @@ export class WorldEngine {
 
   constructor(config: WorldConfig) {
     const timeline = new IntraTickTimeline();
+    const locationIndex = new LocationIndex();
+    const interaction = config.interaction;
+    const perceptionEnabled = interaction?.mode === "perception";
+    const stimulusBus = new StimulusBus(interaction?.stimulusRetentionTicks ?? 1);
+    const entityRegistry = new InMemoryEntityRegistry();
+    const perceptionEngine = new PerceptionEngine({
+      locationIndex,
+      resolveEntityPosition: (id) => entityRegistry.get(id)?.position,
+      ...(interaction?.defaultSenses ? { defaultSenses: interaction.defaultSenses } : {}),
+    });
+    const topicTracker = new TopicTracker({
+      windowTicks: interaction?.topicWindowTicks ?? 5,
+    });
+    const needsTracker = new NeedsTracker();
+    if (interaction?.requirePerception && !perceptionEnabled) {
+      throw new Error(
+        "WorldConfig.interaction.requirePerception is true but interaction.mode is not 'perception'.",
+      );
+    }
     this.runtime = {
       status: "idle",
       config,
@@ -76,8 +100,14 @@ export class WorldEngine {
       tokenBudgetTracker: new TokenBudgetTracker(),
       neighborhoodManager: new NeighborhoodManager(),
       conversationManager: new ConversationManager(),
-      locationIndex: new LocationIndex(),
+      locationIndex,
       mcpClientManager: new McpClientManager(),
+      stimulusBus,
+      perceptionEngine,
+      topicTracker,
+      needsTracker,
+      entityRegistry,
+      perceptionEnabled,
     };
 
     this.bootstrapper = new WorldBootstrapper(this.runtime);
@@ -363,6 +393,53 @@ export class WorldEngine {
    */
   getMessageBus(): MessageBus {
     return this.runtime.messageBus;
+  }
+
+  /**
+   * Realistic Simulation primitives. Always available; behavior is opt-in
+   * via `WorldConfig.interaction.mode = "perception"`.
+   */
+  getStimulusBus(): StimulusBus {
+    return this.runtime.stimulusBus;
+  }
+
+  getPerceptionEngine(): PerceptionEngine {
+    return this.runtime.perceptionEngine;
+  }
+
+  getTopicTracker(): TopicTracker {
+    return this.runtime.topicTracker;
+  }
+
+  getNeedsTracker(): NeedsTracker {
+    return this.runtime.needsTracker;
+  }
+
+  /**
+   * Adds a non-agent entity (object, animal, signal, vehicle, ...). When
+   * the perception layer is on, the entity becomes perceivable to agents
+   * within range and (if it has `senses`) a perceiver itself.
+   */
+  addEntity(entity: import("../types/EntityTypes.js").Entity): this {
+    this.runtime.entityRegistry.add(entity);
+    if (this.runtime.perceptionEnabled && entity.senses && entity.senses.length > 0) {
+      this.runtime.perceptionEngine.registerEntity(entity.id, entity.senses);
+    }
+    return this;
+  }
+
+  removeEntity(id: string): this {
+    this.runtime.entityRegistry.remove(id);
+    this.runtime.perceptionEngine.unregister(id);
+    return this;
+  }
+
+  getEntity(id: string): import("../types/EntityTypes.js").Entity | undefined {
+    return this.runtime.entityRegistry.get(id);
+  }
+
+  listEntities(filter?: { kind?: string; subKind?: string }): import("../types/EntityTypes.js").Entity[] {
+    return this.runtime.entityRegistry.list(filter);
   }
 
   getTokenUsage(agentId: string): TokenUsage | undefined {

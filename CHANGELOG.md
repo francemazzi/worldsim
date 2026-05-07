@@ -7,6 +7,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [Unreleased]
 
 ### Added
+- **Realistic simulation primitives** — opt-in perception layer that turns
+  agent interactions into a physics-aware pipeline. Activated via the new
+  `WorldConfig.interaction` block (`mode: "perception"`):
+  - `Stimulus` + `StimulusBus` — every speak and every entity emitter
+    (sound, sight, smell, touch, signal, event) becomes a tick-bounded fact
+    on a dedicated bus with configurable retention.
+  - `PerceptionEngine` — per-channel perception with linear distance
+    attenuation, configurable `perceptionFloor`, language gating for
+    intelligibility, optional line-of-sight filters.
+  - `AttentionPolicy` — multi-factor salience scoring (intensity, novelty,
+    needs/goals, relationships, interests, recency) with budget and
+    threshold; below threshold the agent is allowed to stay silent.
+  - `TopicTracker` — clusters causal chains and co-participation into
+    topics so replies stay threaded across ticks.
+  - `NeedsTracker` — drives (hunger, fatigue, fear, social…) with decay
+    and regen per tick. Built-in `humanBasic` and `animalBasic` templates,
+    plus arbitrary custom `NeedsState`. Auto-initialized by
+    `WorldBootstrapper` from `AgentConfig.needs` or
+    `interaction.defaultNeedsTemplate`.
+  - `EntityRegistry` + `AffordanceResolver` — non-agent entities
+    (animals, objects, signals) participate in the perception loop and
+    expose affordances only when actually perceived. Add via
+    `world.addEntity({ id, kind, position, emitters })`.
+  - New `"perceive"` action type — passive acknowledgement that the agent
+    noticed a stimulus without speaking. Tracked in the simulation report
+    as a dedicated bucket in `ActionDistribution.perceive`.
+  - Plugin hooks `onStimulusEmit`, `onPerceptDelivered`, `onNeedsTick`.
+- New LLM prompt sections in perception mode: `--- PERCEZIONI ---` (ranked
+  attended percepts, replacing the legacy "voice" bucket),
+  `--- FILO DISCORSIVO ---` (dominant topic context),
+  `--- BISOGNI ATTIVI ---` (active needs above their activation threshold).
+- `TickContextLoader.isIdle` consults the perception layer: salient
+  percepts and critical needs keep tired agents awake.
+- New Studio dashboard page **Perception** with live stimuli, open topics,
+  ranked percepts and needs bars per agent, refreshed on every tick.
+- Read-only Studio API: `/api/perception/{status, stimuli, topics,
+  percepts/:agentId, needs/:agentId}`.
+- Three new evaluation scenarios using the perception layer:
+  `village-realistic`, `enclosure-animals`, `office-floor`.
+- README section "Realistic simulation primitives" and updated skill at
+  `.claude/skills/worldsim/SKILL.md`.
 - Multi-world federation foundations (Phase 0 of the federation roadmap):
   type vocabulary in `src/federation/`, Zod schemas, `worldId:agentId`
   utilities, and a dedicated `worldsim/federation` sub-export.

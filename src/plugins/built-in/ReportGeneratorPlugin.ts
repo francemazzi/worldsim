@@ -88,7 +88,7 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
         role: agent?.role ?? "person",
         personality: profile?.personality ?? [],
         profession: (profile as unknown as { profession?: string } | undefined)?.profession,
-        actions: { speak: 0, observe: 0, interact: 0, tool_call: 0, finish: 0 },
+        actions: { speak: 0, observe: 0, interact: 0, tool_call: 0, finish: 0, perceive: 0 },
         totalActions: 0,
         moodTrajectory: [],
         energyTrajectory: [],
@@ -258,6 +258,9 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       averageMoodByTick,
       averageEnergyByTick,
     };
+
+    const perceptionMetrics = computePerceptionMetrics(options.engine);
+    if (perceptionMetrics) metrics.perception = perceptionMetrics;
 
     const baseReport: SimulationReport = {
       summary: {
@@ -547,4 +550,97 @@ function buildAgentNodes(
       if (c?.profession) node.profession = c.profession;
       return node;
     });
+}
+
+/**
+ * Computes aggregate perception/topic metrics by introspecting the
+ * `TopicTracker` after the run. Only emits when the perception layer was
+ * actually used (i.e. some topics were tracked).
+ */
+function computePerceptionMetrics(
+  engine: WorldEngine,
+): import("../../types/ReportTypes.js").PerceptionMetrics | undefined {
+  const tracker = engine.getTopicTracker();
+  if (tracker.size === 0) return undefined;
+
+  const stimulusBus = engine.getStimulusBus();
+  const stimuliByKind: Record<string, number> = {};
+  const stimuliByChannel: Record<string, number> = {};
+  let totalStimuli = 0;
+
+  // Walk every retained tick (typically the last one only). This is a
+  // best-effort sample — long runs rotate older ticks out, but we still
+  // capture the totals through topic membership below.
+  for (let t = 0; t <= engine.getContext().tickCount; t++) {
+    const stimuli = stimulusBus.getForTick(t);
+    for (const s of stimuli) {
+      totalStimuli += 1;
+      stimuliByKind[s.kind] = (stimuliByKind[s.kind] ?? 0) + 1;
+      stimuliByChannel[s.channel] = (stimuliByChannel[s.channel] ?? 0) + 1;
+    }
+  }
+
+  // Topic-derived metrics: causal coherence + reply rate.
+  let speechCount = 0;
+  let causalSpeechCount = 0;
+  let speechWithReply = 0;
+  let totalParticipants = 0;
+  const topicIds = new Set<string>();
+  const topicSnapshots: Array<{
+    id: string;
+    stimulusIds: string[];
+    participants: number;
+  }> = [];
+
+  // We can't enumerate every topic id from the tracker without an index, so
+  // we iterate by stimulus -> topicOf. Limit to the retention window.
+  const seenTopicByStim = new Map<string, string>();
+  for (let t = 0; t <= engine.getContext().tickCount; t++) {
+    const stimuli = stimulusBus.getForTick(t);
+    for (const s of stimuli) {
+      if (s.kind !== "speech") continue;
+      speechCount += 1;
+      const topicId = tracker.topicOf(s.id);
+      if (topicId) {
+        topicIds.add(topicId);
+        seenTopicByStim.set(s.id, topicId);
+      }
+      if (s.causedByStimulusId) causalSpeechCount += 1;
+    }
+  }
+
+  for (const tid of topicIds) {
+    const topic = tracker.getTopic(tid);
+    if (!topic) continue;
+    topicSnapshots.push({
+      id: tid,
+      stimulusIds: [...topic.stimulusIds],
+      participants: topic.participants.size,
+    });
+    totalParticipants += topic.participants.size;
+    if (topic.stimulusIds.length > 1) speechWithReply += 1;
+  }
+
+  const totalTopics = topicSnapshots.length;
+  const totalStimsInTopics = topicSnapshots.reduce(
+    (sum, t) => sum + t.stimulusIds.length,
+    0,
+  );
+
+  return {
+    totalStimuli,
+    stimuliByKind,
+    stimuliByChannel,
+    totalTopics,
+    avgStimuliPerTopic:
+      totalTopics > 0 ? Math.round((totalStimsInTopics / totalTopics) * 100) / 100 : 0,
+    causalCoherence: speechCount > 0 ? round3(causalSpeechCount / speechCount) : 0,
+    replyRate: totalTopics > 0 ? round3(speechWithReply / totalTopics) : 0,
+    avgParticipantsPerTopic:
+      totalTopics > 0 ? Math.round((totalParticipants / totalTopics) * 100) / 100 : 0,
+  };
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
 }

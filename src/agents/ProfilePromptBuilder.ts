@@ -4,6 +4,9 @@ import type { Relationship, RelationshipTypeDefinition } from "../types/GraphTyp
 import type { ConsolidatedKnowledge } from "../types/PersistenceTypes.js";
 import type { LocationConfig } from "../types/LocationTypes.js";
 import type { Asset, Household, Venue } from "../types/AssetTypes.js";
+import type { RankedPercept } from "../perception/AttentionPolicy.js";
+import type { Topic } from "../perception/TopicTracker.js";
+import type { NeedsState } from "../types/NeedsTypes.js";
 import { getPhoneMetadata } from "../messaging/phone/PhoneDirectory.js";
 
 export function buildProfilePrompt(profile: AgentProfile): string {
@@ -347,4 +350,122 @@ export function buildConflictInstructions(): string {
   lines.push("- Se hai tool disponibili, USALI quando sono pertinenti. Non limitarti a parlare.");
   lines.push("- Varia le tue azioni: non fare sempre 'speak'. Osserva, interagisci, usa strumenti.");
   return `--- ISTRUZIONI COMPORTAMENTO ---\n${lines.join("\n")}`;
+}
+
+/**
+ * Renders the percepts the perception layer surfaced this tick. Percepts
+ * are listed in salience order so the LLM picks them up top-down. The
+ * section is intentionally short — long lists hurt model attention more
+ * than they help.
+ */
+export function buildPerceptsPrompt(
+  percepts: RankedPercept[],
+  topicById: Map<string, Topic> | undefined,
+): string {
+  if (percepts.length === 0) return "";
+  const lines: string[] = [];
+  lines.push("Le cose che hai notato in questo momento (in ordine di importanza):");
+  for (const r of percepts) {
+    const stim = r.percept.stimulus;
+    const text = describePerceptText(r);
+    const lang = r.percept.intelligibility;
+    const speaker = stim.source.kind === "agent"
+      ? stim.source.id
+      : `${stim.source.kind}:${stim.source.id}`;
+    const distance = r.percept.distanceKm > 0
+      ? ` a circa ${formatDistance(r.percept.distanceKm)}`
+      : "";
+    let topicLabel = "";
+    if (stim.topicId && topicById) {
+      const topic = topicById.get(stim.topicId);
+      if (topic) {
+        const label = topic.label ?? `${stim.topicId.slice(0, 12)}…`;
+        topicLabel = ` [filo: ${label}]`;
+      }
+    }
+    if (stim.kind === "speech") {
+      const understood = lang == null || lang >= 1
+        ? text
+        : lang === 0
+          ? "(non capisci la lingua)"
+          : `(capisci a meta) ${text}`;
+      lines.push(`  - ${speaker}${distance} dice: "${understood}"${topicLabel}`);
+    } else {
+      lines.push(`  - ${stim.kind} da ${speaker}${distance}: ${text}${topicLabel}`);
+    }
+  }
+  lines.push("");
+  lines.push("Quando rispondi: se rispondi a uno specifico percetto, mantieniti sul filo (topicId).");
+  lines.push("Se cambi argomento, dillo esplicitamente. Se nessun percetto merita una reazione, puoi restare in silenzio.");
+  return `--- PERCEZIONI ---\n${lines.join("\n")}`;
+}
+
+/**
+ * Renders a single open topic as conversational context. Used when an agent
+ * is "in" a topic and we want to remind them of the thread.
+ */
+export function buildTopicContextPrompt(
+  topic: Topic,
+  selfId: string,
+): string {
+  const others = [...topic.participants].filter((id) => id !== selfId);
+  const lines: string[] = [];
+  if (topic.label) {
+    lines.push(`Filo attivo: "${topic.label}" (id: ${topic.id})`);
+  } else {
+    lines.push(`Filo attivo: ${topic.id}`);
+  }
+  if (others.length > 0) {
+    lines.push(`Partecipanti: ${others.join(", ")}`);
+  }
+  lines.push(`Iniziato al tick ${topic.startTick}, ultima attivita al tick ${topic.lastTick}.`);
+  return `--- FILO DISCORSIVO ---\n${lines.join("\n")}`;
+}
+
+/**
+ * Renders the agent's needs as an internal-state section. Only active
+ * needs (above their `activationThreshold`) are surfaced; satisfied needs
+ * stay silent.
+ */
+export function buildNeedsPrompt(needs: NeedsState | undefined): string {
+  if (!needs || needs.needs.length === 0) return "";
+  const active = needs.needs.filter((n) => {
+    const t = n.activationThreshold ?? 0.5;
+    return n.value >= t;
+  });
+  if (active.length === 0) return "";
+  const lines: string[] = [];
+  for (const n of active) {
+    const intensity = describeNeedIntensity(n.value, n.criticalThreshold ?? 0.9);
+    lines.push(`  - ${n.label ?? n.id}: ${intensity} (${(n.value * 100).toFixed(0)}%)`);
+  }
+  return `--- BISOGNI ATTIVI ---\n${lines.join("\n")}`;
+}
+
+function describePerceptText(r: RankedPercept): string {
+  const payload = r.percept.stimulus.payload;
+  if (typeof payload === "string") return payload;
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    const rec = payload as Record<string, unknown>;
+    if (typeof rec["text"] === "string") return rec["text"] as string;
+    try {
+      return JSON.stringify(rec);
+    } catch {
+      return "[contenuto non leggibile]";
+    }
+  }
+  return String(payload);
+}
+
+function formatDistance(km: number): string {
+  if (km < 0.001) return `${Math.round(km * 1_000_000)}cm`;
+  if (km < 1) return `${Math.round(km * 1000)}m`;
+  return `${km.toFixed(1)}km`;
+}
+
+function describeNeedIntensity(value: number, critical: number): string {
+  if (value >= critical) return "critico";
+  if (value >= 0.75) return "forte";
+  if (value >= 0.5) return "medio";
+  return "lieve";
 }

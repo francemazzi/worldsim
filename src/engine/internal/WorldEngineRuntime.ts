@@ -15,6 +15,11 @@ import { ConversationManager } from "../../messaging/ConversationManager.js";
 import { LocationIndex } from "../../location/LocationIndex.js";
 import { BrainMemory } from "../../memory/BrainMemory.js";
 import type { McpClientManager } from "../../mcp/McpClientManager.js";
+import { StimulusBus } from "../../perception/StimulusBus.js";
+import { PerceptionEngine } from "../../perception/PerceptionEngine.js";
+import { TopicTracker } from "../../perception/TopicTracker.js";
+import { NeedsTracker } from "../../needs/NeedsTracker.js";
+import { InMemoryEntityRegistry } from "../../entities/InMemoryEntityRegistry.js";
 import type {
   WorldConfig,
   WorldContext,
@@ -52,4 +57,14 @@ export interface WorldEngineRuntime {
   locationIndex: LocationIndex;
   mcpClientManager: McpClientManager;
   federationBus?: FederationBus | undefined;
+  /**
+   * Realistic Simulation primitives. Always instantiated; only routes
+   * traffic when `WorldConfig.interaction.mode === "perception"`.
+   */
+  stimulusBus: StimulusBus;
+  perceptionEngine: PerceptionEngine;
+  topicTracker: TopicTracker;
+  needsTracker: NeedsTracker;
+  entityRegistry: InMemoryEntityRegistry;
+  perceptionEnabled: boolean;
 }

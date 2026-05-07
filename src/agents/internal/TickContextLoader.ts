@@ -6,6 +6,9 @@ import type { GraphStore } from "../../types/GraphTypes.js";
 import type { AssetStore } from "../../types/AssetTypes.js";
 import type { BrainMemory } from "../../memory/BrainMemory.js";
 import type { ConversationManager } from "../../messaging/ConversationManager.js";
+import type { PerceptionEngine } from "../../perception/PerceptionEngine.js";
+import type { StimulusBus } from "../../perception/StimulusBus.js";
+import type { NeedsTracker } from "../../needs/NeedsTracker.js";
 
 export interface TickContextLoaderDeps {
   memoryStore?: MemoryStore | undefined;
@@ -13,7 +16,19 @@ export interface TickContextLoaderDeps {
   assetStore?: AssetStore | undefined;
   brainMemory?: BrainMemory | undefined;
   conversationManager?: ConversationManager | undefined;
+  /**
+   * Realistic-simulation deps. When provided, `isIdle()` consults the
+   * perception layer to keep agents awake whenever they have a salient
+   * percept above `perceptionFloor` or a critical need active. Default
+   * floor is `0.2` (matches the typical AttentionPolicy threshold).
+   */
+  perceptionEngine?: PerceptionEngine | undefined;
+  stimulusBus?: StimulusBus | undefined;
+  needsTracker?: NeedsTracker | undefined;
+  perceptionFloor?: number | undefined;
 }
+
+const DEFAULT_PERCEPTION_FLOOR = 0.2;
 
 /**
  * Loads the per-tick context an agent needs to produce its next action
@@ -96,6 +111,26 @@ export class TickContextLoader {
     if (this.deps.conversationManager) {
       const conv = this.deps.conversationManager.getConversationForAgent(this.agentId);
       if (conv) return false;
+    }
+
+    // Realistic Simulation: even with low energy and no inbox, an agent
+    // should not skip the tick if a salient stimulus is reaching their
+    // senses or a critical need is firing.
+    if (this.deps.perceptionEngine && this.deps.stimulusBus) {
+      const floor = this.deps.perceptionFloor ?? DEFAULT_PERCEPTION_FLOOR;
+      const percepts = this.deps.perceptionEngine.perceiveFor(
+        this.agentId,
+        this.deps.stimulusBus,
+        tick,
+      );
+      for (const p of percepts) {
+        if (p.perceivedIntensity >= floor) return false;
+      }
+    }
+
+    if (this.deps.needsTracker) {
+      const critical = this.deps.needsTracker.criticalNeeds(this.agentId);
+      if (critical.length > 0) return false;
     }
 
     return true;

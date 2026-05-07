@@ -1,0 +1,97 @@
+{
+  "name": "Recinto degli Animali — Branco e Predatore",
+  "description": "Un recinto con tre lupi e una pecora. I lupi hanno olfatto e udito potenti, la pecora ha vista. Quando un lupo abbaia, gli altri due lo sentono; la pecora può vederli avvicinarsi se in linea di vista. Mostra come la stessa primitiva di percezione gestisce specie diverse senza modificare il motore.",
+  "maxTicks": 20,
+  "tickIntervalMs": 1500,
+  "interaction": {
+    "mode": "perception",
+    "disableBroadcastFallback": true,
+    "topicWindowTicks": 4,
+    "defaultSenses": [
+      { "channel": "sound", "radiusKm": 0.1 },
+      { "channel": "sight", "radiusKm": 0.05 }
+    ]
+  },
+  "agents": [
+    {
+      "id": "alpha",
+      "role": "person",
+      "name": "Alpha",
+      "iterationsPerTick": 1,
+      "systemPrompt": "Sei un lupo alpha. Comunichi con il branco con ululati e ringhi (kind: sound). Reagisci a odori di prede e a movimenti vicini. Non parlare in italiano: la tua azione speak è 'ululato' o 'ringhio' con metadata.",
+      "senses": [
+        { "channel": "sound", "radiusKm": 0.5 },
+        { "channel": "smell", "radiusKm": 0.3 },
+        { "channel": "sight", "radiusKm": 0.05 }
+      ],
+      "needs": {
+        "needs": [
+          { "id": "hunger", "label": "fame", "value": 0.6, "decayPerTick": 0.02, "tags": ["prey", "smell", "food"] },
+          { "id": "territory", "label": "territorio", "value": 0.0, "decayPerTick": 0.005, "tags": ["intruder"] }
+        ]
+      },
+      "profile": {
+        "name": "Alpha",
+        "personality": ["dominante", "vigile"],
+        "goals": ["Proteggere il branco", "Cacciare quando affamato"],
+        "location": { "current": { "latitude": 0.0, "longitude": 0.0, "label": "recinto-nord" } }
+      }
+    },
+    {
+      "id": "beta",
+      "role": "person",
+      "name": "Beta",
+      "iterationsPerTick": 1,
+      "systemPrompt": "Sei un lupo beta. Segui Alpha. Reagisci ai suoi richiami (sound).",
+      "senses": [
+        { "channel": "sound", "radiusKm": 0.5 },
+        { "channel": "smell", "radiusKm": 0.3 }
+      ],
+      "profile": {
+        "name": "Beta",
+        "personality": ["leale", "calmo"],
+        "goals": ["Seguire l'alpha"],
+        "location": { "current": { "latitude": 0.00001, "longitude": 0.00001, "label": "recinto-nord" } }
+      }
+    },
+    {
+      "id": "gamma",
+      "role": "person",
+      "name": "Gamma",
+      "iterationsPerTick": 1,
+      "systemPrompt": "Sei un giovane lupo. Sei nervoso. Quando senti l'alpha ululare, rispondi.",
+      "senses": [
+        { "channel": "sound", "radiusKm": 0.5 },
+        { "channel": "smell", "radiusKm": 0.2 }
+      ],
+      "profile": {
+        "name": "Gamma",
+        "personality": ["giovane", "nervoso"],
+        "goals": ["Guadagnare rispetto"],
+        "location": { "current": { "latitude": 0.00002, "longitude": 0.00000, "label": "recinto-nord" } }
+      }
+    },
+    {
+      "id": "ovis",
+      "role": "person",
+      "name": "Ovis",
+      "iterationsPerTick": 1,
+      "systemPrompt": "Sei una pecora. Hai paura dei lupi. Quando li vedi avvicinarsi (sight), scappi.",
+      "senses": [
+        { "channel": "sight", "radiusKm": 0.1 },
+        { "channel": "sound", "radiusKm": 0.05 }
+      ],
+      "needs": {
+        "needs": [
+          { "id": "fear", "label": "paura", "value": 0.0, "decayPerTick": 0.0, "tags": ["predator", "wolf"] }
+        ]
+      },
+      "profile": {
+        "name": "Ovis",
+        "personality": ["timorosa"],
+        "goals": ["Restare al sicuro"],
+        "location": { "current": { "latitude": 0.0005, "longitude": 0.0005, "label": "recinto-sud" } }
+      }
+    }
+  ]
+}

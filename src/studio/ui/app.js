@@ -35,6 +35,18 @@
     // Filters
     eventTypeFilter: "",
     eventAgentFilter: "",
+    // Perception layer (realistic-simulation primitives)
+    perception: {
+      status: null,
+      stimuli: [],
+      topics: [],
+      agentId: "",
+      percepts: [],
+      needs: [],
+      tick: null,
+      loading: false,
+      error: null,
+    },
   };
 
   // ── Socket.IO ──────────────────────────────────────────────────────
@@ -69,6 +81,7 @@
       state.world.tick = data.tick;
       state.world.activeAgents = data.activeAgents;
     }
+    if (state.page === "perception") loadPerception();
     render();
   });
 
@@ -182,6 +195,45 @@
     render();
   }
 
+  // ── Perception layer ───────────────────────────────────────────────
+  async function loadPerception() {
+    state.perception.loading = true;
+    state.perception.error = null;
+    try {
+      const [statusRes, stimuliRes, topicsRes] = await Promise.all([
+        api(withWorld("/perception/status")),
+        api(withWorld("/perception/stimuli")),
+        api(withWorld("/perception/topics")),
+      ]);
+
+      state.perception.status = statusRes && !statusRes.error ? statusRes : null;
+      state.perception.stimuli = stimuliRes?.stimuli || [];
+      state.perception.topics = topicsRes?.topics || [];
+      state.perception.tick = statusRes?.currentTick ?? stimuliRes?.tick ?? null;
+
+      if (state.perception.agentId) {
+        const [perceptsRes, needsRes] = await Promise.all([
+          api(withWorld(`/perception/percepts/${encodeURIComponent(state.perception.agentId)}`)),
+          api(withWorld(`/perception/needs/${encodeURIComponent(state.perception.agentId)}`)),
+        ]);
+        state.perception.percepts = perceptsRes?.percepts || [];
+        state.perception.needs = needsRes?.needs || [];
+      } else {
+        state.perception.percepts = [];
+        state.perception.needs = [];
+      }
+
+      if (statusRes?.error) {
+        state.perception.error = statusRes.error;
+      }
+    } catch (err) {
+      state.perception.error = err && err.message ? err.message : String(err);
+    } finally {
+      state.perception.loading = false;
+      render();
+    }
+  }
+
   // ── Navigation ─────────────────────────────────────────────────────
   function navigate(page, detail) {
     state.page = page;
@@ -196,6 +248,7 @@
     if (page === "scenarios") loadScenarios();
     if (page === "agentDetail") loadAgentDetail(detail);
     if (page === "dashboard") loadTuning();
+    if (page === "perception") loadPerception();
   }
 
   // ── Graph loading ──────────────────────────────────────────────────
@@ -414,6 +467,7 @@
           ${navItem("dashboard", "Dashboard")}
           ${navItem("agents", "Agents")}
           ${navItem("events", "Event Log")}
+          ${navItem("perception", "Perception")}
           ${navItem("graph", "Relationships", !hasGraph)}
           ${navItem("scenarios", "Scenarios")}
           ${navItem("report", "Report")}
@@ -452,6 +506,7 @@
       case "agents": return renderAgents();
       case "agentDetail": return renderAgentDetail();
       case "events": return renderEvents();
+      case "perception": return renderPerceptionPage();
       case "graph": return renderGraphPage();
       case "scenarios": return renderScenariosPage();
       case "report": return renderReportPage();
@@ -741,6 +796,179 @@
   function formatSimTime(event) {
     const offset = timelineOffset(event.metadata);
     return offset > 0 ? `T${event.tick}+${Math.round(offset)}ms` : `T${event.tick}`;
+  }
+
+  function renderPerceptionPage() {
+    const p = state.perception;
+    const status = p.status;
+    const enabled = !!status?.enabled;
+    const tickLabel = p.tick != null ? `tick ${p.tick}` : "no tick yet";
+    const loading = p.loading;
+
+    const banner = !status
+      ? `<div class="card">${p.error ? esc(p.error) : "Connecting..."}</div>`
+      : enabled
+        ? `<div class="card" style="border-left:3px solid #3fb950">
+            <div style="font-weight:600;margin-bottom:6px">Perception layer is ON</div>
+            <div style="font-size:13px;color:var(--text-muted)">
+              Mode: <code>${esc(status.mode || "perception")}</code> &middot;
+              Topic window: ${status.topicWindowTicks ?? 5} ticks &middot;
+              Default senses: ${status.defaultSenses ? status.defaultSenses.length : 0}
+              &middot; ${esc(tickLabel)}
+            </div>
+          </div>`
+        : `<div class="card" style="border-left:3px solid #d29922">
+            <div style="font-weight:600;margin-bottom:6px">Perception layer is OFF (legacy mode)</div>
+            <div style="font-size:13px;color:var(--text-muted)">
+              Set <code>WorldConfig.interaction.mode = "perception"</code> to enable the realistic-simulation primitives.
+            </div>
+          </div>`;
+
+    const stimuliRows = (p.stimuli || []).slice(0, 50).map((s) => {
+      const sourceLabel = s.source?.kind && s.source?.id ? `${esc(s.source.kind)}:${esc(s.source.id)}` : "?";
+      const textRaw = typeof s.payload === "string"
+        ? s.payload
+        : (s.payload && typeof s.payload === "object" && typeof s.payload.text === "string"
+          ? s.payload.text
+          : JSON.stringify(s.payload ?? {}));
+      const text = textRaw && textRaw.length > 80 ? textRaw.slice(0, 80) + "..." : textRaw;
+      return `<tr>
+        <td><code>${esc(s.kind)}</code></td>
+        <td><code>${esc(s.channel)}</code></td>
+        <td>${sourceLabel}</td>
+        <td>${(s.intensity ?? 0).toFixed(2)}</td>
+        <td>${s.topicId ? `<code>${esc(String(s.topicId).slice(0, 14))}</code>` : "<span class=\"muted\">—</span>"}</td>
+        <td style="color:var(--text-muted)">${esc(text || "")}</td>
+      </tr>`;
+    }).join("");
+
+    const stimuliSection = `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-weight:600">Stimuli on this tick</div>
+          <div style="font-size:12px;color:var(--text-muted)">${(p.stimuli || []).length} total</div>
+        </div>
+        ${(p.stimuli || []).length === 0
+          ? '<div class="empty-state"><div class="empty-state-text">No stimuli emitted yet.</div></div>'
+          : `<div style="overflow-x:auto"><table class="data-table">
+              <thead>
+                <tr><th>Kind</th><th>Channel</th><th>Source</th><th>Intensity</th><th>Topic</th><th>Payload</th></tr>
+              </thead>
+              <tbody>${stimuliRows}</tbody>
+            </table></div>`}
+      </div>`;
+
+    const topicsRows = (p.topics || []).map((t) => `
+      <tr>
+        <td><code>${esc(String(t.id).slice(0, 16))}</code></td>
+        <td>${esc(t.label || "")}</td>
+        <td>${t.startTick} → ${t.lastTick}</td>
+        <td>${t.participants ? t.participants.length : 0}</td>
+        <td>${t.stimulusCount}</td>
+      </tr>
+    `).join("");
+
+    const topicsSection = `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-weight:600">Open topics</div>
+          <div style="font-size:12px;color:var(--text-muted)">${(p.topics || []).length} active</div>
+        </div>
+        ${(p.topics || []).length === 0
+          ? '<div class="empty-state"><div class="empty-state-text">No active topics.</div></div>'
+          : `<div style="overflow-x:auto"><table class="data-table">
+              <thead><tr><th>ID</th><th>Label</th><th>Window</th><th>Participants</th><th>Stimuli</th></tr></thead>
+              <tbody>${topicsRows}</tbody>
+            </table></div>`}
+      </div>`;
+
+    const agentOptions = (state.agents || []).map((a) =>
+      `<option value="${esc(a.id)}" ${state.perception.agentId === a.id ? "selected" : ""}>${esc(a.name || a.id)}</option>`
+    ).join("");
+
+    const perceptsRows = (p.percepts || []).map((pp) => {
+      const fromLabel = pp.from?.kind && pp.from?.id ? `${esc(pp.from.kind)}:${esc(pp.from.id)}` : "?";
+      const intel = pp.intelligibility != null ? (pp.intelligibility * 100).toFixed(0) + "%" : "—";
+      const text = typeof pp.payload === "string"
+        ? pp.payload
+        : (pp.payload && typeof pp.payload === "object" && typeof pp.payload.text === "string"
+          ? pp.payload.text
+          : JSON.stringify(pp.payload ?? {}));
+      const trimmed = text && text.length > 80 ? text.slice(0, 80) + "..." : text;
+      return `<tr>
+        <td><code>${esc(pp.kind)}</code></td>
+        <td><code>${esc(pp.via)}</code></td>
+        <td>${fromLabel}</td>
+        <td>${(pp.distanceKm ?? 0).toFixed(3)} km</td>
+        <td>${(pp.perceivedIntensity ?? 0).toFixed(2)}</td>
+        <td>${intel}</td>
+        <td>${pp.topicId ? `<code>${esc(String(pp.topicId).slice(0, 14))}</code>` : "<span class=\"muted\">—</span>"}</td>
+        <td style="color:var(--text-muted)">${esc(trimmed || "")}</td>
+      </tr>`;
+    }).join("");
+
+    const needBars = (p.needs || []).map((n) => {
+      const value = Math.max(0, Math.min(1, n.value));
+      const activation = n.activationThreshold ?? 0.5;
+      const critical = n.criticalThreshold ?? 0.9;
+      const color = value >= critical ? "#f85149" : value >= activation ? "#d29922" : "#58a6ff";
+      const pct = (value * 100).toFixed(0);
+      return `
+        <div class="need-bar" style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+            <span><strong>${esc(n.label || n.id)}</strong>${n.active ? ' <span class="badge">active</span>' : ""}</span>
+            <span>${pct}%</span>
+          </div>
+          <div style="background:var(--bg);height:8px;border-radius:4px;overflow:hidden;position:relative">
+            <div style="background:${color};width:${pct}%;height:100%"></div>
+            <div style="position:absolute;left:${(activation * 100).toFixed(0)}%;top:0;bottom:0;width:1px;background:#8b949e"></div>
+            <div style="position:absolute;left:${(critical * 100).toFixed(0)}%;top:0;bottom:0;width:1px;background:#f85149"></div>
+          </div>
+        </div>`;
+    }).join("");
+
+    const agentDetail = !state.perception.agentId
+      ? `<div class="card"><div class="empty-state"><div class="empty-state-text">Select an agent to inspect their percepts and needs.</div></div></div>`
+      : `<div class="perception-grid">
+          <div class="card">
+            <div style="font-weight:600;margin-bottom:8px">Attended percepts</div>
+            ${(p.percepts || []).length === 0
+              ? '<div class="empty-state"><div class="empty-state-text">No percepts above the floor on this tick.</div></div>'
+              : `<div style="overflow-x:auto"><table class="data-table">
+                  <thead><tr><th>Kind</th><th>Via</th><th>From</th><th>Distance</th><th>Intensity</th><th>Lang</th><th>Topic</th><th>Content</th></tr></thead>
+                  <tbody>${perceptsRows}</tbody>
+                </table></div>`}
+          </div>
+          <div class="card">
+            <div style="font-weight:600;margin-bottom:8px">Active needs</div>
+            ${(p.needs || []).length === 0
+              ? '<div class="empty-state"><div class="empty-state-text">This agent has no needs configured.</div></div>'
+              : needBars}
+          </div>
+        </div>`;
+
+    return `
+      <div class="section-title">Perception</div>
+      ${banner}
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <label for="perception-agent" style="font-size:13px;color:var(--text-muted)">Inspect agent:</label>
+            <select id="perception-agent" class="filter-select">
+              <option value="">— select —</option>
+              ${agentOptions}
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            ${loading ? '<span style="color:var(--text-muted);font-size:12px">loading…</span>' : ""}
+            <button class="btn" id="perception-refresh">Refresh</button>
+          </div>
+        </div>
+      </div>
+      ${stimuliSection}
+      ${topicsSection}
+      ${agentDetail}
+    `;
   }
 
   function renderGraphPage() {
@@ -1779,6 +2007,19 @@
       });
     });
 
+    // Perception page handlers
+    const perceptionAgent = document.getElementById("perception-agent");
+    if (perceptionAgent) {
+      perceptionAgent.addEventListener("change", () => {
+        state.perception.agentId = perceptionAgent.value || "";
+        loadPerception();
+      });
+    }
+    const perceptionRefresh = document.getElementById("perception-refresh");
+    if (perceptionRefresh) {
+      perceptionRefresh.addEventListener("click", loadPerception);
+    }
+
     // Event filters
     const filterApply = document.getElementById("filter-apply");
     if (filterApply) {
@@ -2233,6 +2474,7 @@
     if (state.page === "report") loadReport();
     if (state.page === "worlds") loadWorlds();
     if (state.page === "dashboard") loadTuning();
+    if (state.page === "perception") loadPerception();
   }, 5000);
   render();
 })();

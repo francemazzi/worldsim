@@ -37,6 +37,8 @@ export interface ActionDistribution {
   interact: number;
   tool_call: number;
   finish: number;
+  /** Passive acknowledgements emitted by the perception layer. */
+  perceive: number;
 }
 
 export interface AgentObservabilityMetrics {
@@ -117,6 +119,37 @@ export interface SimulationMetrics {
   estimatedCost: { amount: number; currency: string };
   averageMoodByTick: { tick: number; avgMood: string }[];
   averageEnergyByTick: { tick: number; avgEnergy: number }[];
+  /**
+   * Realistic Simulation metrics. Present only when the perception layer
+   * was active (`WorldConfig.interaction.mode === "perception"`).
+   */
+  perception?: PerceptionMetrics | undefined;
+}
+
+/** Aggregate metrics for the perception/attention/topic layer. */
+export interface PerceptionMetrics {
+  /** Total stimuli emitted (speech, sound, sight, smell, signal, event). */
+  totalStimuli: number;
+  /** Stimuli classified by kind. */
+  stimuliByKind: Record<string, number>;
+  /** Stimuli classified by channel. */
+  stimuliByChannel: Record<string, number>;
+  /** Number of distinct topics opened over the run. */
+  totalTopics: number;
+  /** Average number of stimuli per topic. */
+  avgStimuliPerTopic: number;
+  /**
+   * Fraction of speech stimuli that were causally linked to a parent
+   * (in-thread responses). 1.0 = perfect causal coherence.
+   */
+  causalCoherence: number;
+  /**
+   * Fraction of speech stimuli that received at least one in-thread reply
+   * within the topic window. 1.0 = nobody is talking to a wall.
+   */
+  replyRate: number;
+  /** Average number of participants per topic. */
+  avgParticipantsPerTopic: number;
 }
 
 /* ------------------------------------------------------------------ */

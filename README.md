@@ -84,6 +84,7 @@ Main sections available in the dashboard:
 
 - **Agents** — inspect profile, current status, goals, mood and energy in real time
 - **Timeline** — follow what happens at each tick, with a chronological event stream
+- **Perception** — when `interaction.mode === "perception"`: live stimuli on the bus, open topics, ranked percepts and active needs per agent (see [Realistic simulation primitives](#realistic-simulation-primitives))
 - **Relationship Graph** — visualize who influences whom and how social ties evolve
 - **Report** — review post-run metrics, trends, and behavior distribution
 
@@ -357,6 +358,62 @@ function partyPlugin(opts: { groupStore, gatheringStore }): WorldSimPlugin {
 
 This way worldsim stays neutral and the *package installer* decides what a "gathering" means in their simulation — a wedding, a town assembly, a protest, a book club night, a birthday. Types available: `Group`, `Gathering`, `GatheringParticipant`, `RsvpState`, `GatheringStatus`, `GatheringQuery`, `GroupStore`, `GatheringStore`.
 
+## Realistic simulation primitives
+
+WorldSim ships an opt-in stack of physics-aware primitives that make agent interactions look like real life: **agents only know what their senses pick up**, **salience drives whether they react**, and a topic tracker keeps replies coherent on the same thread. Activation is one switch on `WorldConfig`:
+
+```typescript
+const world = new WorldEngine({
+  /* ...standard config... */
+  interaction: {
+    mode: "perception",            // "legacy" (default) | "perception"
+    defaultSenses: [
+      { channel: "sound", radiusKm: 0.05 },
+      { channel: "sight", radiusKm: 0.03 },
+      { channel: "language", languages: ["it"] },
+    ],
+    disableBroadcastFallback: true,    // strict: drop speech nobody hears
+    topicWindowTicks: 5,               // how long a topic stays "open"
+    defaultNeedsTemplate: "humanBasic", // auto-populates hunger/thirst/fatigue/social
+  },
+});
+
+// Non-agent entities (animals, objects, signals) participate in perception too:
+world.addEntity({
+  id: "bell-1",
+  kind: "object",
+  position: { latitude: 45.0, longitude: 9.0 },
+  emitters: [{
+    kind: "sound", channel: "sound",
+    intensity: 0.5, rangeKm: 0.05,
+    payload: { sound: "ding" },
+  }],
+});
+```
+
+What you get when `mode: "perception"` is on:
+
+- **`Stimulus` + `StimulusBus`** — every `speak`, every entity emitter (a fountain's smell, a dog's bark, a radio signal) becomes a tick-bounded fact on the bus.
+- **`PerceptionEngine`** — per-channel perception with linear distance attenuation, configurable `perceptionFloor`, language gating for intelligibility, optional line-of-sight filters.
+- **`AttentionPolicy`** — multi-factor salience scoring (intensity, novelty, needs/goals match, relationship strength, interests, recency) with a budget and threshold. Below threshold = no forced reply.
+- **`TopicTracker`** — clusters causal chains and co-participation into topics; the agent prompt surfaces the dominant topic so replies stay threaded.
+- **`NeedsTracker`** — drives (hunger, fatigue, fear, social…) with decay/regen per tick. Built-in `humanBasic` and `animalBasic` templates, or pass a custom `NeedsState` per agent.
+- **`EntityRegistry` + `AffordanceResolver`** — non-agent entities (animals, objects, signals) participate in the perception loop and expose affordances (`eat`, `sit`, `ride`, …) only when actually perceived.
+- **New `"perceive"` action** — agents can passively acknowledge a stimulus without speaking. No more chatty agents replying just to fill silence.
+
+How the data lands inside the LLM prompt:
+
+- A `--- PERCEZIONI ---` section lists the *attended* percepts in salience order (with distance, intelligibility and topic id), replacing the legacy "voice" bucket.
+- An optional `--- FILO DISCORSIVO ---` block reminds the agent of the topic they are engaged in.
+- An optional `--- BISOGNI ATTIVI ---` block surfaces active needs above their `activationThreshold`. Critical needs also bypass the idle short-circuit.
+- The action union widens to include `"perceive"` so the LLM can choose silence.
+
+Strict mode (`disableBroadcastFallback: true`) drops speech that no one hears, just like real life. Default `legacy` mode is bit-for-bit identical to previous releases — nothing changes unless you opt in.
+
+The Studio dashboard ships a dedicated **Perception** page that reads `/api/perception/{status, stimuli, topics, percepts/:id, needs/:id}` so you can debug, tick by tick, what each agent actually heard, which topics are open, and how their needs evolve.
+
+See `evaluation/scenarios/village-realistic`, `enclosure-animals`, and `office-floor` for runnable end-to-end scenarios, and `tests/perception/fullstack.test.ts` for the integration test that exercises the full pipeline.
+
 ## Creating Your Own Scenario
 
 A WorldSim scenario is just a folder with four ingredients. The simplest way to start is to copy [`evaluation/scenarios/water-rationing/`](evaluation/scenarios/water-rationing/) and adapt it.
@@ -496,6 +553,8 @@ Add these only when the scenario needs them:
 | --- | --- |
 | Phones / SMS / calls between agents | `PhonePlugin` + `InMemoryAssetStore` + `createPhoneAsset` |
 | Physical movement across the world | `MovementPlugin` + `LocationIndex` + `MovementPolicy` |
+| Realistic perception (senses, attention, topics, needs) | `interaction: { mode: "perception", defaultSenses: [...] }` on `WorldConfig` (see [Realistic simulation primitives](#realistic-simulation-primitives)) |
+| Non-agent entities (animals, objects, signals) | `world.addEntity({ id, kind, position, emitters })` (requires `interaction.mode === "perception"`) |
 | Vital skills (farming, cooking…) | `LifeSkillsPlugin([...])` |
 | Real-world tools (weather, environment) | `RealWorldToolsPlugin({ dataSources })` |
 | Live dashboard in the browser | `studioPlugin({ engine, port: 4400 })` |
@@ -540,6 +599,7 @@ Add these only when the scenario needs them:
 | ------- | ----------- |
 | **LLM-agnostic** | OpenAI, Anthropic proxies, Ollama — anything OpenAI-compatible |
 | **Personality system** | Mood, energy, goals, beliefs, knowledge per agent |
+| **Realistic perception** | Opt-in stimulus/perception/attention/topic/needs stack for physics-aware agent interactions |
 | **Social dynamics** | Relationship tracking with strength decay, neighborhoods |
 | **Rule enforcement** | Hard/soft rules, governance agent with autonomous control |
 | **Scalability** | 1000+ agents via concurrency caps, activity scheduling, token budgets |

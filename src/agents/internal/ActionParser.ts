@@ -23,6 +23,7 @@ const VALID_ACTION_TYPES: ReadonlySet<AgentAction["actionType"]> = new Set([
   "interact",
   "tool_call",
   "finish",
+  "perceive",
 ]);
 
 /**
@@ -71,6 +72,10 @@ export function defaultEnergyCost(
   switch (actionType) {
     case "observe":
       return 2;
+    case "perceive":
+      // Passive acknowledgement: the agent noticed something but did not
+      // act on it. Should not deplete energy.
+      return 0;
     case "finish":
       return 0;
     default:

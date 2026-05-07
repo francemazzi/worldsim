@@ -42,6 +42,7 @@ import type {
   AgentStorageDeps,
   AgentSchedulingDeps,
   AgentSocialDeps,
+  AgentPerceptionDeps,
   AgentTimelineDeps,
 } from "./internal/AgentDeps.js";
 
@@ -49,6 +50,7 @@ export type {
   AgentStorageDeps,
   AgentSchedulingDeps,
   AgentSocialDeps,
+  AgentPerceptionDeps,
   AgentTimelineDeps,
 } from "./internal/AgentDeps.js";
 
@@ -57,11 +59,12 @@ export type {
  * type alias for backward compatibility; internally callers are encouraged
  * to accept only the slice of dependencies they actually use
  * ({@link AgentStorageDeps}, {@link AgentSchedulingDeps},
- * {@link AgentSocialDeps}).
+ * {@link AgentSocialDeps}, {@link AgentPerceptionDeps}).
  */
 export type AgentStoreOptions = AgentStorageDeps &
   AgentSchedulingDeps &
   AgentSocialDeps &
+  AgentPerceptionDeps &
   AgentTimelineDeps;
 
 export interface TickContext {

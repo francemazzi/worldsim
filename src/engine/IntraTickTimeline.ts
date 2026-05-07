@@ -134,6 +134,7 @@ function resolveThinkingDelay(input: ActionTimingInput): number {
     interact: 1200,
     tool_call: 1500,
     finish: 200,
+    perceive: 250,
   };
   const observedCost = input.observedMessages.length * 300;
   const iterationCost = input.iterationIndex * 200;

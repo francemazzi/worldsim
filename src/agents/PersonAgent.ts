@@ -8,6 +8,18 @@ import {
 import { MessageRouter } from "./internal/MessageRouter.js";
 import { TickContextLoader } from "./internal/TickContextLoader.js";
 import { buildPersonGraph } from "../graph/PersonGraph.js";
+import {
+  buildPerceptsPrompt,
+  buildTopicContextPrompt,
+  buildNeedsPrompt,
+} from "./ProfilePromptBuilder.js";
+import { AttentionPolicy } from "../perception/AttentionPolicy.js";
+import type { RankedPercept } from "../perception/AttentionPolicy.js";
+import type { Topic } from "../perception/TopicTracker.js";
+import type { TopicTracker } from "../perception/TopicTracker.js";
+import type { StimulusBus } from "../perception/StimulusBus.js";
+import type { PerceptionEngine } from "../perception/PerceptionEngine.js";
+import type { NeedsTracker } from "../needs/NeedsTracker.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
 import type { Message } from "../messaging/Message.js";
 import type { LLMAdapter } from "../llm/LLMAdapter.js";
@@ -22,6 +34,12 @@ export class PersonAgent extends BaseAgent {
   private externalTools: AgentTool[] = [];
   private messageRouter: MessageRouter;
   private contextLoader: TickContextLoader;
+  private stimulusBus?: StimulusBus | undefined;
+  private perceptionEngine?: PerceptionEngine | undefined;
+  private topicTracker?: TopicTracker | undefined;
+  private needsTracker?: NeedsTracker | undefined;
+  private attentionPolicy?: AttentionPolicy | undefined;
+  private recentPerceivedStimulusIds: string[] = [];
 
   constructor(
     config: AgentConfig,
@@ -38,7 +56,19 @@ export class PersonAgent extends BaseAgent {
       graphStore: options?.graphStore,
       locationIndex: options?.locationIndex,
       defaultBroadcastRadius: options?.defaultBroadcastRadius,
+      stimulusBus: options?.stimulusBus,
+      perceptionEngine: options?.perceptionEngine,
+      perceptionFallbackToLegacy: options?.perceptionFallbackToLegacy,
     });
+
+    this.stimulusBus = options?.stimulusBus;
+    this.perceptionEngine = options?.perceptionEngine;
+    this.topicTracker = options?.topicTracker;
+    this.needsTracker = options?.needsTracker;
+
+    if (this.perceptionEngine && this.stimulusBus) {
+      this.attentionPolicy = new AttentionPolicy();
+    }
 
     this.contextLoader = new TickContextLoader(config.id, bus, {
       memoryStore: options?.memoryStore,
@@ -46,6 +76,9 @@ export class PersonAgent extends BaseAgent {
       assetStore: options?.assetStore,
       brainMemory: options?.brainMemory,
       conversationManager: options?.conversationManager,
+      perceptionEngine: options?.perceptionEngine,
+      stimulusBus: options?.stimulusBus,
+      needsTracker: options?.needsTracker,
     });
   }
 
@@ -341,7 +374,25 @@ export class PersonAgent extends BaseAgent {
     iterationIndex: number,
     tickContext: TickContext,
   ): Promise<AgentAction> {
-    const systemPrompt = this.buildSystemPrompt(rules, tickContext);
+    const perceptionActive =
+      this.perceptionEngine != null
+      && this.stimulusBus != null
+      && this.attentionPolicy != null;
+
+    const rankedPercepts = perceptionActive
+      ? this.computeAttendedPercepts(ctx.tickCount, tickContext)
+      : [];
+
+    const dominantTopic = perceptionActive
+      ? this.findDominantTopic(rankedPercepts, ctx.tickCount)
+      : undefined;
+
+    const systemPrompt = this.buildSystemPromptWithPerception(
+      rules,
+      tickContext,
+      rankedPercepts,
+      dominantTopic,
+    );
 
     const buckets = splitMessagesByChannel(incomingMessages);
 
@@ -365,7 +416,13 @@ export class PersonAgent extends BaseAgent {
       });
     }
 
-    if (buckets.voice.length > 0) {
+    if (perceptionActive) {
+      // In perception mode the PERCEZIONI section in the system prompt
+      // already lists the salient stimuli. We ignore the legacy `voice`
+      // bucket on purpose (the MessageRouter mirrored each stimulus into
+      // a directed message, but the LLM should reason from percepts, not
+      // from raw messages).
+    } else if (buckets.voice.length > 0) {
       const observedContent = buckets.voice
         .map((m) => `[${m.from}]: ${m.content}`)
         .join("\n");
@@ -391,6 +448,18 @@ export class PersonAgent extends BaseAgent {
       energyWarning = `\n⚠️ Energia bassa (${energy}/100). Considera "observe" o "finish" invece di azioni faticose.`;
     }
 
+    const actionTypeUnion = perceptionActive
+      ? `"speak" | "observe" | "interact" | "perceive" | "finish"`
+      : `"speak" | "observe" | "interact" | "finish"`;
+
+    const perceiveLine = perceptionActive
+      ? `\n- "perceive": Se hai notato qualcosa ma non meriti reagire (rumore di sfondo, persone lontane). Resti in silenzio attivo.`
+      : "";
+
+    const silentRule = perceptionActive
+      ? `\n6. Se nessun percetto merita una reazione, scegli "perceive" o "observe" invece di parlare a vuoto.`
+      : "";
+
     messages.push({
       role: "user",
       content: `Tick ${ctx.tickCount}, iterazione ${iterationIndex + 1}/${this.iterationsPerTick}. Energia: ${energy}/100.${energyWarning}${toolSection}
@@ -399,7 +468,7 @@ QUANDO USARE OGNI AZIONE:
 - "speak": SOLO quando hai qualcosa di SPECIFICO da dire. NON usarlo come default.
 - "observe": Quando vuoi capire cosa succede intorno a te. Usa PRIMA di parlare se la situazione non e chiara.
 - "interact": Per azioni fisiche: lavorare nei campi, cucinare, spostarti, dare/prendere oggetti, abbracciare.
-- "finish": Se sei stanco, se non hai nulla da aggiungere, o se vuoi riposare.
+- "finish": Se sei stanco, se non hai nulla da aggiungere, o se vuoi riposare.${perceiveLine}
 
 REGOLA VARIETA: Non fare SEMPRE "speak". Le persone reali osservano, agiscono fisicamente, riposano.
 Se hai strumenti disponibili, USALI. Non descrivere a parole quello che potresti fare con un tool.
@@ -409,10 +478,10 @@ REGOLE DI RISPOSTA:
 2. Il campo "stateUpdate" e OBBLIGATORIO. DEVI aggiornare il tuo stato.
 3. "content" in prima persona, come parleresti/faresti davvero.
 4. Se hai ricevuto messaggi, REAGISCI. Non ignorarli.
-5. NON ripetere cose gia dette nei tick precedenti.
+5. NON ripetere cose gia dette nei tick precedenti.${silentRule}
 
 {
-  "actionType": "speak" | "observe" | "interact" | "finish",
+  "actionType": ${actionTypeUnion},
   "content": "quello che dici/fai/osservi",
   "target": "nome agente a cui ti rivolgi (opzionale)",
   "stateUpdate": {
@@ -472,6 +541,127 @@ REGOLE DI RISPOSTA:
       payload,
       tick: ctx.tickCount,
     };
+  }
+
+  /**
+   * Runs the perception pipeline (PerceptionEngine + AttentionPolicy) for
+   * the current tick and returns the percepts the agent actually attends
+   * to. Updates the rolling novelty window so percepts seen this tick are
+   * marked as "non-novel" on the next call.
+   */
+  private computeAttendedPercepts(
+    tick: number,
+    tickContext: TickContext,
+  ): RankedPercept[] {
+    if (!this.perceptionEngine || !this.stimulusBus || !this.attentionPolicy) {
+      return [];
+    }
+
+    const raw = this.perceptionEngine.perceiveFor(
+      this.id,
+      this.stimulusBus,
+      tick,
+    );
+    if (raw.length === 0) return [];
+
+    const ranked = this.attentionPolicy.process(raw, {
+      agentId: this.id,
+      agentState: this.internalState,
+      ...(this.needsTracker?.get(this.id)
+        ? { needs: this.needsTracker.get(this.id)! }
+        : {}),
+      relationships: tickContext.relationships,
+      recentPerceptStimulusIds: this.recentPerceivedStimulusIds,
+      currentTick: tick,
+      ...(this.config.attention ? { config: this.config.attention } : {}),
+    });
+
+    const seen = ranked.map((r) => r.percept.stimulus.id);
+    if (seen.length > 0) {
+      this.recentPerceivedStimulusIds = [
+        ...this.recentPerceivedStimulusIds,
+        ...seen,
+      ].slice(-50);
+    }
+
+    return ranked;
+  }
+
+  /**
+   * Picks the open topic the agent is most engaged with. Heuristic: the
+   * topic that appears most often in the agent's current attended percepts
+   * (and that the agent itself is a participant of, when possible).
+   */
+  private findDominantTopic(
+    rankedPercepts: RankedPercept[],
+    tick: number,
+  ): Topic | undefined {
+    if (!this.topicTracker || rankedPercepts.length === 0) return undefined;
+    const counts = new Map<string, number>();
+    for (const r of rankedPercepts) {
+      const tid = r.percept.stimulus.topicId;
+      if (!tid) continue;
+      counts.set(tid, (counts.get(tid) ?? 0) + 1);
+    }
+    if (counts.size === 0) {
+      // Fall back to the most recent open topic the agent has spoken in.
+      return this.topicTracker.openTopicsForAgent(this.id, tick);
+    }
+    let bestId: string | undefined;
+    let bestCount = 0;
+    for (const [tid, count] of counts) {
+      if (count > bestCount) {
+        bestId = tid;
+        bestCount = count;
+      }
+    }
+    if (!bestId) return undefined;
+    return this.topicTracker.getTopic(bestId);
+  }
+
+  /**
+   * Wraps `BaseAgent.buildSystemPrompt` and appends perception-related
+   * sections (PERCEZIONI, FILO DISCORSIVO, BISOGNI ATTIVI) when the
+   * realistic-simulation layer is wired in. In legacy mode this is a
+   * no-op pass-through and the prompt is bit-for-bit identical to before.
+   */
+  private buildSystemPromptWithPerception(
+    rules: RulesContext,
+    tickContext: TickContext,
+    rankedPercepts: RankedPercept[],
+    dominantTopic: Topic | undefined,
+  ): string {
+    const base = this.buildSystemPrompt(rules, tickContext);
+    const extra: string[] = [];
+
+    if (rankedPercepts.length > 0) {
+      const topicById = this.topicTracker
+        ? new Map<string, Topic>()
+        : undefined;
+      if (this.topicTracker && topicById) {
+        for (const r of rankedPercepts) {
+          const tid = r.percept.stimulus.topicId;
+          if (!tid || topicById.has(tid)) continue;
+          const topic = this.topicTracker.getTopic(tid);
+          if (topic) topicById.set(tid, topic);
+        }
+      }
+      const perceptsSection = buildPerceptsPrompt(rankedPercepts, topicById);
+      if (perceptsSection) extra.push(perceptsSection);
+    }
+
+    if (dominantTopic) {
+      extra.push(buildTopicContextPrompt(dominantTopic, this.id));
+    }
+
+    if (this.needsTracker) {
+      const needs = this.needsTracker.get(this.id);
+      const needsSection = buildNeedsPrompt(needs);
+      if (needsSection) extra.push(needsSection);
+    }
+
+    if (extra.length === 0) return base;
+    return `${base}\n\n${extra.join("\n\n")}`;
   }
 }
 

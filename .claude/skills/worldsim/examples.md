@@ -350,3 +350,88 @@ await world.start();
 ```
 
 The dashboard at `http://localhost:4400` shows live agent state, timeline, relationship graph and the simulation report.
+
+## 10. Realistic Simulation primitives — perception layer
+
+Turns the engine into a physics-aware simulator: agents only know what
+their senses pick up, salience drives whether they react, topics keep
+replies coherent. Works for humans, animals, market actors, animals in
+a pen — anything you want to simulate.
+
+```typescript
+import { WorldEngine, InMemoryMemoryStore, InMemoryGraphStore } from "worldsim";
+
+const world = new WorldEngine({
+  worldId: "village",
+  maxTicks: 60,
+  llm: { baseURL: "...", apiKey: "...", model: "gpt-4o-mini" },
+  memoryStore: new InMemoryMemoryStore(),
+  graphStore: new InMemoryGraphStore(),
+  interaction: {
+    mode: "perception",
+    disableBroadcastFallback: true,
+    topicWindowTicks: 5,
+    defaultSenses: [
+      { channel: "sound", radiusKm: 0.05 },
+      { channel: "sight", radiusKm: 0.03 },
+      { channel: "language", languages: ["it"] },
+    ],
+  },
+});
+
+world.addAgent({
+  id: "marco",
+  role: "person",
+  name: "Marco",
+  profile: {
+    name: "Marco", personality: ["loquace"], goals: [],
+    location: { current: { latitude: 45.0, longitude: 9.0 } },
+  },
+  attention: { interests: ["pesce", "mare"], threshold: 0.15 },
+  needs: {
+    needs: [
+      { id: "thirst", value: 0.3, decayPerTick: 0.01, tags: ["caffe", "drink"] },
+    ],
+  },
+});
+
+world.addAgent({
+  id: "anna",
+  role: "person",
+  name: "Anna",
+  profile: {
+    name: "Anna", personality: ["riservata"], goals: [],
+    // 200m away → out of speech range
+    location: { current: { latitude: 45.002, longitude: 9.0 } },
+  },
+});
+
+// Non-agent entities participate too. A fountain emits the smell of
+// water every tick.
+world.addEntity({
+  id: "fountain-1",
+  kind: "object",
+  position: { latitude: 45.0001, longitude: 9.0 },
+  emitters: [
+    {
+      kind: "smell",
+      channel: "smell",
+      intensity: 0.6,
+      rangeKm: 0.5,
+      payload: { smell: "wet stone" },
+    },
+  ],
+  affordances: [
+    { verb: "drink", produces: ["thirst-relief"] },
+  ],
+});
+
+await world.start();
+```
+
+When Marco speaks, only agents whose `sound` sense intersects his
+position pick it up. Anna (200m away) does not. The TopicTracker keeps
+Marco's monologue on a single `topicId`; if someone in range answers,
+their reply is automatically marked `causedByStimulusId`. The
+`AffordanceResolver` only exposes `drink` as a tool when the agent is
+close enough to the fountain to perceive it.
