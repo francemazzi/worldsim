@@ -45,7 +45,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Read-only Studio API: `/api/perception/{status, stimuli, topics,
   percepts/:agentId, needs/:agentId}`.
 - Three new evaluation scenarios using the perception layer:
-  `village-realistic`, `enclosure-animals`, `office-floor`.
+  `village-realistic`, `enclosure-animals`, `office-floor`. The
+  evaluation runner now wires perception scenarios end-to-end (entities,
+  needs templates, satisfier plugin) and exposes them via the new
+  `npm run eval:realistic` script.
+- New `evaluation/compare-perception.ts` runner and
+  `npm run eval:compare-perception` script: replays the same scenario in
+  legacy and perception modes, then prints a delta table (replyRate,
+  causalCoherence, silenceRatio, totalSpeaks, totalTokens).
+- New `NeedsSatisfierPlugin` built-in plugin closing the
+  decay <-> regen loop: default rules satisfy hunger/thirst/fatigue/social
+  on matching agent actions (Italian + English keywords). Integrators can
+  pass custom rules and disable defaults via `defaultRules: false`.
+- Narrative analyzer is now perception-aware: every `NarrativeReport`
+  carries an optional `PerceptionInsights` block (dominant topics,
+  silence ratio, critical-need moments) computed by
+  `computePerceptionInsights(report)`. The LLM prompt is enriched with
+  the same context so the sociologist quote model favours topic-anchored
+  exchanges first. `PerceptionMetrics` now also embeds a `topics: []`
+  snapshot for downstream consumers.
+- New runnable example `examples/realistic-village/` with
+  `npm run demo:realistic`: 4 agents across 3 locations, 2 entities
+  (bell + fountain), perception mode, default needs template, satisfier
+  plugin, studio dashboard.
+- Dedicated documentation page `docs/perception.md` covering status,
+  mental model, configuration recipes, custom senses/filters, attention
+  tuning, satisfier patterns, topics & threading, the studio panel and
+  ready-made recipes (village/animal/office). Linked from the README.
 - README section "Realistic simulation primitives" and updated skill at
   `.claude/skills/worldsim/SKILL.md`.
 - Multi-world federation foundations (Phase 0 of the federation roadmap):
