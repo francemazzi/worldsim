@@ -1,105 +1,199 @@
-# Meta Ads Demo — 100 utenti
+# Pre-test campagne Meta — 100 utenti simulati
 
-Simulazione di **100 utenti italiani** che scrollano sui social. Al **tick 3** compare un annuncio Meta per **FitPulse Pro** (app fitness SaaS, 9,99€/mese, prova gratuita 7 giorni). Gli agenti reagiscono in modo differenziato per segmento demografico e la conversazione può propagarsi nei gruppi sociali.
+**Caso d'uso:** un'agenzia performance deve lanciare una campagna Meta per **FitPulse Pro**, startup milanese che vende un'app fitness in abbonamento (9,99€/mese, prova gratuita 7 giorni). Budget media: **12.000€/mese**. Target: Italia, 25–45 anni, interessi salute e benessere.
 
-## Prerequisiti
+Prima di spendere in auction, il team vuole capire:
 
-- Node.js 20+
-- Chiave API OpenAI o OpenRouter
+- Quale **copy** genera interesse reale vs scroll passivo
+- Quali **obiezioni** emergono (prezzo, abbonamento, privacy, “coach AI”)
+- Se l'annuncio **si diffonde** tra amici o muore nel feed
+- Quali **segmenti** convertono e quali lo ignorano
 
-```bash
-export OPENAI_API_KEY=sk-...
-# oppure
-export OPENROUTER_API_KEY=sk-or-v1-...
-export LLM_MODEL=openai/gpt-4o-mini   # solo con OpenRouter
+WorldSim simula **100 utenti italiani** con profili, reddito e atteggiamento verso le ads — e produce un report strutturato in ~15 minuti, per **~$5 di API** invece di un focus group da migliaia di euro.
+
+---
+
+## Il brief (scenario reale)
+
+| Campo | Valore |
+| --- | --- |
+| Cliente | FitPulse S.r.l. — app iOS/Android, 40k utenti attivi |
+| Obiettivo campagna | Acquisizione trial → abbonamento |
+| Canale | Meta (Feed Instagram + Facebook) |
+| Copy in test | *“Trasforma la tua routine: FitPulse Pro ti guida con allenamenti personalizzati, tracking calorie e coach AI. Prova gratis 7 giorni, poi 9,99€/mese. Cancelli quando vuoi.”* |
+| KPI attesi | CTR > 1,2%, CPA trial < 18€ |
+| Rischio da validare | Abbonamento ricorrente + “coach AI” possono generare diffidenza |
+
+La simulazione modella **2 ore di scroll social** (20 tick). Al **tick 3** l'annuncio entra nel feed di tutti — come un impression Meta reale.
+
+---
+
+## Cosa consegni al cliente
+
+Dopo il run, `results/report.json` e la console riassumono deliverable utilizzabili in pitch e deck:
+
+### 1. Distribuzione reazioni (archetypes)
+
+Proxy comportamentali mappabili su funnel ads:
+
+| Archetype | Interpretazione commerciale | Azione suggerita |
+| --- | --- | --- |
+| `compliant` | Interesse, valuta la prova gratuita | Retargeting, landing con CTA trial |
+| `skeptic` | Dubita di prezzo, AI o dati | FAQ, social proof, comparazione prezzi |
+| `resistant` | Rifiuto esplicito, possibile commento negativo | Escludere dal lookalike, monitorare brand safety |
+| `apathetic` | Scroll senza engagement | Testare hook visivo / headline alternativa |
+
+### 2. Shock analysis (pre vs post ad)
+
+Metriche **prima** dell'impression (tick 1–2) vs **dopo** (tick 3+):
+
+- **Speak rate** — l'ad genera conversazione? (passaparola simulato)
+- **Mood / energy** — engagement o fastidio?
+- **Recovery ticks** — quanto dura l'effetto nel feed?
+
+### 3. Diffusione organica (network + dialogue)
+
+- Chi parla con chi dopo l'ad (matrice dialoghi)
+- Comunità e densità del grafo sociale
+- Segmenti che amplificano vs che zittiscono
+
+### 4. Costi e tempi
+
+| | Focus group tradizionale | WorldSim (questo demo) |
+| --- | --- | --- |
+| Partecipanti | 8–12 persone | 100 profili segmentati |
+| Tempo | 2–4 settimane organizzazione | ~15 minuti |
+| Costo | 2.000–8.000€ | ~$3–8 API + infra |
+| Output | Note qualitative | JSON + metriche + Studio dashboard |
+
+---
+
+## Esempio di insight da presentare
+
+Output indicativo (ogni run varia per natura LLM):
+
 ```
+Archetypes:  compliant 14% | skeptic 31% | resistant 11% | apathetic 44%
+
+Shock: speak rate +38% post-ad → l'annuncio genera discussione
+       mood shift negativo netto → obiezione dominante: abbonamento ricorrente
+
+Segmenti: budget_conscious e privacy_skeptic concentrano il 68% degli scettici
+          fitness_enthusiast divide: confronto con Strava/MyFitnessPal
+
+Raccomandazione: testare variant B con prezzo upfront (“meno di un caffè al giorno”)
+                 e rimuovere “coach AI” dalla headline per segmento privacy
+```
+
+Questi insight **non sostituiscono** un A/B test live, ma riducono il rischio di bruciare budget su copy che fallisce in silenzio.
+
+---
+
+## Segmenti simulati (100 agenti)
+
+Popolazione allineata a un audience Meta tipico per fitness D2C:
+
+| Segmento | % | Profilo | Comportamento atteso |
+| --- | --- | --- | --- |
+| Early adopter | 15% | Prova app nuove, sensibile al trial | Clic intent, domande su feature |
+| Scettico privacy | 20% | Diffida di ads e tracking | Obiezioni su dati e “coach AI” |
+| Budget-conscious | 25% | Confronta prezzo/valore | “9,99€/mese” è il trigger principale |
+| Fitness enthusiast | 20% | Già usa Strava, MyFitnessPal | Comparazione feature, churn risk |
+| Apatico scroll | 20% | Feed per abitudine | Ignora, basso CTR simulato |
+
+Agenti organizzati in **5 cerchie sociali** (~20 persone) — amici, colleghi, famiglia — così le reazioni si propagano come passaparola, non solo impression isolata.
+
+---
 
 ## Esecuzione
 
+### Prerequisiti
+
+- Node.js 20+
+- `OPENAI_API_KEY` o `OPENROUTER_API_KEY`
+
 ```bash
-# Run headless (consigliato, ~5–15 min)
+export OPENAI_API_KEY=sk-...
+# oppure OpenRouter
+export OPENROUTER_API_KEY=sk-or-v1-...
+export LLM_MODEL=openai/gpt-4o-mini
+```
+
+### Run
+
+```bash
+# Headless — consigliato per report e export
 npx tsx examples/meta-ads-demo/index.ts
 
-# Con dashboard live
+# Con dashboard live per demo al cliente
 STUDIO=1 npx tsx examples/meta-ads-demo/index.ts
 # → http://localhost:4400
 ```
 
-Il report completo viene salvato in `examples/meta-ads-demo/results/report.json`.
+Report completo: `examples/meta-ads-demo/results/report.json`
 
-## Cosa succede nella simulazione
+---
 
-| Fase | Tick | Comportamento |
-| --- | --- | --- |
-| Pre-ad | 1–2 | Scroll normale, interazioni nei 5 gruppi sociali (~20 agenti ciascuno) |
-| Ad trigger | 3 | L'annuncio viene **broadcastato** a tutti via `MessageBus` |
-| Post-ad | 4–20 | Reazioni individuali + discussione tra amici del gruppo |
+## Flusso simulato
 
-## Segmenti utente (100 agenti)
+```
+Tick 1–2   Scroll normale, chat nei gruppi sociali
+Tick 3     Annuncio Meta in feed → broadcast a tutti gli agenti
+Tick 4–20  Reazioni individuali + discussione tra contatti
+Fine       Report con archetypes, shock, network, costi
+```
 
-| Segmento | % | Comportamento atteso |
-| --- | --- | --- |
-| Early adopter | 15% | Curiosità, possibile interesse per la prova gratuita |
-| Scettico privacy | 20% | Diffidenza verso ads e dati |
-| Budget-conscious | 25% | Valuta prezzo vs beneficio dell'abbonamento |
-| Fitness enthusiast | 20% | Confronta con app già usate (Strava, MyFitnessPal) |
-| Apatico scroll | 20% | Ignora o scrolla oltre |
+---
 
-## Configurazione engine
+## Configurazione tecnica (100 agenti)
 
-Per contenere costi e rate limit con 100 agenti:
+Parametri ottimizzati per costo/latency su campagne reali:
 
-- `maxConcurrentAgents: 10`
-- `defaultActiveTickRatio: 0.15` (~15 agenti attivi per tick)
-- `llmTier: "light"` su ogni agente
-- `iterationsPerTick: 1`
-- `enableResponseCache: true`
+- `maxConcurrentAgents: 10` — rispetta rate limit OpenAI
+- `defaultActiveTickRatio: 0.15` — ~15 utenti attivi/tick (realistico vs scroll passivo)
+- `llmTier: "light"` + `iterationsPerTick: 1` — un ragionamento per tick
+- `enableResponseCache: true` — riduce costo su profili simili
 
-## Interpretare i risultati
+---
 
-### Archetypes (proxy di reazione all'ad)
+## Personalizzazione per altri clienti
 
-| Archetype | Significato nel contesto ads |
+Modifica `scenario.json` per replicare il workflow su qualsiasi vertical:
+
+| Campo | Esempio alternativo |
 | --- | --- |
-| `compliant` | Interesse, valutazione positiva, possibile intent di provare |
-| `skeptic` | Dubbio, domande, valutazione critica |
-| `resistant` | Reazione negativa, rifiuto esplicito |
-| `apathetic` | Ignora, bassa attività, scroll oltre |
+| `trigger.announcement` | Copy variant B per A/B simulato |
+| `product.priceMonthlyEur` | 19,99€ skincare, 4,99€ news app |
+| `segments[]` | Pesi audience Meta (lookalike, retargeting) |
+| `agentCount` | 20 per smoke test, 500+ con scaling docs |
 
-### Shock analysis
+Per test rapidi in call commerciale: imposta `agentCount: 20` in `scenario.json`.
 
-Confronta metriche **pre** (tick 1–2) vs **post** (tick 3+) dell'annuncio:
-
-- **Speak rate**: aumento = più discussione sull'ad
-- **Avg energy / mood**: segnali di engagement o fastidio
-- **Recovery ticks**: quanto tempo per tornare al comportamento pre-ad
-
-### Costo stimato
-
-~300 chiamate LLM → **circa $3–8** con `gpt-4o-mini`, variabile in base alle risposte.
+---
 
 ## Struttura file
 
 ```
 examples/meta-ads-demo/
-├── scenario.json       # timing, ad copy, segmenti, config engine
-├── generate-agents.ts  # factory 100 profili + neighborhood groups
-├── index.ts            # runner principale
-├── results/            # report.json (generato a runtime)
+├── scenario.json       # brief campagna, copy, segmenti
+├── generate-agents.ts  # 100 profili + gruppi sociali
+├── index.ts            # runner + broadcast ad + report
+├── results/            # report.json (generato)
 └── README.md
 ```
 
-## Limitazioni
+---
 
-- Simulazione **qualitativa** con LLM, non predizione statistica di CTR reali.
-- Ogni run produce risultati diversi (temperature, variabilità del modello).
-- Per regression testing strutturato, spostare lo scenario in `evaluation/scenarios/`.
+## Limitazioni (da comunicare al cliente)
 
-## Personalizzazione
+- Simulazione **qualitativa** con LLM: esplora dinamiche e obiezioni, **non predice CTR/CPA numerici**.
+- Ogni run varia: per decisioni ad budget alto, eseguire 2–3 run o abbassare `temperature`.
+- Non sostituisce test A/B su Meta Ads Manager — lo **precede** per eliminare copy deboli.
 
-Modifica `scenario.json`:
+---
 
-- `trigger.announcement` — copy dell'annuncio
-- `trigger.atTick` — quando appare l'ad
-- `segments[]` — pesi e personalità dei segmenti
-- `agentCount` — riduci a 10–20 per test rapidi (aggiorna anche `generate-agents.ts` se cambi la logica)
+## Prossimi passi (roadmap)
+
+- A/B simulato: due copy nello stesso run, confronto archetypes
+- Export slide-ready per agenzie
+- Spostamento in `evaluation/scenarios/meta-ads/` per regression testing
