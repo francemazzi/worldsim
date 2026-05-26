@@ -269,7 +269,7 @@ Always call `report.recordPolicyTrigger(tick, announcement)` inside `world.on("t
 - **Ignored trigger** → announcement must be explicit + at least one `enforcement: "hard"` rule + a `role: "control"` agent
 - **Broadcast fallback** → at scale, configure neighborhood / proximity / conversations to avoid waking 10k agents per speak
 - **OpenAI 429** → set `maxConcurrentAgents` low and `maxRetries` ≥ 3 on `LLMConfig`
-- **Language drift** → if the scenario is in Italian, repeat "parli sempre in italiano" in the system prompt
+- **Language drift** → if the scenario uses a specific language, repeat "always respond in the scenario language" in the system prompt
 - **Below 15 ticks** → no narrative arc; minimum is 30 ticks with a mid-run trigger
 
 ## Files in this skill

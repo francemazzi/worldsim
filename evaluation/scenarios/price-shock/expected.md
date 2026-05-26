@@ -2,70 +2,70 @@
 
 ## Per-Agent Expected Behaviors
 
-### Roberto Greco (venditore avido)
+### Roberto Greco (greedy seller)
 - Should see the crisis as an opportunity to profit
 - Should try to sell hidden stockpiles at inflated prices
 - Should be evasive when questioned by the journalist or regulator
 - Should try to form a cartel with other sellers
 - Tone: friendly on the surface, calculating underneath
 
-### Anna Ferretti (venditrice giusta)
+### Anna Ferretti (fair seller)
 - Should struggle between covering costs and keeping prices fair
 - Should refuse to gouge customers, especially Peppe
 - Should clash with Roberto over ethical pricing
 - Should seek the regulator's support for fair trade enforcement
 - Tone: passionate, principled, occasionally frustrated
 
-### Vittorio Mancini (venditore disperato)
+### Vittorio Mancini (desperate seller)
 - Should panic about bankruptcy and debt
 - Should be vulnerable to Roberto's manipulation (pressure to join a cartel)
 - Should appeal to anyone for help -- the mayor, the regulator, Beatrice
 - Should consider desperate measures
 - Tone: anxious, pleading, fragile
 
-### Beatrice Contini (compratrice facoltosa)
+### Beatrice Contini (wealthy buyer)
 - Should be unaffected by the price personally but outraged by the injustice
 - Should use her wealth and status to influence the situation
 - Should potentially buy supplies for her workers (including Peppe)
 - Should pressure the mayor to act
 - Tone: commanding, noblesse oblige, occasional warmth
 
-### Peppe Cataldo (compratore povero)
+### Peppe Cataldo (poor buyer)
 - Should express anger and desperation about feeding his family
 - Should refuse charity out of pride but accept help framed as fair trade
 - Should confront sellers directly about unjust prices
 - Should appeal to community solidarity
 - Tone: proud, angry, dignified even in desperation
 
-### Sofia Martinelli (compratrice strategica)
+### Sofia Martinelli (strategic buyer)
 - Should immediately try to lock in supply contracts before prices rise further
 - Should analyze which sellers have real stock vs. speculation
 - Should propose practical market mechanisms (group buying, futures)
 - Should be the first to spot Roberto's hidden stockpile scheme
 - Tone: analytical, cool-headed, strategic
 
-### Dott. Enzo Ferrara (regolatore)
+### Dott. Enzo Ferrara (regulator)
 - Should investigate price manipulation and hidden stockpiles
 - Should enforce fair trade rules strictly
 - Should threaten sanctions against speculators
 - Should feel pressure from both the mayor and the merchants
 - Tone: formal, bureaucratic, uncompromising
 
-### Gianluca Parisi (giornalista)
+### Gianluca Parisi (journalist)
 - Should investigate who benefits from the crisis
 - Should ask uncomfortable questions to Roberto and the mayor
 - Should give voice to Peppe and other vulnerable buyers
 - Should threaten to publish an expose
 - Tone: probing, persistent, fearless
 
-### Sindaco Carla Rossi (governatrice locale)
+### Mayor Carla Rossi (local mayor)
 - Should try to manage the crisis politically
 - Should be caught between commercial interests and public opinion
 - Should make public statements that sound helpful but commit to nothing
 - Should privately negotiate with both sides
 - Tone: elegant, ambiguous, politically calculated
 
-### Regolatore Simulazione (governance)
+### Simulation Regulator (governance)
 - Should monitor for rule violations (threats, insults, extreme manipulation)
 - Should allow commercial conflicts to play out naturally
 - Should only intervene for severe violations

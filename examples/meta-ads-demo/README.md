@@ -1,120 +1,120 @@
-# Pre-test campagne Meta — 100 utenti simulati
+# Meta campaign pre-test — 100 simulated users
 
-**Caso d'uso:** un'agenzia performance deve lanciare una campagna Meta per **FitPulse Pro**, startup milanese che vende un'app fitness in abbonamento (9,99€/mese, prova gratuita 7 giorni). Budget media: **12.000€/mese**. Target: Italia, 25–45 anni, interessi salute e benessere.
+**Use case:** a performance agency is launching a Meta campaign for **FitPulse Pro**, a Milan-based startup selling a fitness subscription app (€9.99/month, 7-day free trial). Media budget: **€12,000/month**. Target: Italy, ages 25–45, health and wellness interests.
 
-Prima di spendere in auction, il team vuole capire:
+Before spending on auction, the team needs to know:
 
-- Quale **copy** genera interesse reale vs scroll passivo
-- Quali **obiezioni** emergono (prezzo, abbonamento, privacy, “coach AI”)
-- Se l'annuncio **si diffonde** tra amici o muore nel feed
-- Quali **segmenti** convertono e quali lo ignorano
+- Which **copy** drives real interest vs passive scrolling
+- Which **objections** emerge (price, subscription, privacy, “AI coach”)
+- Whether the ad **spreads** among friends or dies in the feed
+- Which **segments** convert and which ignore it
 
-WorldSim simula **100 utenti italiani** con profili, reddito e atteggiamento verso le ads — e produce un report strutturato in ~15 minuti, per **~$5 di API** invece di un focus group da migliaia di euro.
+WorldSim simulates **100 Italian users** with profiles, income, and attitudes toward ads — and produces a structured report in ~15 minutes for **~$5 in API costs** instead of a focus group costing thousands.
 
 ---
 
-## Il brief (scenario reale)
+## The brief (realistic scenario)
 
-| Campo | Valore |
+| Field | Value |
 | --- | --- |
-| Cliente | FitPulse S.r.l. — app iOS/Android, 40k utenti attivi |
-| Obiettivo campagna | Acquisizione trial → abbonamento |
-| Canale | Meta (Feed Instagram + Facebook) |
-| Copy in test | *“Trasforma la tua routine: FitPulse Pro ti guida con allenamenti personalizzati, tracking calorie e coach AI. Prova gratis 7 giorni, poi 9,99€/mese. Cancelli quando vuoi.”* |
-| KPI attesi | CTR > 1,2%, CPA trial < 18€ |
-| Rischio da validare | Abbonamento ricorrente + “coach AI” possono generare diffidenza |
+| Client | FitPulse S.r.l. — iOS/Android app, 40k active users |
+| Campaign goal | Trial acquisition → subscription |
+| Channel | Meta (Instagram + Facebook Feed) |
+| Copy under test | *“Transform your routine: FitPulse Pro guides you with personalized workouts, calorie tracking, and an AI coach. Try free for 7 days, then €9.99/month. Cancel anytime.”* |
+| Expected KPIs | CTR > 1.2%, trial CPA < €18 |
+| Risk to validate | Recurring subscription + “AI coach” may trigger distrust |
 
-La simulazione modella **2 ore di scroll social** (20 tick). Al **tick 3** l'annuncio entra nel feed di tutti — come un impression Meta reale.
+The simulation models **2 hours of social scrolling** (20 ticks). At **tick 3** the ad enters everyone’s feed — like a real Meta impression.
 
 ---
 
-## Cosa consegni al cliente
+## Client deliverables
 
-Dopo il run, `results/report.json` e la console riassumono deliverable utilizzabili in pitch e deck:
+After the run, `results/report.json` and the console summarize pitch-ready deliverables:
 
-### 1. Distribuzione reazioni (archetypes)
+### 1. Reaction distribution (archetypes)
 
-Proxy comportamentali mappabili su funnel ads:
+Behavioral proxies mappable to ad funnel stages:
 
-| Archetype | Interpretazione commerciale | Azione suggerita |
+| Archetype | Commercial interpretation | Suggested action |
 | --- | --- | --- |
-| `compliant` | Interesse, valuta la prova gratuita | Retargeting, landing con CTA trial |
-| `skeptic` | Dubita di prezzo, AI o dati | FAQ, social proof, comparazione prezzi |
-| `resistant` | Rifiuto esplicito, possibile commento negativo | Escludere dal lookalike, monitorare brand safety |
-| `apathetic` | Scroll senza engagement | Testare hook visivo / headline alternativa |
+| `compliant` | Interest, evaluating free trial | Retargeting, trial CTA landing page |
+| `skeptic` | Doubts price, AI, or data use | FAQ, social proof, price comparison |
+| `resistant` | Explicit rejection, possible negative comment | Exclude from lookalike, monitor brand safety |
+| `apathetic` | Scrolls without engagement | Test visual hook / alternative headline |
 
 ### 2. Shock analysis (pre vs post ad)
 
-Metriche **prima** dell'impression (tick 1–2) vs **dopo** (tick 3+):
+Metrics **before** the impression (ticks 1–2) vs **after** (ticks 3+):
 
-- **Speak rate** — l'ad genera conversazione? (passaparola simulato)
-- **Mood / energy** — engagement o fastidio?
-- **Recovery ticks** — quanto dura l'effetto nel feed?
+- **Speak rate** — does the ad spark conversation? (simulated word-of-mouth)
+- **Mood / energy** — engagement or annoyance?
+- **Recovery ticks** — how long does the effect last in the feed?
 
-### 3. Diffusione organica (network + dialogue)
+### 3. Organic diffusion (network + dialogue)
 
-- Chi parla con chi dopo l'ad (matrice dialoghi)
-- Comunità e densità del grafo sociale
-- Segmenti che amplificano vs che zittiscono
+- Who talks to whom after the ad (dialogue matrix)
+- Communities and social graph density
+- Segments that amplify vs go silent
 
-### 4. Costi e tempi
+### 4. Cost and time
 
-| | Focus group tradizionale | WorldSim (questo demo) |
+| | Traditional focus group | WorldSim (this demo) |
 | --- | --- | --- |
-| Partecipanti | 8–12 persone | 100 profili segmentati |
-| Tempo | 2–4 settimane organizzazione | ~15 minuti |
-| Costo | 2.000–8.000€ | ~$3–8 API + infra |
-| Output | Note qualitative | JSON + metriche + Studio dashboard |
+| Participants | 8–12 people | 100 segmented profiles |
+| Time | 2–4 weeks to organize | ~15 minutes |
+| Cost | €2,000–8,000 | ~$3–8 API + infra |
+| Output | Qualitative notes | JSON + metrics + Studio dashboard |
 
 ---
 
-## Esempio di insight da presentare
+## Sample insight for a client deck
 
-Output indicativo (ogni run varia per natura LLM):
+Indicative output (each run varies due to LLM nature):
 
 ```
 Archetypes:  compliant 14% | skeptic 31% | resistant 11% | apathetic 44%
 
-Shock: speak rate +38% post-ad → l'annuncio genera discussione
-       mood shift negativo netto → obiezione dominante: abbonamento ricorrente
+Shock: speak rate +38% post-ad → the ad sparks discussion
+       net negative mood shift → dominant objection: recurring subscription
 
-Segmenti: budget_conscious e privacy_skeptic concentrano il 68% degli scettici
-          fitness_enthusiast divide: confronto con Strava/MyFitnessPal
+Segments: budget_conscious and privacy_skeptic account for 68% of skeptics
+          fitness_enthusiast split: comparison with Strava/MyFitnessPal
 
-Raccomandazione: testare variant B con prezzo upfront (“meno di un caffè al giorno”)
-                 e rimuovere “coach AI” dalla headline per segmento privacy
+Recommendation: test variant B with upfront pricing (“less than a coffee a day”)
+                 and remove “AI coach” from the headline for the privacy segment
 ```
 
-Questi insight **non sostituiscono** un A/B test live, ma riducono il rischio di bruciare budget su copy che fallisce in silenzio.
+These insights **do not replace** a live A/B test, but reduce the risk of burning budget on copy that fails silently.
 
 ---
 
-## Segmenti simulati (100 agenti)
+## Simulated segments (100 agents)
 
-Popolazione allineata a un audience Meta tipico per fitness D2C:
+Population aligned with a typical Meta audience for fitness D2C:
 
-| Segmento | % | Profilo | Comportamento atteso |
+| Segment | % | Profile | Expected behavior |
 | --- | --- | --- | --- |
-| Early adopter | 15% | Prova app nuove, sensibile al trial | Clic intent, domande su feature |
-| Scettico privacy | 20% | Diffida di ads e tracking | Obiezioni su dati e “coach AI” |
-| Budget-conscious | 25% | Confronta prezzo/valore | “9,99€/mese” è il trigger principale |
-| Fitness enthusiast | 20% | Già usa Strava, MyFitnessPal | Comparazione feature, churn risk |
-| Apatico scroll | 20% | Feed per abitudine | Ignora, basso CTR simulato |
+| Early adopter | 15% | Tries new apps, sensitive to trial | Click intent, feature questions |
+| Privacy skeptic | 20% | Distrusts ads and tracking | Objections about data and “AI coach” |
+| Budget-conscious | 25% | Compares price vs value | “€9.99/month” is the main trigger |
+| Fitness enthusiast | 20% | Already uses Strava, MyFitnessPal | Feature comparison, churn risk |
+| Passive scroller | 20% | Feed out of habit | Ignores, low simulated CTR |
 
-Agenti organizzati in **5 cerchie sociali** (~20 persone) — amici, colleghi, famiglia — così le reazioni si propagano come passaparola, non solo impression isolata.
+Agents are organized in **5 social circles** (~20 people each) — friends, colleagues, family — so reactions propagate as word-of-mouth, not just isolated impressions.
 
 ---
 
-## Esecuzione
+## Running the demo
 
-### Prerequisiti
+### Prerequisites
 
 - Node.js 20+
-- `OPENAI_API_KEY` o `OPENROUTER_API_KEY`
+- `OPENAI_API_KEY` or `OPENROUTER_API_KEY`
 
 ```bash
 export OPENAI_API_KEY=sk-...
-# oppure OpenRouter
+# or OpenRouter
 export OPENROUTER_API_KEY=sk-or-v1-...
 export LLM_MODEL=openai/gpt-4o-mini
 ```
@@ -122,78 +122,78 @@ export LLM_MODEL=openai/gpt-4o-mini
 ### Run
 
 ```bash
-# Headless — consigliato per report e export
+# Headless — recommended for report and export
 npx tsx examples/meta-ads-demo/index.ts
 
-# Con dashboard live per demo al cliente
+# With live dashboard for client demos
 STUDIO=1 npx tsx examples/meta-ads-demo/index.ts
 # → http://localhost:4400
 ```
 
-Report completo: `examples/meta-ads-demo/results/report.json`
+Full report: `examples/meta-ads-demo/results/report.json`
 
 ---
 
-## Flusso simulato
+## Simulated flow
 
 ```
-Tick 1–2   Scroll normale, chat nei gruppi sociali
-Tick 3     Annuncio Meta in feed → broadcast a tutti gli agenti
-Tick 4–20  Reazioni individuali + discussione tra contatti
-Fine       Report con archetypes, shock, network, costi
+Ticks 1–2   Normal scrolling, chat within social groups
+Tick 3      Meta ad in feed → broadcast to all agents
+Ticks 4–20  Individual reactions + discussion among contacts
+End         Report with archetypes, shock, network, costs
 ```
 
 ---
 
-## Configurazione tecnica (100 agenti)
+## Technical configuration (100 agents)
 
-Parametri ottimizzati per costo/latency su campagne reali:
+Parameters optimized for cost and latency on real campaigns:
 
-- `maxConcurrentAgents: 10` — rispetta rate limit OpenAI
-- `defaultActiveTickRatio: 0.15` — ~15 utenti attivi/tick (realistico vs scroll passivo)
-- `llmTier: "light"` + `iterationsPerTick: 1` — un ragionamento per tick
-- `enableResponseCache: true` — riduce costo su profili simili
+- `maxConcurrentAgents: 10` — respects OpenAI rate limits
+- `defaultActiveTickRatio: 0.15` — ~15 active users/tick (realistic vs passive scrolling)
+- `llmTier: "light"` + `iterationsPerTick: 1` — one reasoning step per tick
+- `enableResponseCache: true` — reduces cost on similar profiles
 
 ---
 
-## Personalizzazione per altri clienti
+## Customization for other clients
 
-Modifica `scenario.json` per replicare il workflow su qualsiasi vertical:
+Edit `scenario.json` to replicate the workflow for any vertical:
 
-| Campo | Esempio alternativo |
+| Field | Alternative example |
 | --- | --- |
-| `trigger.announcement` | Copy variant B per A/B simulato |
-| `product.priceMonthlyEur` | 19,99€ skincare, 4,99€ news app |
-| `segments[]` | Pesi audience Meta (lookalike, retargeting) |
-| `agentCount` | 20 per smoke test, 500+ con scaling docs |
+| `trigger.announcement` | Copy variant B for simulated A/B |
+| `product.priceMonthlyEur` | €19.99 skincare, €4.99 news app |
+| `segments[]` | Meta audience weights (lookalike, retargeting) |
+| `agentCount` | 20 for smoke tests, 500+ with scaling docs |
 
-Per test rapidi in call commerciale: imposta `agentCount: 20` in `scenario.json`.
+For quick tests on sales calls: set `agentCount: 20` in `scenario.json`.
 
 ---
 
-## Struttura file
+## File structure
 
 ```
 examples/meta-ads-demo/
-├── scenario.json       # brief campagna, copy, segmenti
-├── generate-agents.ts  # 100 profili + gruppi sociali
-├── index.ts            # runner + broadcast ad + report
-├── results/            # report.json (generato)
+├── scenario.json       # campaign brief, copy, segments
+├── generate-agents.ts  # 100 profiles + social groups
+├── index.ts            # runner + ad broadcast + report
+├── results/            # report.json (generated)
 └── README.md
 ```
 
 ---
 
-## Limitazioni (da comunicare al cliente)
+## Limitations (communicate to clients)
 
-- Simulazione **qualitativa** con LLM: esplora dinamiche e obiezioni, **non predice CTR/CPA numerici**.
-- Ogni run varia: per decisioni ad budget alto, eseguire 2–3 run o abbassare `temperature`.
-- Non sostituisce test A/B su Meta Ads Manager — lo **precede** per eliminare copy deboli.
+- **Qualitative** LLM simulation: explores dynamics and objections, **does not predict numeric CTR/CPA**.
+- Each run varies: for high-budget decisions, run 2–3 times or lower `temperature`.
+- Does not replace A/B testing in Meta Ads Manager — it **precedes** it to eliminate weak copy.
 
 ---
 
-## Prossimi passi (roadmap)
+## Roadmap
 
-- A/B simulato: due copy nello stesso run, confronto archetypes
-- Export slide-ready per agenzie
-- Spostamento in `evaluation/scenarios/meta-ads/` per regression testing
+- Simulated A/B: two copy variants in one run, compare archetypes
+- Slide-ready export for agencies
+- Move to `evaluation/scenarios/meta-ads/` for regression testing

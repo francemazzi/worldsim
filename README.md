@@ -164,7 +164,7 @@ Two knobs in `WorldConfig` control the rhythm:
 
 | Option | Meaning | Typical use |
 | --- | --- | --- |
-| `maxTicks` | How long the simulation runs (default `Infinity`) | `30` for the Villaggio del Sole demo |
+| `maxTicks` | How long the simulation runs (default `Infinity`) | `30` for the Sun Village demo |
 | `tickIntervalMs` | Real-time pause between ticks (default `0`) | `2000` in the demo to let a human follow along in the dashboard; `0` in tests/benchmarks to run as fast as possible |
 
 `tickIntervalMs` is **only** wall-clock pacing — it doesn't change what happens inside the simulation. Setting it to `0` just makes the same 30-tick scenario finish faster.
@@ -190,16 +190,16 @@ Each tick executes a deterministic pipeline (see [`TickOrchestrator.executeTick`
 
 Everything temporal in the world is expressed in ticks: memory consolidation windows, relationship strength decay, conversation idle timeout, per-tick token budgets, scheduled control events, and so on.
 
-### Concrete example — Villaggio del Sole
+### Concrete example — Sun Village
 
 The `community-demo` scenario ([`examples/community-demo/`](examples/community-demo/)) runs 8 villagers + 1 governance agent for **30 ticks**, pacing at **2 seconds per tick**:
 
 ```json
 {
-  "name": "Villaggio del Sole — Razionamento Idrico",
+  "name": "Sun Village — Water Rationing",
   "maxTicks": 30,
   "tickIntervalMs": 2000,
-  "trigger": { "atTick": 10, "announcement": "Il sindaco annuncia il razionamento…" }
+  "trigger": { "atTick": 10, "announcement": "The mayor announces water rationing…" }
 }
 ```
 
@@ -418,12 +418,12 @@ Each agent declares its identity and — crucially — its personality:
   "role": "person",            // "person" | "control" (governance)
   "name": "Maria Rossi",
   "iterationsPerTick": 2,      // internal LLM reasoning steps per tick
-  "systemPrompt": "Sei Maria, contadina di 52 anni, pratica e testarda…",
+  "systemPrompt": "You are Maria, a 52-year-old farmer, practical and stubborn…",
   "profile": {
     "age": 52,
-    "profession": "Contadina",
-    "personality": ["pratica", "testarda", "generosa"],
-    "goals": ["Salvare il raccolto", "Proteggere la famiglia"],
+    "profession": "Farmer",
+    "personality": ["practical", "stubborn", "generous"],
+    "goals": ["Save the harvest", "Protect the family"],
     "backstory": "…",
     "skills": ["farming", "cooking"]
   }
@@ -556,7 +556,7 @@ Add these only when the scenario needs them:
 - **Homogeneous cast** → vary age, profession, personality, goals. The `network.homophily` score in the report will flag this.
 - **Ignored trigger** → the announcement must be explicit and at least one rule needs `enforcement: "hard"` with a governance agent (`role: "control"`) to enforce it.
 - **Monologues** → give agents backstories that *connect* them, and prompt them to address others by name.
-- **Language drift** → if the scenario is in Italian, insist in the prompt: "parli sempre in italiano".
+- **Language drift** → if the scenario uses a specific language, insist in the prompt: "always respond in the scenario language".
 - **No narrative arc** → 30 ticks with a mid-run trigger is the minimum to get pre/reaction/coalition/resolution; below 15 ticks everything collapses.
 
 ## Key Capabilities

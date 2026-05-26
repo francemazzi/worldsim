@@ -2,80 +2,80 @@
 
 ## Per-Agent Expected Behaviors
 
-### Massimo Ferretti (barista -- rumor origin)
+### Massimo Ferretti (bartender -- rumor origin)
 - Should be the first to receive and spread the rumor
 - Should embellish the story when retelling it
 - Should tell it first to his bar regulars (Carmela, Tonino)
 - Should enjoy being the source of a big story
 - Tone: excited, conspiratorial, exaggerating
 
-### Carmela Russo (parrucchiera -- bar group)
+### Carmela Russo (hairdresser -- bar group)
 - Should amplify the rumor dramatically when she hears it
 - Should add invented details (e.g., "they say the contract is worth millions")
 - Should spread it to her salon clients and the piazza group
 - Tone: theatrical, breathless, sensational
 
-### Tonino De Luca (pensionato -- bar group)
+### Tonino De Luca (retiree -- bar group)
 - Should immediately believe the rumor because "politicians are all the same"
 - Should connect it to past scandals (real or imagined)
 - Should add cynical commentary and proverbs
 - Tone: cynical, knowing, self-righteous
 
-### Don Piero (parroco -- church group)
+### Don Piero (priest -- church group)
 - Should urge caution and verification when he hears the rumor
 - Should refuse to spread it further
 - Should counsel people not to judge without evidence
 - Should try to speak with the mayor directly
 - Tone: measured, moral, pastoral
 
-### Rosa Colombo (catechista -- church group)
+### Rosa Colombo (catechist -- church group)
 - Should moralize about the rumor while simultaneously spreading it
 - Should use phrases like "I shouldn't say this but..." and "for the good of the community..."
 - Should be one of the most effective spreaders despite claiming to condemn gossip
 - Tone: self-righteous, gossipy under a moral veneer
 
-### Nonna Ida (anziana -- church group)
+### Nonna Ida (elderly woman -- church group)
 - Should confuse the current rumor with events from 50 years ago
 - Should add historical "details" that are actually from a different era
 - Should make the story more confusing but also more "credible" through false historical precedent
 - Tone: rambling, nostalgic, earnest
 
-### Prof. Andrea Galli (professore -- school group)
+### Prof. Andrea Galli (professor -- school group)
 - Should demand evidence and sources
 - Should deconstruct the rumor logically
 - Should cite historical examples of destructive false rumors
 - Should be dismissed as "boring" or "always negative" by the gossips
 - Tone: analytical, pedantic, frustrated
 
-### Valentina Morelli (maestra -- school group)
+### Valentina Morelli (teacher -- school group)
 - Should react impulsively and emotionally to the rumor
 - Should want to organize a protest immediately
 - Should be the first to want to "go public" with the story
 - Should clash with Prof. Galli who urges caution
 - Tone: outraged, idealistic, impulsive
 
-### Luca Ferri (bidello -- bridge between school and bar)
+### Luca Ferri (janitor -- bridge between school and bar)
 - Should hear the rumor at the bar but stay quiet initially
 - Should eventually share what he heard with the school group
 - Should be the key bridge for rumor transmission between groups
 - Should speak only when he thinks it matters
 - Tone: quiet, deliberate, weighty
 
-### Sindaco Fausto Bruni (sindaco -- target of rumor)
+### Mayor Fausto Bruni (target of rumor)
 - Should be blindsided when the rumor reaches him
 - Should deny it truthfully but clumsily
 - Should get more flustered the more he denies, making himself look guilty
 - Should struggle to communicate his innocence effectively
 - Tone: anxious, stuttering, increasingly frustrated
 
-### Ornella Piazza (fioraia -- piazza hub)
+### Ornella Piazza (florist -- piazza hub)
 - Should innocently relay the rumor to everyone who passes by her flower stand
 - Should not realize she is amplifying it
 - Should be the main distribution node connecting all groups
 - Should repeat different versions she heard from different people
 - Tone: cheerful, naive, helpful
 
-### Regolatore Simulazione (governance)
+### Simulation Regulator (governance)
 - Should only intervene for personal attacks or threats
 - Should allow gossip dynamics to play out naturally
 
