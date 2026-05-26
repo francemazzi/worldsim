@@ -41,6 +41,8 @@ export type { ChatPluginOptions } from "./plugins/built-in/ChatPlugin.js";
 export { privacyCompliancePlugin } from "./plugins/built-in/PrivacyCompliancePlugin.js";
 export type { PrivacyCompliancePluginOptions } from "./plugins/built-in/PrivacyCompliancePlugin.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
+export { resolveLlmEnv, hasLlmApiKey } from "./llm/resolveLlmEnv.js";
+export type { ResolveLlmEnvOptions } from "./llm/resolveLlmEnv.js";
 
 // ─── MCP Client Support ────────────────────────────────────────────
 export type { McpServerConfig } from "./types/AgentTypes.js";

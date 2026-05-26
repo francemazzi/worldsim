@@ -858,7 +858,9 @@
         <div class="card" style="border-color:var(--yellow)">
           <div class="card-title">LLM Configuration Required</div>
           <div style="margin-top:8px;font-size:13px;color:var(--text-muted)">
-            Set the <code>OPENAI_API_KEY</code> environment variable to start simulations.
+            Set <code>OPENAI_API_KEY</code> or <code>OPENROUTER_API_KEY</code> to start simulations.
+            For OpenRouter, optionally set <code>LLM_MODEL</code> (e.g. <code>anthropic/claude-3.5-sonnet</code>),
+            <code>OPENROUTER_HTTP_REFERER</code>, and <code>OPENROUTER_APP_NAME</code>.
           </div>
         </div>
       ` : ""}

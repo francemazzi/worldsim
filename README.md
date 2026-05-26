@@ -23,6 +23,31 @@ OPENAI_API_KEY=sk-... docker compose up
 # Open http://localhost:4400
 ```
 
+### OpenRouter
+
+WorldSim uses an OpenAI-compatible LLM adapter. To run via [OpenRouter](https://openrouter.ai/):
+
+```bash
+export OPENROUTER_API_KEY=sk-or-v1-...
+export LLM_MODEL=anthropic/claude-3.5-sonnet
+export OPENROUTER_APP_NAME=worldsim
+export OPENROUTER_HTTP_REFERER=https://github.com/francemazzi/worldsim
+npx worldsim demo
+```
+
+Or programmatically with `resolveLlmEnv()`:
+
+```typescript
+import { WorldEngine, resolveLlmEnv } from "worldsim";
+
+const llm = resolveLlmEnv();
+if (!llm) throw new Error("Set OPENAI_API_KEY or OPENROUTER_API_KEY");
+
+const world = new WorldEngine({ worldId: "demo", llm, /* ... */ });
+```
+
+Supported env vars: `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `OPENROUTER_HTTP_REFERER`, `OPENROUTER_APP_NAME`.
+
 ## What You Can Simulate
 
 **Community Policy Impact** — 8 villagers face a new water rationing policy. The farmer resists, the mayor defends, the priest mediates, the technologist proposes solutions. Who forms coalitions? Who complies?

@@ -7,6 +7,7 @@
  *
  * Usage:
  *   OPENAI_API_KEY=sk-... npx tsx examples/community-demo/index.ts
+ *   OPENROUTER_API_KEY=sk-or-v1-... LLM_MODEL=anthropic/claude-3.5-sonnet npx tsx examples/community-demo/index.ts
  *   # Then open http://localhost:4400
  */
 import {
@@ -18,6 +19,7 @@ import {
   studioPlugin,
 } from "worldsim";
 import { reportGeneratorPlugin } from "../../src/plugins/built-in/ReportGeneratorPlugin.js";
+import { resolveLlmEnv } from "../../src/llm/resolveLlmEnv.js";
 import { RealWorldToolsPlugin } from "../../src/plugins/built-in/RealWorldToolsPlugin.js";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -34,15 +36,13 @@ const triggerRules = JSON.parse(
 );
 
 // ── Validate env ───────────────────────────────────────────────────
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey) {
-  console.error("Error: OPENAI_API_KEY environment variable is required.");
+const llmConfig = resolveLlmEnv();
+if (!llmConfig) {
+  console.error("Error: An LLM API key is required.");
+  console.error("Set OPENAI_API_KEY or OPENROUTER_API_KEY.");
   console.error("Usage: OPENAI_API_KEY=sk-... npx tsx examples/community-demo/index.ts");
   process.exit(1);
 }
-
-const baseURL = process.env.LLM_BASE_URL ?? "https://api.openai.com/v1";
-const model = process.env.LLM_MODEL ?? "gpt-4o-mini";
 
 // ── Create engine ──────────────────────────────────────────────────
 const memoryStore = new InMemoryMemoryStore();
@@ -52,7 +52,7 @@ const world = new WorldEngine({
   worldId: scenario.name,
   maxTicks: scenario.maxTicks,
   tickIntervalMs: scenario.tickIntervalMs,
-  llm: { baseURL, apiKey, model },
+  llm: llmConfig,
   rulesPath: {
     json: [join(__dirname, "rules/community-rules.json")],
   },

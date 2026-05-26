@@ -115,6 +115,8 @@ export interface LLMConfig {
   retryMaxDelayMs?: number | undefined;
   /** Exponential backoff multiplier. Default: 2. */
   retryBackoffFactor?: number | undefined;
+  /** Optional HTTP headers sent on every LLM request (e.g. OpenRouter HTTP-Referer / X-Title). */
+  headers?: Record<string, string> | undefined;
 }
 
 export type WorldStatus =

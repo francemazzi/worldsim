@@ -29,6 +29,7 @@ export class OpenAICompatAdapter implements LLMAdapter {
     this.client = new OpenAI({
       baseURL: config.baseURL,
       apiKey: config.apiKey,
+      ...(config.headers ? { defaultHeaders: config.headers } : {}),
     });
     this.defaultModel = config.model;
     this.defaultTemperature = config.temperature;

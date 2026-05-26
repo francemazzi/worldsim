@@ -68,7 +68,16 @@ await world.start();
 
 ## LLM configuration — picking tiers
 
-`LLMConfig` supports retries (added in this branch) and three resolution levels:
+Use `resolveLlmEnv()` to resolve credentials from env (`OPENAI_API_KEY` or `OPENROUTER_API_KEY`):
+
+```typescript
+import { WorldEngine, resolveLlmEnv } from "worldsim";
+
+const llm = resolveLlmEnv()!;
+// OpenRouter: set OPENROUTER_API_KEY + optional LLM_MODEL=anthropic/claude-3.5-sonnet
+```
+
+`LLMConfig` supports retries and three resolution levels:
 
 | Level | Where | When to use |
 | --- | --- | --- |
@@ -88,6 +97,14 @@ llm: {
   retryMaxDelayMs: 8000,
   retryBackoffFactor: 2,
 }
+```
+
+OpenRouter profile (auto base URL + optional ranking headers):
+
+```typescript
+// env: OPENROUTER_API_KEY, LLM_MODEL=anthropic/claude-3.5-sonnet
+// optional: OPENROUTER_HTTP_REFERER, OPENROUTER_APP_NAME
+llm: resolveLlmEnv()!,
 ```
 
 Mix tiers when an analyst/leader agent needs reasoning and citizens don't:

@@ -19,6 +19,7 @@ import {
   InMemoryGraphStore,
 } from "worldsim";
 import { reportGeneratorPlugin } from "../src/plugins/built-in/ReportGeneratorPlugin.js";
+import { resolveLlmEnv } from "../src/llm/resolveLlmEnv.js";
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -142,16 +143,17 @@ async function runScenario(scenarioName: string): Promise<void> {
   const memoryStore = new InMemoryMemoryStore();
   const graphStore = new InMemoryGraphStore();
 
+  const llmConfig = resolveLlmEnv();
+  if (!llmConfig) {
+    throw new Error("LLM API key is required (OPENAI_API_KEY or OPENROUTER_API_KEY)");
+  }
+
   // Create engine
   const engine = new WorldEngine({
     worldId: scenario.name,
     maxTicks: scenario.maxTicks ?? 30,
     tickIntervalMs: scenario.tickIntervalMs ?? 2000,
-    llm: {
-      baseURL: process.env.LLM_BASE_URL ?? "https://api.openai.com/v1",
-      apiKey: process.env.OPENAI_API_KEY!,
-      model: process.env.LLM_MODEL ?? "gpt-4o-mini",
-    },
+    llm: llmConfig,
     rulesPath: Object.keys(rulesPath).length > 0 ? rulesPath : undefined,
     memoryStore,
     graphStore,
@@ -237,10 +239,10 @@ async function runScenario(scenarioName: string): Promise<void> {
 
 async function main(): Promise<void> {
   // Check for API key
-  if (!process.env.OPENAI_API_KEY) {
+  if (!resolveLlmEnv()) {
     console.error(
-      "Error: OPENAI_API_KEY environment variable is required.\n" +
-        "Usage: OPENAI_API_KEY=sk-... npx tsx evaluation/run-evaluation.ts",
+      "Error: An LLM API key is required.\n" +
+        "Set OPENAI_API_KEY or OPENROUTER_API_KEY, then run: npx tsx evaluation/run-evaluation.ts",
     );
     process.exit(1);
   }

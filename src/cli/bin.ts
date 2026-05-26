@@ -6,6 +6,7 @@ import { StudioServer } from "../studio/StudioServer.js";
 import { loadScenario } from "../studio/ScenarioLoader.js";
 import { studioPlugin } from "../studio/StudioPlugin.js";
 import { LifeSkillsPlugin } from "../plugins/built-in/LifeSkillsPlugin.js";
+import { resolveLlmEnv } from "../llm/resolveLlmEnv.js";
 
 const HELP = `
 WorldSim CLI
@@ -29,9 +30,12 @@ Usage:
   npx worldsim studio --port 5000
 
 Environment:
-  OPENAI_API_KEY    Required for the demo command
-  LLM_BASE_URL      Override LLM endpoint
-  LLM_MODEL         Override model name
+  OPENAI_API_KEY           OpenAI API key (demo command)
+  OPENROUTER_API_KEY       OpenRouter API key (alternative to OpenAI)
+  LLM_BASE_URL             Override LLM endpoint
+  LLM_MODEL                Override model name
+  OPENROUTER_HTTP_REFERER  Optional OpenRouter HTTP-Referer header
+  OPENROUTER_APP_NAME      Optional OpenRouter X-Title header
 `.trim();
 
 async function main(): Promise<void> {
@@ -69,17 +73,21 @@ async function main(): Promise<void> {
 }
 
 async function runDemo(values: Record<string, unknown>): Promise<void> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.error("Error: OPENAI_API_KEY environment variable is required for the demo.");
-    console.error("Usage: OPENAI_API_KEY=sk-... npx worldsim demo");
+  const model = (values.model as string) ?? process.env.LLM_MODEL;
+  const baseURL = (values["base-url"] as string) ?? process.env.LLM_BASE_URL;
+  const llmConfig = resolveLlmEnv({
+    ...(model ? { model } : {}),
+    ...(baseURL ? { baseURL } : {}),
+  });
+
+  if (!llmConfig) {
+    console.error("Error: An LLM API key is required for the demo.");
+    console.error("Set OPENAI_API_KEY or OPENROUTER_API_KEY, then run: npx worldsim demo");
     process.exit(1);
   }
 
   const port = values.port ? parseInt(values.port as string, 10) : 4400;
   const shouldOpen = !values["no-open"];
-  const model = (values.model as string) ?? process.env.LLM_MODEL ?? "gpt-4o-mini";
-  const baseURL = (values["base-url"] as string) ?? process.env.LLM_BASE_URL ?? "https://api.openai.com/v1";
 
   // Load bundled demo scenario
   let currentDir: string;
@@ -122,9 +130,9 @@ async function runDemo(values: Record<string, unknown>): Promise<void> {
 
   console.log(`\n  Villaggio del Sole — Community Policy Simulation`);
   console.log(`  ${scenario.agents.length} agents | ${scenario.maxTicks} ticks`);
-  console.log(`  Model: ${model}`);
+  console.log(`  Model: ${llmConfig.model}`);
 
-  const result = loadScenario(scenario, { baseURL, apiKey, model });
+  const result = loadScenario(scenario, llmConfig);
 
   result.engine.use(
     new LifeSkillsPlugin(["farming", "cooking", "social", "technology", "crafting", "spiritual", "academic"]),
