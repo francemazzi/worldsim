@@ -2,6 +2,10 @@ import type { WorldSimPlugin } from "../../types/PluginTypes.js";
 import type { WorldConfig } from "../../types/WorldTypes.js";
 import type { AgentRegistry } from "../../agents/AgentRegistry.js";
 import type { AssetStore } from "../../types/AssetTypes.js";
+import type { NeedsTracker } from "../../needs/NeedsTracker.js";
+import type { TopicTracker } from "../../perception/TopicTracker.js";
+import type { StimulusBus } from "../../perception/StimulusBus.js";
+import type { LocationIndex } from "../../location/LocationIndex.js";
 
 /**
  * Context handed to plugins that implement {@link ConfigurablePlugin}.
@@ -10,8 +14,17 @@ import type { AssetStore } from "../../types/AssetTypes.js";
  */
 export interface PluginRuntimeContext {
   agentRegistry: AgentRegistry;
+  locationIndex?: LocationIndex | undefined;
   assetStore?: AssetStore | undefined;
   config: Readonly<WorldConfig>;
+  /**
+   * Realistic-simulation handles. Always provided; when the perception
+   * layer is off the trackers are empty (no agents registered, no
+   * stimuli published) but the references are still safe to use.
+   */
+  needsTracker?: NeedsTracker | undefined;
+  topicTracker?: TopicTracker | undefined;
+  stimulusBus?: StimulusBus | undefined;
 }
 
 /**

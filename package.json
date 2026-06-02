@@ -5,14 +5,14 @@
   "bin": {
     "worldsim": "./dist/cli/bin.js"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     },
     "./federation": {
       "types": "./dist/federation/index.d.ts",
@@ -37,6 +37,10 @@
     "bench:report:full": "dotenv -e .env -- npx tsx benchmarks/run.ts --e2e",
     "demo:federation": "npx tsx examples/federation-two-cities/index.ts",
     "demo:federation-office": "npx tsx examples/federation-office-departments/index.ts",
+    "demo:realistic": "npx tsx examples/realistic-village/index.ts",
+    "eval": "npx tsx evaluation/run-evaluation.ts",
+    "eval:realistic": "npx tsx evaluation/run-evaluation.ts village-realistic",
+    "eval:compare-perception": "npx tsx evaluation/compare-perception.ts village-realistic",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build && npm run test"
@@ -54,6 +58,7 @@
   "files": [
     "dist",
     "examples/community-demo",
+    "examples/realistic-village",
     "docs/worldsim_img.webp",
     "README.md",
     "LICENSE"

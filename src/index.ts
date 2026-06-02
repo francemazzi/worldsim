@@ -40,6 +40,15 @@ export { ChatPlugin } from "./plugins/built-in/ChatPlugin.js";
 export type { ChatPluginOptions } from "./plugins/built-in/ChatPlugin.js";
 export { privacyCompliancePlugin } from "./plugins/built-in/PrivacyCompliancePlugin.js";
 export type { PrivacyCompliancePluginOptions } from "./plugins/built-in/PrivacyCompliancePlugin.js";
+export { NeedsSatisfierPlugin, defaultNeedsSatisfyRules } from "./plugins/built-in/NeedsSatisfierPlugin.js";
+export type {
+  NeedsSatisfierPluginOptions,
+  NeedsSatisfyRule,
+  NeedsSatisfyRuleContext,
+  SatisfyFn,
+} from "./plugins/built-in/NeedsSatisfierPlugin.js";
+export { generateNarrative, computePerceptionInsights } from "./analysis/narrative.js";
+export type { NarrativeOptions } from "./analysis/narrative.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
 export { resolveLlmEnv, hasLlmApiKey } from "./llm/resolveLlmEnv.js";
 export type { ResolveLlmEnvOptions } from "./llm/resolveLlmEnv.js";
@@ -246,6 +255,54 @@ export type {
   GeoLocation,
   LocationConfig,
 } from "./types/LocationTypes.js";
+// ─── Realistic Simulation Primitives ──────────────────────────────
+export type {
+  Stimulus,
+  StimulusKind,
+  StimulusSource,
+  PerceptionChannel,
+} from "./types/StimulusTypes.js";
+export type {
+  Percept,
+  SenseConfig,
+  PerceptionFilter,
+  AttentionConfig,
+} from "./types/PerceptionTypes.js";
+export type {
+  Entity,
+  EntityKind,
+  EntityState,
+  EntityEmitter,
+  EntityRegistry,
+} from "./types/EntityTypes.js";
+export type {
+  Need,
+  NeedsState,
+  NeedsTemplate,
+} from "./types/NeedsTypes.js";
+export type {
+  Affordance,
+  AffordanceMap,
+} from "./types/AffordanceTypes.js";
+export type { InteractionConfig } from "./types/WorldTypes.js";
+export { StimulusBus, createStimulusId } from "./perception/StimulusBus.js";
+export { PerceptionEngine } from "./perception/PerceptionEngine.js";
+export type {
+  PerceptionEngineDeps,
+  EntityPositionResolver,
+} from "./perception/PerceptionEngine.js";
+export { AttentionPolicy } from "./perception/AttentionPolicy.js";
+export type {
+  RankedPercept,
+  SalienceBreakdown,
+  AttentionContext,
+} from "./perception/AttentionPolicy.js";
+export { TopicTracker } from "./perception/TopicTracker.js";
+export type { Topic, TopicTrackerOptions } from "./perception/TopicTracker.js";
+export { NeedsTracker } from "./needs/NeedsTracker.js";
+export { InMemoryEntityRegistry } from "./entities/InMemoryEntityRegistry.js";
+export { AffordanceResolver } from "./entities/AffordanceResolver.js";
+export type { AvailableAffordance, AffordanceResolverDeps } from "./entities/AffordanceResolver.js";
 export type {
   Conversation,
   ConversationTurn,

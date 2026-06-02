@@ -1,5 +1,9 @@
 import { bench, describe } from "vitest";
 import { createBenchEngine, formatMs, formatMB } from "./helpers.js";
+import { LocationIndex } from "../src/location/LocationIndex.js";
+import { PerceptionEngine } from "../src/perception/PerceptionEngine.js";
+import { StimulusBus } from "../src/perception/StimulusBus.js";
+import type { Stimulus } from "../src/types/StimulusTypes.js";
 
 describe("WorldSim Synthetic Benchmark", () => {
   bench(
@@ -70,6 +74,81 @@ describe("WorldSim Synthetic Benchmark", () => {
       await engine.start();
     },
     { iterations: 2, warmupIterations: 1 },
+  );
+});
+
+function createPerceptionBench(agentCount: number): {
+  engine: PerceptionEngine;
+  bus: StimulusBus;
+} {
+  const idx = new LocationIndex();
+  const engine = new PerceptionEngine({ locationIndex: idx });
+  const bus = new StimulusBus();
+  bus.newTick(1);
+
+  for (let i = 0; i < agentCount; i++) {
+    const id = `agent-${i}`;
+    idx.update(id, {
+      latitude: 45 + (i % 20) * 0.00005,
+      longitude: 9 + Math.floor(i / 20) * 0.00005,
+    });
+    engine.registerAgent(id, [{ channel: "sound", radiusKm: 0.2 }]);
+  }
+
+  for (let i = 0; i < agentCount; i++) {
+    const stim: Stimulus = {
+      id: `bench-stim-${agentCount}-${i}`,
+      kind: "speech",
+      channel: "sound",
+      source: { kind: "agent", id: `agent-${i}` },
+      tick: 1,
+      intensity: 0.8,
+      payload: { text: "benchmark" },
+    };
+    bus.publish(stim);
+  }
+
+  return { engine, bus };
+}
+
+describe("PerceptionEngine Micro Benchmark", () => {
+  const perception100 = createPerceptionBench(100);
+  const perception500 = createPerceptionBench(500);
+
+  bench(
+    "perceiveAll: 100 agents / 100 stimuli",
+    () => {
+      perception100.engine.perceiveAll(perception100.bus, 1);
+    },
+    { iterations: 20, warmupIterations: 5 },
+  );
+
+  bench(
+    "perceiveFor: 100 agents / 100 stimuli",
+    () => {
+      for (let i = 0; i < 100; i++) {
+        perception100.engine.perceiveFor(`agent-${i}`, perception100.bus, 1);
+      }
+    },
+    { iterations: 20, warmupIterations: 5 },
+  );
+
+  bench(
+    "perceiveAll: 500 agents / 500 stimuli",
+    () => {
+      perception500.engine.perceiveAll(perception500.bus, 1);
+    },
+    { iterations: 10, warmupIterations: 2 },
+  );
+
+  bench(
+    "perceiveFor: 500 agents / 500 stimuli",
+    () => {
+      for (let i = 0; i < 500; i++) {
+        perception500.engine.perceiveFor(`agent-${i}`, perception500.bus, 1);
+      }
+    },
+    { iterations: 10, warmupIterations: 2 },
   );
 });
 

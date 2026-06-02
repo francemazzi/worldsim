@@ -9,6 +9,8 @@ import type { WorldPrivacyConfig, ObservabilityConfig } from "./PrivacyTypes.js"
 import type { MovementPolicy } from "../plugins/built-in/movement/MovementPolicy.js";
 import type { FederationConfig } from "../federation/types.js";
 import type { TimelineMetadata } from "./TimelineTypes.js";
+import type { SenseConfig } from "./PerceptionTypes.js";
+import type { NeedsTemplate } from "./NeedsTypes.js";
 
 export interface WorldContext {
   worldId: string;
@@ -99,6 +101,77 @@ export interface WorldConfig {
    * local world joins the federation through the supplied transport.
    */
   federation?: FederationConfig | undefined;
+  /**
+   * Realistic-simulation primitives toggle. When omitted (or
+   * `mode: "legacy"`), the engine behaves exactly as before: messages flow
+   * through the legacy MessageRouter cascade (conversation → neighborhood
+   * → proximity → broadcast).
+   *
+   * When `mode: "perception"`, every `speak` becomes a `Stimulus` going
+   * through the PerceptionEngine, agents only see what they actually
+   * perceive, and salience drives whether they react. See `Phase 1+` of
+   * the Realistic Simulation roadmap for details.
+   */
+  interaction?: InteractionConfig | undefined;
+}
+
+/**
+ * Toggle and tuning for the Realistic Simulation primitives layer
+ * (Stimulus → Perception → Attention → Causality → Needs → Affordances).
+ *
+ * All fields are optional. Default behavior is fully backwards compatible
+ * (`mode: "legacy"`, no perception layer attached). Phase 1+ of the
+ * roadmap progressively wire these knobs to actual engine code.
+ */
+export interface InteractionConfig {
+  /**
+   * `"legacy"`     — current behavior, MessageBus cascade routing.
+   * `"perception"` — speech and observable events flow through the
+   *                  PerceptionEngine; agents only see what their senses
+   *                  pick up.
+   * Default: `"legacy"`.
+   */
+  mode?: "legacy" | "perception" | undefined;
+  /**
+   * In `perception` mode, when an agent emits a stimulus that no perceiver
+   * picks up, drop it silently instead of falling back to global broadcast
+   * (which is the legacy behavior). Default: `true` in perception mode,
+   * `false` in legacy mode (i.e. ignored).
+   */
+  disableBroadcastFallback?: boolean | undefined;
+  /**
+   * Hard requirement: every outbound speech must go through perception. If
+   * the world has no LocationIndex and no `defaultSenses`, the engine
+   * throws on bootstrap instead of silently degrading. Useful for
+   * production simulations where silent broadcast would be a bug.
+   */
+  requirePerception?: boolean | undefined;
+  /**
+   * Senses applied to agents that don't declare their own. Typical default
+   * for a "human-like" simulation:
+   *   `[{ channel: "sound", radiusKm: 0.05 },
+   *      { channel: "sight", radiusKm: 0.03 },
+   *      { channel: "language" }]`.
+   */
+  defaultSenses?: SenseConfig[] | undefined;
+  /**
+   * Number of ticks the perception engine keeps stimuli alive after
+   * emission, including the current one. Default `2`, so agents can react
+   * on the next tick even when ticks execute agents concurrently.
+   */
+  stimulusRetentionTicks?: number | undefined;
+  /**
+   * Window (in ticks) the TopicTracker (Phase 3) uses to cluster stimuli
+   * into topics. Default `5`.
+   */
+  topicWindowTicks?: number | undefined;
+  /**
+   * Default NeedsTemplate applied to agents that do not declare their own
+   * `AgentConfig.needs`. Useful to populate hunger/thirst/fatigue/social
+   * across an entire scenario without copy-pasting. Default: undefined
+   * (agents have no needs unless they declare them).
+   */
+  defaultNeedsTemplate?: NeedsTemplate | undefined;
 }
 
 export interface LLMConfig {

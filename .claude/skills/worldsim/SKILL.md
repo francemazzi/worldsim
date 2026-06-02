@@ -272,6 +272,87 @@ Always call `report.recordPolicyTrigger(tick, announcement)` inside `world.on("t
 - **Language drift** → if the scenario uses a specific language, repeat "always respond in the scenario language" in the system prompt
 - **Below 15 ticks** → no narrative arc; minimum is 30 ticks with a mid-run trigger
 
+## Realistic simulation primitives (perception layer)
+
+Worldsim ships an opt-in stack of physics-aware primitives that make
+agent interactions look like real life: agents only know what their
+senses pick up, salience drives whether they react, and a topic tracker
+keeps responses on the same thread. Activation is a single switch:
+
+```typescript
+const world = new WorldEngine({
+  /* ...standard config... */
+  interaction: {
+    mode: "perception",
+    defaultSenses: [
+      { channel: "sound", radiusKm: 0.05 },
+      { channel: "sight", radiusKm: 0.03 },
+      { channel: "language" },
+    ],
+    disableBroadcastFallback: true,
+    topicWindowTicks: 5,
+  },
+});
+```
+
+What you get when `mode: "perception"` is on:
+
+- `Stimulus` + `StimulusBus` — every `speak`, every entity emitter
+  (smell from a fountain, bark from a dog, signal from a radio) becomes
+  a tick-bounded fact published on the bus.
+- `PerceptionEngine` — per-channel perception with linear attenuation
+  by distance, configurable `perceptionFloor`, language gating for
+  intelligibility, optional `LineOfSightProvider` filters.
+- `AttentionPolicy` — multi-factor salience scoring (intensity, novelty,
+  needs/goals match, relationship strength, interests, recency) and
+  budgeted attention. Below threshold = no LLM call, no forced reply.
+- `TopicTracker` — clusters causal chains and co-participation into
+  topics. The prompt scaffolding tells the agent which thread they are
+  reacting to and asks them to declare topic switches.
+- `NeedsTracker` — drives (hunger, fatigue, fear, social…) with
+  decay/regen per tick. Built-in `humanBasic` and `animalBasic`
+  templates; pass any custom `NeedsState` for your own ontology.
+- `EntityRegistry` + `AffordanceResolver` — non-agent entities (animals,
+  objects, signals) participate in the perception loop and expose
+  affordances (`eat`, `sit`, `ride`, …) only when actually perceived.
+
+Key design rules:
+
+- The user picks the *what*: humans, animals, market, social feed —
+  Worldsim doesn't lock you into one metaphor.
+- The engine enforces the *how*: nothing reaches an agent that doesn't
+  cross their senses; nothing forces an agent to reply if the salience
+  is too low; topics keep replies coherent without scripting.
+- Strict mode (`disableBroadcastFallback: true`) drops speech that no
+  one perceives — like in real life.
+
+How perception data flows into the LLM (when `mode: "perception"`):
+
+- The agent's prompt gains a `--- PERCEZIONI ---` section listing the
+  *attended* percepts in salience order, replacing the legacy "voice"
+  bucket. Distance, intelligibility and topic id are surfaced inline.
+- An optional `--- FILO DISCORSIVO ---` block appears when the agent
+  is engaged in a dominant topic, so replies stay threaded.
+- An optional `--- BISOGNI ATTIVI ---` block lists active needs above
+  their `activationThreshold`. Critical needs also bypass the idle
+  short-circuit so a thirsty agent doesn't fall asleep.
+- The action union is widened with `"perceive"` so the LLM can stay
+  silent when nothing deserves a reaction (no forced replies).
+- `WorldBootstrapper` auto-initializes the `NeedsTracker` from
+  `AgentConfig.needs` or, as a fallback, from
+  `interaction.defaultNeedsTemplate` (`"humanBasic"` |
+  `"animalBasic"`). Set the latter once at world level to give every
+  agent a default drive set.
+
+Studio dashboard exposes a dedicated **Perception** page (sidebar
+entry) that reads `/api/perception/{status,stimuli,topics,percepts/:id,
+needs/:id}` so you can debug what each agent actually heard, which
+topics are open, and how their needs evolve tick by tick.
+
+See `examples.md` and the realism integration test
+`tests/integration/realism-fullstack.integration.test.ts` for full
+runnable scenarios (village, animal enclosure).
+
 ## Files in this skill
 
 - [examples.md](examples.md) — full runnable snippets for privacy, phones, federation, scaling

@@ -16,23 +16,74 @@ Each scenario follows a consistent structure:
 
 ## Scenarios
 
+### Policy / market scenarios (legacy routing)
+
 | Scenario | Agents | Ticks | Trigger | Theme |
 |---|---|---|---|---|
 | `water-rationing` | 8 | 30 | Tick 10: water rationing policy | Community under resource pressure |
 | `price-shock` | 10 | 25 | Tick 8: grain price doubles | Marketplace economic disruption |
 | `rumor-spread` | 12 | 30 | Tick 5: false rumor introduced | Information propagation through social groups |
 
+### Realistic-perception scenarios (perception layer on)
+
+| Scenario | Agents | Ticks | Theme |
+|---|---|---|---|
+| `village-realistic` | 4 | 25 | Piazza/bar/casa: only co-located agents hear each other |
+| `enclosure-animals` | 4 | 20 | Wolves and prey communicating via sound + smell |
+| `office-floor` | 6 | 30 | Open space + meeting rooms reproduced through geography only |
+
+These scenarios opt in to the [perception layer](../docs/perception.md):
+each `speak` becomes a stimulus filtered by senses and distance. They
+also auto-attach the `NeedsSatisfierPlugin` so decay is balanced by
+in-scenario actions.
+
 ## Running
 
 ```bash
 # Run all scenarios
-npx tsx evaluation/run-evaluation.ts
+npm run eval
 
-# Run a single scenario
+# Run a single (legacy) scenario
 npx tsx evaluation/run-evaluation.ts water-rationing
+
+# Run a single realistic scenario
+npm run eval:realistic
+# or
+npx tsx evaluation/run-evaluation.ts village-realistic
+
+# Side-by-side legacy vs perception comparison (runs the LLM TWICE)
+npm run eval:compare-perception
+# or
+npx tsx evaluation/compare-perception.ts office-floor
 ```
 
-Results are written to `evaluation/results/{scenario-name}.json` as full `SimulationReport` objects.
+Results are written to `evaluation/results/{scenario-name}.json` as full
+`SimulationReport` objects. The comparison runner additionally produces
+`{scenario-name}-legacy.json` and `{scenario-name}-perception.json`.
+
+## Perception comparison
+
+`compare-perception.ts` runs the same scenario twice — once forced into
+legacy mode, once with the perception layer on — and prints a delta
+table covering:
+
+- `Total speaks` (raw verbal output)
+- `Total tokens` (LLM cost)
+- `Reply rate` (in-thread responses)
+- `Causal coherence` (fraction of speeches that follow a previous one)
+- `Silence ratio` (`perceive` vs `speak` actions)
+- `Avg participants/topic`
+
+What to expect when the perception layer is doing its job:
+
+- **`Total speaks` drops** — agents don't reply when nothing reaches
+  their senses; silence becomes a valid outcome.
+- **`Causal coherence` rises** — speeches that *do* happen are
+  threaded inside topics, so the conversation no longer drifts.
+- **`Silence ratio` rises** — passive `perceive` actions replace forced
+  monologues at zero token cost.
+- **`Reply rate` may drop** if the scenario placed agents far apart on
+  purpose. Read the diff together with the per-agent breakdown.
 
 ## Evaluation Workflow
 

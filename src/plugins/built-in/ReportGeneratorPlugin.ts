@@ -88,7 +88,7 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
         role: agent?.role ?? "person",
         personality: profile?.personality ?? [],
         profession: (profile as unknown as { profession?: string } | undefined)?.profession,
-        actions: { speak: 0, observe: 0, interact: 0, tool_call: 0, finish: 0 },
+        actions: { speak: 0, observe: 0, interact: 0, tool_call: 0, finish: 0, perceive: 0 },
         totalActions: 0,
         moodTrajectory: [],
         energyTrajectory: [],
@@ -258,6 +258,9 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       averageMoodByTick,
       averageEnergyByTick,
     };
+
+    const perceptionMetrics = computePerceptionMetrics(options.engine);
+    if (perceptionMetrics) metrics.perception = perceptionMetrics;
 
     const baseReport: SimulationReport = {
       summary: {
@@ -547,4 +550,107 @@ function buildAgentNodes(
       if (c?.profession) node.profession = c.profession;
       return node;
     });
+}
+
+/**
+ * Computes aggregate perception/topic metrics. In perception mode this emits
+ * even when no topic was opened, so entity-only/ambient simulations still
+ * expose stimulus diagnostics.
+ */
+function computePerceptionMetrics(
+  engine: WorldEngine,
+): import("../../types/ReportTypes.js").PerceptionMetrics | undefined {
+  const tracker = engine.getTopicTracker();
+  const perceptionMode = engine.getConfig().interaction?.mode === "perception";
+  const stimulusBus = engine.getStimulusBus();
+  const stimuliByKind: Record<string, number> = {};
+  const stimuliByChannel: Record<string, number> = {};
+  let totalStimuli = 0;
+  const retainedTicks = stimulusBus.getRetainedTicks();
+
+  // Walk retained ticks only. Long runs rotate older ticks out; expose that
+  // limitation explicitly in the returned metrics.
+  for (const t of retainedTicks) {
+    const stimuli = stimulusBus.getForTick(t);
+    for (const s of stimuli) {
+      totalStimuli += 1;
+      stimuliByKind[s.kind] = (stimuliByKind[s.kind] ?? 0) + 1;
+      stimuliByChannel[s.channel] = (stimuliByChannel[s.channel] ?? 0) + 1;
+    }
+  }
+
+  if (!perceptionMode && tracker.size === 0 && totalStimuli === 0) {
+    return undefined;
+  }
+
+  // Topic-derived metrics: causal coherence + reply rate.
+  let speechCount = 0;
+  let causalSpeechCount = 0;
+  let speechWithReply = 0;
+  let totalParticipants = 0;
+  const topicSnapshots: Array<{
+    id: string;
+    stimulusIds: string[];
+    participants: number;
+  }> = [];
+
+  for (const t of retainedTicks) {
+    const stimuli = stimulusBus.getForTick(t);
+    for (const s of stimuli) {
+      if (s.kind !== "speech") continue;
+      speechCount += 1;
+      if (s.causedByStimulusId) causalSpeechCount += 1;
+    }
+  }
+
+  const detailedTopics: Array<{
+    id: string;
+    label?: string;
+    stimuliCount: number;
+    participants: string[];
+  }> = [];
+  for (const topic of tracker.listTopics()) {
+    const tid = topic.id;
+    topicSnapshots.push({
+      id: tid,
+      stimulusIds: [...topic.stimulusIds],
+      participants: topic.participants.size,
+    });
+    detailedTopics.push({
+      id: tid,
+      ...(topic.label ? { label: topic.label } : {}),
+      stimuliCount: topic.stimulusIds.length,
+      participants: [...topic.participants],
+    });
+    totalParticipants += topic.participants.size;
+    if (topic.stimulusIds.length > 1) speechWithReply += 1;
+  }
+
+  const totalTopics = topicSnapshots.length;
+  const totalStimsInTopics = topicSnapshots.reduce(
+    (sum, t) => sum + t.stimulusIds.length,
+    0,
+  );
+  detailedTopics.sort((a, b) => b.stimuliCount - a.stimuliCount);
+
+  return {
+    totalStimuli,
+    stimuliByKind,
+    stimuliByChannel,
+    retainedStimulusTicks: retainedTicks.length,
+    stimulusMetricsLimitedByRetention:
+      engine.getContext().tickCount + 1 > stimulusBus.retentionWindowTicks,
+    totalTopics,
+    avgStimuliPerTopic:
+      totalTopics > 0 ? Math.round((totalStimsInTopics / totalTopics) * 100) / 100 : 0,
+    causalCoherence: speechCount > 0 ? round3(causalSpeechCount / speechCount) : 0,
+    replyRate: totalTopics > 0 ? round3(speechWithReply / totalTopics) : 0,
+    avgParticipantsPerTopic:
+      totalTopics > 0 ? Math.round((totalParticipants / totalTopics) * 100) / 100 : 0,
+    ...(detailedTopics.length > 0 ? { topics: detailedTopics } : {}),
+  };
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
 }

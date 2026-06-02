@@ -1,6 +1,9 @@
 import type { WorldSimPlugin, AgentTool } from "../types/PluginTypes.js";
 import type { AgentAction, AgentState } from "../types/AgentTypes.js";
 import type { WorldContext } from "../types/WorldTypes.js";
+import type { Percept } from "../types/PerceptionTypes.js";
+import type { NeedsState } from "../types/NeedsTypes.js";
+import type { Stimulus } from "../types/StimulusTypes.js";
 
 type HookName = keyof {
   [K in keyof WorldSimPlugin as WorldSimPlugin[K] extends
@@ -86,6 +89,70 @@ export class PluginRegistry {
       }
     }
     return result;
+  }
+
+  /**
+   * Runs stimulus transform hooks in registration order. These hooks are
+   * intentionally sequential because each plugin receives the previous
+   * plugin's transformed stimulus; returning null cancels emission.
+   */
+  async runStimulusEmitHooks(
+    stimulus: Stimulus,
+    ctx: WorldContext,
+  ): Promise<Stimulus | null> {
+    let current: Stimulus | null = stimulus;
+    for (const plugin of this.plugins) {
+      if (!current) return null;
+      if (typeof plugin.onStimulusEmit !== "function") continue;
+      try {
+        current = await plugin.onStimulusEmit(current, ctx);
+      } catch (err) {
+        console.warn(`[PluginRegistry] Plugin "${plugin.name}" threw in onStimulusEmit:`, err);
+      }
+    }
+    return current;
+  }
+
+  /**
+   * Runs percept transform hooks in registration order. Returning an empty
+   * array is the supported way for a plugin to filter all percepts.
+   */
+  async runPerceptDeliveredHooks(
+    agentId: string,
+    percepts: Percept[],
+    ctx: WorldContext,
+  ): Promise<Percept[]> {
+    let current = percepts;
+    for (const plugin of this.plugins) {
+      if (typeof plugin.onPerceptDelivered !== "function") continue;
+      try {
+        current = await plugin.onPerceptDelivered(agentId, current, ctx);
+      } catch (err) {
+        console.warn(`[PluginRegistry] Plugin "${plugin.name}" threw in onPerceptDelivered:`, err);
+      }
+    }
+    return current;
+  }
+
+  /**
+   * Runs needs transform hooks in registration order after the tracker has
+   * applied its own tick update. Plugins may return a replacement state.
+   */
+  async runNeedsTickHooks(
+    agentId: string,
+    needs: NeedsState,
+    ctx: WorldContext,
+  ): Promise<NeedsState> {
+    let current = needs;
+    for (const plugin of this.plugins) {
+      if (typeof plugin.onNeedsTick !== "function") continue;
+      try {
+        current = await plugin.onNeedsTick(agentId, current, ctx);
+      } catch (err) {
+        console.warn(`[PluginRegistry] Plugin "${plugin.name}" threw in onNeedsTick:`, err);
+      }
+    }
+    return current;
   }
 
   /**

@@ -13,6 +13,7 @@ import { registerPersistenceApi } from "./api/persistenceApi.js";
 import { registerVectorApi } from "./api/vectorApi.js";
 import { registerReportApi } from "./api/reportApi.js";
 import { registerScenarioApi, type ScenarioPreset } from "./api/scenarioApi.js";
+import { registerPerceptionApi } from "./api/perceptionApi.js";
 import { loadScenario, type ScenarioConfig } from "./ScenarioLoader.js";
 import { detectCapabilities, type StoreRefs } from "./StoreDetector.js";
 import { STUDIO_DEFAULTS } from "./StudioConfig.js";
@@ -151,6 +152,7 @@ export class StudioServer {
       () => this.stores.graphStore,
     );
     registerEventsApi(this.router, getEngine);
+    registerPerceptionApi(this.router, getEngine);
     registerMemoryApi(this.router, () => this.stores.memoryStore);
     registerGraphApi(this.router, () => this.stores.graphStore, getEngine);
     registerPersistenceApi(this.router, () => this.stores.persistenceStore, getEngine);

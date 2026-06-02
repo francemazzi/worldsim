@@ -7,6 +7,9 @@ import type {
 } from "./AgentTypes.js";
 import type { RulesContext } from "./RulesTypes.js";
 import type { CrossWorldEnvelope } from "../federation/types.js";
+import type { Stimulus } from "./StimulusTypes.js";
+import type { Percept } from "./PerceptionTypes.js";
+import type { NeedsState } from "./NeedsTypes.js";
 
 export type CrossWorldMessageDirection = "inbound" | "outbound";
 
@@ -46,6 +49,40 @@ export interface WorldSimPlugin {
     envelope: CrossWorldEnvelope,
     direction: CrossWorldMessageDirection,
   ) => Promise<void>) | undefined;
+  /**
+   * Realistic Simulation hook (Phase 1+).
+   *
+   * Fires whenever a stimulus is published on the StimulusBus. Plugins may
+   * inspect or transform the stimulus before it reaches the perception
+   * engine. Returning `null` cancels the emission.
+   */
+  onStimulusEmit?: ((
+    stimulus: Stimulus,
+    ctx: WorldContext,
+  ) => Promise<Stimulus | null>) | undefined;
+  /**
+   * Realistic Simulation hook (Phase 1+).
+   *
+   * Fires after the PerceptionEngine has resolved which percepts an agent
+   * receives in a tick, but before attention scoring. Plugins can inspect
+   * or filter the percept array (e.g. occlusion, language modulation).
+   */
+  onPerceptDelivered?: ((
+    agentId: string,
+    percepts: Percept[],
+    ctx: WorldContext,
+  ) => Promise<Percept[]>) | undefined;
+  /**
+   * Realistic Simulation hook (Phase 4).
+   *
+   * Fires once per tick per agent that has a `NeedsState`. Lets plugins
+   * apply external effects (a meal reduces hunger, fatigue grows in heat).
+   */
+  onNeedsTick?: ((
+    agentId: string,
+    needs: NeedsState,
+    ctx: WorldContext,
+  ) => Promise<NeedsState>) | undefined;
   tools?: AgentTool[] | undefined;
 }
 

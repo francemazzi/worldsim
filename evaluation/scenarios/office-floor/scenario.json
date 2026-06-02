@@ -1,0 +1,110 @@
+{
+  "name": "Piano Ufficio — Open Space e Sale Riunioni",
+  "description": "Open space con sei persone. Tre sale riunioni isolate. La perception layer modella correttamente che le conversazioni in sala non si sentono dal corridoio (raggio sonoro 8m). Mostra come la stessa simulazione, senza scrivere logica di stanze, riproduce il comportamento delle 'rooms' grazie alla geografia + sensi.",
+  "maxTicks": 30,
+  "tickIntervalMs": 1000,
+  "interaction": {
+    "mode": "perception",
+    "disableBroadcastFallback": true,
+    "topicWindowTicks": 6,
+    "defaultSenses": [
+      { "channel": "sound", "radiusKm": 0.008 },
+      { "channel": "sight", "radiusKm": 0.015 },
+      { "channel": "language", "languages": ["it", "en"] }
+    ]
+  },
+  "agents": [
+    {
+      "id": "ceo",
+      "role": "person",
+      "name": "Giulia (CEO)",
+      "iterationsPerTick": 1,
+      "systemPrompt": "Sei la CEO. In sala riunioni con Marco, parli di strategia. Solo Marco può sentirti.",
+      "profile": {
+        "name": "Giulia",
+        "profession": "CEO",
+        "personality": ["decisa"],
+        "goals": ["Allineare la strategia"],
+        "location": { "current": { "latitude": 0.0, "longitude": 0.0, "label": "sala-A" } }
+      }
+    },
+    {
+      "id": "cfo",
+      "role": "person",
+      "name": "Marco (CFO)",
+      "iterationsPerTick": 1,
+      "systemPrompt": "Sei il CFO. Sei in sala-A con la CEO.",
+      "profile": {
+        "name": "Marco",
+        "profession": "CFO",
+        "personality": ["analitico"],
+        "goals": ["Tagliare i costi"],
+        "location": { "current": { "latitude": 0.000005, "longitude": 0.0, "label": "sala-A" } }
+      }
+    },
+    {
+      "id": "dev1",
+      "role": "person",
+      "name": "Sara (Dev)",
+      "iterationsPerTick": 1,
+      "systemPrompt": "Sei una sviluppatrice. Sei nell'open space con altri 3 colleghi. Chiacchierate di tecnologia e progetti.",
+      "profile": {
+        "name": "Sara",
+        "profession": "Sviluppatrice",
+        "personality": ["curiosa"],
+        "goals": ["Finire la feature"],
+        "location": { "current": { "latitude": 0.0001, "longitude": 0.0001, "label": "open-space" } }
+      },
+      "attention": { "interests": ["bug", "deploy", "code"] }
+    },
+    {
+      "id": "dev2",
+      "role": "person",
+      "name": "Luca (Dev)",
+      "iterationsPerTick": 1,
+      "systemPrompt": "Sei uno sviluppatore. Sei nell'open space.",
+      "profile": {
+        "name": "Luca",
+        "profession": "Sviluppatore",
+        "personality": ["pragmatico"],
+        "goals": ["Refactor"],
+        "location": { "current": { "latitude": 0.000105, "longitude": 0.0001, "label": "open-space" } }
+      },
+      "attention": { "interests": ["bug", "deploy", "test"] }
+    },
+    {
+      "id": "designer",
+      "role": "person",
+      "name": "Elena (Design)",
+      "iterationsPerTick": 1,
+      "systemPrompt": "Sei la designer. Sei nell'open space ma con cuffie: il tuo perceptionFloor è alto.",
+      "senses": [
+        { "channel": "sound", "radiusKm": 0.008, "perceptionFloor": 0.7 },
+        { "channel": "sight", "radiusKm": 0.015 },
+        { "channel": "language", "languages": ["it", "en"] }
+      ],
+      "profile": {
+        "name": "Elena",
+        "profession": "Designer",
+        "personality": ["concentrata"],
+        "goals": ["Finire il prototipo"],
+        "location": { "current": { "latitude": 0.000098, "longitude": 0.000095, "label": "open-space" } }
+      }
+    },
+    {
+      "id": "intern",
+      "role": "person",
+      "name": "Sofia (Intern)",
+      "iterationsPerTick": 1,
+      "systemPrompt": "Sei una stagista. Stai ascoltando in open space cosa succede. Parli poco.",
+      "profile": {
+        "name": "Sofia",
+        "profession": "Stagista",
+        "personality": ["timida", "curiosa"],
+        "goals": ["Imparare"],
+        "location": { "current": { "latitude": 0.0001, "longitude": 0.000098, "label": "open-space" } }
+      },
+      "attention": { "distractibility": 0.8 }
+    }
+  ]
+}

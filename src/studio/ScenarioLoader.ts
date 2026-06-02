@@ -6,11 +6,14 @@ import { reportGeneratorPlugin } from "../plugins/built-in/ReportGeneratorPlugin
 import { RealWorldToolsPlugin, type RealWorldDataSources } from "../plugins/built-in/RealWorldToolsPlugin.js";
 import { RelationshipPlugin } from "../plugins/built-in/RelationshipPlugin.js";
 import { MovementPlugin } from "../plugins/built-in/MovementPlugin.js";
-import { LocationIndex } from "../location/LocationIndex.js";
+import { NeedsSatisfierPlugin } from "../plugins/built-in/NeedsSatisfierPlugin.js";
 import type { RelationshipTypeDefinition } from "../types/GraphTypes.js";
 import type { LocationConfig } from "../types/LocationTypes.js";
-import type { LLMConfig } from "../types/WorldTypes.js";
+import type { LLMConfig, InteractionConfig } from "../types/WorldTypes.js";
 import type { SimulationReport } from "../types/ReportTypes.js";
+import type { SenseConfig, AttentionConfig } from "../types/PerceptionTypes.js";
+import type { NeedsState } from "../types/NeedsTypes.js";
+import type { Entity } from "../types/EntityTypes.js";
 
 export interface ScenarioConfig {
   name: string;
@@ -33,6 +36,10 @@ export interface ScenarioConfig {
     to: string;
     type: string;
   }>;
+  /** Realistic-Simulation primitives toggle (Phase 1+). */
+  interaction?: InteractionConfig;
+  /** Non-agent entities (objects, animals, signals) seeded at bootstrap. */
+  entities?: Entity[];
 }
 
 export interface ScenarioAgentConfig {
@@ -57,6 +64,12 @@ export interface ScenarioAgentConfig {
     type: string;
     description?: string;
   }>;
+  /** Realistic-Simulation: per-channel sensory configuration. */
+  senses?: SenseConfig[];
+  /** Realistic-Simulation: attention/salience tuning. */
+  attention?: AttentionConfig;
+  /** Realistic-Simulation: initial drives/needs. */
+  needs?: NeedsState;
 }
 
 export interface ScenarioResult {
@@ -84,7 +97,14 @@ export function loadScenario(
     rulesPath: scenario.rules,
     memoryStore,
     graphStore,
+    ...(scenario.interaction ? { interaction: scenario.interaction } : {}),
   });
+
+  if (scenario.entities && scenario.entities.length > 0) {
+    for (const entity of scenario.entities) {
+      engine.addEntity(entity);
+    }
+  }
 
   engine.use(ConsoleLoggerPlugin);
 
@@ -103,7 +123,7 @@ export function loadScenario(
   // Register movement plugin if any agent has location
   const hasLocations = scenario.agents.some((a) => a.profile?.location);
   if (hasLocations) {
-    const locationIndex = new LocationIndex();
+    const locationIndex = engine.getLocationIndex();
     const movementPlugin = new MovementPlugin(locationIndex);
 
     for (const agent of scenario.agents) {
@@ -117,6 +137,10 @@ export function loadScenario(
     }
 
     engine.use(movementPlugin);
+  }
+
+  if (scenario.interaction?.mode === "perception") {
+    engine.use(new NeedsSatisfierPlugin());
   }
 
   const report = reportGeneratorPlugin({ engine });

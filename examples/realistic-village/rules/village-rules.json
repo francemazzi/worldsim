@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "name": "Regole del Borgo Realistico",
+  "rules": [
+    {
+      "id": "rispetto",
+      "priority": 1,
+      "scope": "all",
+      "instruction": "Tutti gli abitanti del borgo si parlano con rispetto. Niente insulti, niente toni aggressivi.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "lingua-italiana",
+      "priority": 2,
+      "scope": "person",
+      "instruction": "Si parla in italiano. Espressioni dialettali sono benvenute ma il discorso principale resta italiano.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "no-shouting",
+      "priority": 3,
+      "scope": "person",
+      "instruction": "Non si urla in piazza. Le frasi rimangono di lunghezza naturale, non si forzano interventi quando non c'è qualcuno che possa sentirle.",
+      "enforcement": "soft"
+    },
+    {
+      "id": "silenzio-attivo",
+      "priority": 4,
+      "scope": "person",
+      "instruction": "Quando un agente non percepisce nulla di rilevante e non ha bisogni attivi, può restare in silenzio scegliendo l'azione 'perceive' senza inventare interventi forzati.",
+      "enforcement": "soft"
+    }
+  ]
+}

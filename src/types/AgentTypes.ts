@@ -3,6 +3,8 @@ import type { ActivitySchedule, TokenBudget } from "./ScheduleTypes.js";
 import type { LocationConfig } from "./LocationTypes.js";
 import type { LLMConfig } from "./WorldTypes.js";
 import type { ThinkingDelayConfig, TimelineMetadata } from "./TimelineTypes.js";
+import type { SenseConfig, AttentionConfig } from "./PerceptionTypes.js";
+import type { NeedsState } from "./NeedsTypes.js";
 
 export type AgentRole = "control" | "person";
 
@@ -92,6 +94,22 @@ export interface AgentConfig {
   llmTier?: "full" | "light" | undefined;
   /** External MCP servers this agent can connect to */
   mcp?: McpServerConfig[] | undefined;
+  /**
+   * Per-channel sensory configuration. Used by the PerceptionEngine when
+   * `WorldConfig.interaction.mode === "perception"`. When omitted the world
+   * applies `interaction.defaultSenses`. Pass an empty array to declare an
+   * agent that perceives nothing (rare — useful for purely outbound bots).
+   */
+  senses?: SenseConfig[] | undefined;
+  /**
+   * Attention/salience tuning. Only consulted in `perception` mode.
+   */
+  attention?: AttentionConfig | undefined;
+  /**
+   * Initial drives/needs (hunger, fatigue, fear, …). The NeedsTracker
+   * (Phase 4) decays/regenerates these per tick when configured.
+   */
+  needs?: NeedsState | undefined;
 }
 
 export interface AgentState {
@@ -117,7 +135,18 @@ export interface AgentMessage {
 
 export interface AgentAction {
   agentId: string;
-  actionType: "speak" | "observe" | "interact" | "tool_call" | "finish";
+  actionType:
+    | "speak"
+    | "observe"
+    | "interact"
+    | "tool_call"
+    | "finish"
+    /**
+     * Passive acknowledgement that an agent perceived something during a
+     * tick without producing a louder reaction. Emitted by the perception
+     * layer (Phase 1+) when an agent's only output is "I noticed X".
+     */
+    | "perceive";
   payload: unknown;
   tick: number;
   metadata?: TimelineMetadata | undefined;

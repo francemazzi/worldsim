@@ -37,6 +37,8 @@ export interface ActionDistribution {
   interact: number;
   tool_call: number;
   finish: number;
+  /** Passive acknowledgements emitted by the perception layer. */
+  perceive: number;
 }
 
 export interface AgentObservabilityMetrics {
@@ -117,6 +119,58 @@ export interface SimulationMetrics {
   estimatedCost: { amount: number; currency: string };
   averageMoodByTick: { tick: number; avgMood: string }[];
   averageEnergyByTick: { tick: number; avgEnergy: number }[];
+  /**
+   * Realistic Simulation metrics. Present only when the perception layer
+   * was active (`WorldConfig.interaction.mode === "perception"`).
+   */
+  perception?: PerceptionMetrics | undefined;
+}
+
+/** A single topic snapshot included in the perception metrics. */
+export interface PerceptionTopicSummary {
+  id: string;
+  label?: string | undefined;
+  stimuliCount: number;
+  participants: string[];
+}
+
+/** Aggregate metrics for the perception/attention/topic layer. */
+export interface PerceptionMetrics {
+  /**
+   * Stimuli visible to the report generator. When
+   * `stimulusMetricsLimitedByRetention` is true this is the retained-window
+   * count, not a full-run total.
+   */
+  totalStimuli: number;
+  /** Stimuli classified by kind. */
+  stimuliByKind: Record<string, number>;
+  /** Stimuli classified by channel. */
+  stimuliByChannel: Record<string, number>;
+  /** Number of stimulus ticks retained by the StimulusBus. */
+  retainedStimulusTicks: number;
+  /** True when stimulus counts may omit older ticks evicted by retention. */
+  stimulusMetricsLimitedByRetention: boolean;
+  /** Number of distinct topics opened over the run. */
+  totalTopics: number;
+  /** Average number of stimuli per topic. */
+  avgStimuliPerTopic: number;
+  /**
+   * Fraction of speech stimuli that were causally linked to a parent
+   * (in-thread responses). 1.0 = perfect causal coherence.
+   */
+  causalCoherence: number;
+  /**
+   * Fraction of speech stimuli that received at least one in-thread reply
+   * within the topic window. 1.0 = nobody is talking to a wall.
+   */
+  replyRate: number;
+  /** Average number of participants per topic. */
+  avgParticipantsPerTopic: number;
+  /**
+   * Optional list of topics opened during the run, ordered by activity.
+   * Populated by the report generator when the topic tracker is reachable.
+   */
+  topics?: PerceptionTopicSummary[] | undefined;
 }
 
 /* ------------------------------------------------------------------ */
@@ -315,11 +369,49 @@ export interface NarrativeQuote {
   tag: string;
 }
 
+/** Dominant topic descriptor derived from the perception layer. */
+export interface NarrativeTopicSummary {
+  id: string;
+  label?: string | undefined;
+  stimuliCount: number;
+  participants: string[];
+}
+
+/** A single moment when an agent's need crossed its critical threshold. */
+export interface CriticalNeedMoment {
+  agentId: string;
+  needId: string;
+  tick: number;
+}
+
+/**
+ * Qualitative-but-deterministic insights derived from the perception
+ * layer. Always computable without an LLM call; produced even when no
+ * API key is configured so the dashboard can render them.
+ */
+export interface PerceptionInsights {
+  /** Topics with the largest stimulus volume, sorted descending. */
+  dominantTopics: NarrativeTopicSummary[];
+  /**
+   * Ratio of passive `perceive` actions over the sum of `perceive +
+   * speak`. Higher values indicate "quiet, attentive" runs; values close
+   * to zero indicate dense chatter.
+   */
+  silenceRatio: number;
+  /** Ticks/agents where a need crossed its critical threshold. */
+  criticalNeedMoments: CriticalNeedMoment[];
+}
+
 /** Qualitative narrative section produced by an LLM (opt-in). */
 export interface NarrativeReport {
   arc: NarrativeArc[];
   perAgentArc: AgentArc[];
   quotes: NarrativeQuote[];
+  /**
+   * Perception-aware insights. Populated whenever the source
+   * `SimulationReport` carries perception metrics, even without an LLM.
+   */
+  perceptionInsights?: PerceptionInsights | undefined;
   generatedAt: string;
 }
 

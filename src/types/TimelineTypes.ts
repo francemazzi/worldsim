@@ -26,6 +26,14 @@ export interface TimelineMetadata extends Partial<TimelineStamp> {
   threadId?: string | undefined;
   /** Stable audience key used to derive threads outside explicit conversations. */
   audienceKey?: string | undefined;
+  /** Perception topic id this action/message belongs to. */
+  topicId?: string | undefined;
+  /** Stimulus id this action/message is responding to. */
+  inResponseTo?: string | undefined;
+  /** Stimulus id mirrored by a message in perception mode. */
+  stimulusId?: string | undefined;
+  /** Optional normalized source intensity for emitted speech stimuli. */
+  intensity?: number | undefined;
 }
 
 export type ThinkingDelayConfig =

@@ -7,6 +7,8 @@ import { TrackingLLMAdapter } from "../../llm/TrackingLLMAdapter.js";
 import { RulesLoader, buildRulesContext } from "../../rules/RulesLoader.js";
 import { isConfigurablePlugin } from "../../plugins/capabilities/ConfigurablePlugin.js";
 import type { WorldEngineRuntime } from "./WorldEngineRuntime.js";
+import type { AgentConfig } from "../../types/AgentTypes.js";
+import type { SenseConfig } from "../../types/PerceptionTypes.js";
 
 export class WorldBootstrapper {
   constructor(private runtime: WorldEngineRuntime) {}
@@ -18,6 +20,7 @@ export class WorldBootstrapper {
       : buildRulesContext([]);
 
     await this.configurePlugins();
+    this.validatePerceptionRequirements();
 
     await this.runtime.pluginRegistry.runHook(
       "onBootstrap",
@@ -53,6 +56,8 @@ export class WorldBootstrapper {
         this.runtime.tokenBudgetTracker,
       );
 
+      const interaction = this.runtime.config.interaction;
+      const perceptionEnabled = this.runtime.perceptionEnabled;
       const storeOptions: AgentStoreOptions = {
         memoryStore: this.runtime.config.memoryStore,
         graphStore: this.runtime.config.graphStore,
@@ -68,6 +73,19 @@ export class WorldBootstrapper {
         locationIndex: this.runtime.locationIndex,
         defaultBroadcastRadius: this.runtime.config.defaultBroadcastRadius,
         timeline: this.runtime.timeline,
+        ...(perceptionEnabled
+          ? {
+              stimulusBus: this.runtime.stimulusBus,
+              perceptionEngine: this.runtime.perceptionEngine,
+              pluginRegistry: this.runtime.pluginRegistry,
+              getWorldContext: () => this.runtime.context,
+              perceptionFallbackToLegacy:
+                interaction?.disableBroadcastFallback === false,
+              topicTracker: this.runtime.topicTracker,
+              needsTracker: this.runtime.needsTracker,
+              affordanceResolver: this.runtime.affordanceResolver,
+            }
+          : {}),
       };
 
       if (agentConfig.role === "control") {
@@ -121,6 +139,27 @@ export class WorldBootstrapper {
             this.runtime.locationIndex.update(agent.id, loc);
           }
         }
+
+        // Register agent as a perceiver when the perception layer is on.
+        if (perceptionEnabled) {
+          this.runtime.perceptionEngine.registerAgent(
+            agent.id,
+            agentConfig.senses,
+          );
+
+          // Auto-initialize the agent's needs from its config or, if absent,
+          // from the world-level default template. Agents without either
+          // stay needs-less (length 0) which keeps `buildNeedsPrompt`
+          // silent and `criticalNeeds` empty.
+          if (agentConfig.needs && agentConfig.needs.needs.length > 0) {
+            this.runtime.needsTracker.init(agent.id, agentConfig.needs);
+          } else if (interaction?.defaultNeedsTemplate) {
+            this.runtime.needsTracker.initFromTemplate(
+              agent.id,
+              interaction.defaultNeedsTemplate,
+            );
+          }
+        }
       }
     }
 
@@ -155,9 +194,65 @@ export class WorldBootstrapper {
     for (const plugin of configurables) {
       await plugin.onRuntimeReady({
         agentRegistry: this.runtime.agentRegistry,
+        locationIndex: this.runtime.locationIndex,
         assetStore: this.runtime.config.assetStore,
         config: this.runtime.config,
+        needsTracker: this.runtime.needsTracker,
+        topicTracker: this.runtime.topicTracker,
+        stimulusBus: this.runtime.stimulusBus,
       });
     }
   }
+
+  private validatePerceptionRequirements(): void {
+    const interaction = this.runtime.config.interaction;
+    if (!interaction?.requirePerception || !this.runtime.perceptionEnabled) {
+      return;
+    }
+
+    const invalidAgents: string[] = [];
+    for (const agent of this.runtime.pendingAgentConfigs) {
+      if (agent.role !== "person") continue;
+      const senses = effectiveSenses(agent, interaction.defaultSenses);
+      if (!hasUsefulPerceptionSense(senses)) {
+        invalidAgents.push(`${agent.id}: no usable senses`);
+        continue;
+      }
+      if (requiresPosition(senses) && !hasProfileLocation(agent)) {
+        invalidAgents.push(`${agent.id}: missing profile.location`);
+      }
+    }
+
+    if (invalidAgents.length > 0) {
+      throw new Error(
+        "WorldConfig.interaction.requirePerception is true but perception is not fully configured: " +
+          invalidAgents.join("; "),
+      );
+    }
+  }
+}
+
+function effectiveSenses(
+  agent: AgentConfig,
+  defaultSenses: SenseConfig[] | undefined,
+): SenseConfig[] {
+  return agent.senses != null ? agent.senses : (defaultSenses ?? []);
+}
+
+function hasUsefulPerceptionSense(senses: SenseConfig[]): boolean {
+  return senses.some((sense) => sense.channel !== "language");
+}
+
+function requiresPosition(senses: SenseConfig[]): boolean {
+  return senses.some((sense) =>
+    sense.channel === "sound"
+    || sense.channel === "sight"
+    || sense.channel === "smell"
+    || sense.channel === "touch",
+  );
+}
+
+function hasProfileLocation(agent: AgentConfig): boolean {
+  const loc = agent.profile?.location;
+  return loc?.current != null || loc?.home != null;
 }
