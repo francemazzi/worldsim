@@ -1,4 +1,5 @@
 import { OpenAICompatAdapter } from "../llm/OpenAICompatAdapter.js";
+import { resolveLlmEnv } from "../llm/resolveLlmEnv.js";
 import type {
   AgentArc,
   CriticalNeedMoment,
@@ -16,6 +17,7 @@ export interface NarrativeOptions {
   apiKey?: string | undefined;
   model?: string | undefined;
   baseURL?: string | undefined;
+  headers?: Record<string, string> | undefined;
 }
 
 /**
@@ -31,16 +33,12 @@ export async function generateNarrative(
   report: SimulationReport,
   options: NarrativeOptions = {},
 ): Promise<NarrativeReport> {
-  const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY;
-  const model = options.model ?? process.env.LLM_MODEL ?? "gpt-4o-mini";
-  const baseURL =
-    options.baseURL ?? process.env.LLM_BASE_URL ?? "https://api.openai.com/v1";
-
+  const llmConfig = resolveLlmEnv(options);
   const perceptionInsights = computePerceptionInsights(report);
 
-  if (!apiKey) return fallbackNarrative(report, perceptionInsights);
+  if (!llmConfig) return fallbackNarrative(report, perceptionInsights);
 
-  const adapter = new OpenAICompatAdapter({ apiKey, model, baseURL });
+  const adapter = new OpenAICompatAdapter(llmConfig);
 
   const [arc, perAgentArc, quotes] = await Promise.all([
     generateArc(adapter, report, perceptionInsights).catch(() => fallbackArc(report)),

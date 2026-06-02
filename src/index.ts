@@ -50,6 +50,8 @@ export type {
 export { generateNarrative, computePerceptionInsights } from "./analysis/narrative.js";
 export type { NarrativeOptions } from "./analysis/narrative.js";
 export { OpenAICompatAdapter } from "./llm/OpenAICompatAdapter.js";
+export { resolveLlmEnv, hasLlmApiKey } from "./llm/resolveLlmEnv.js";
+export type { ResolveLlmEnvOptions } from "./llm/resolveLlmEnv.js";
 
 // ─── MCP Client Support ────────────────────────────────────────────
 export type { McpServerConfig } from "./types/AgentTypes.js";

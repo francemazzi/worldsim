@@ -3,6 +3,7 @@ import { json, readBody } from "../StudioRouter.js";
 import { loadScenario, type ScenarioConfig } from "../ScenarioLoader.js";
 import type { StudioServer } from "../StudioServer.js";
 import type { LLMConfig } from "../../types/WorldTypes.js";
+import { hasLlmApiKey, resolveLlmEnv } from "../../llm/resolveLlmEnv.js";
 
 export interface ScenarioPreset {
   id: string;
@@ -28,7 +29,7 @@ export function registerScenarioApi(
         agentCount: p.agentCount,
         maxTicks: p.maxTicks,
       })),
-      hasApiKey: !!process.env.OPENAI_API_KEY,
+      hasApiKey: hasLlmApiKey(),
     });
   });
 
@@ -40,17 +41,14 @@ export function registerScenarioApi(
         llm?: Partial<LLMConfig>;
       };
 
-      const apiKey = body.llm?.apiKey ?? process.env.OPENAI_API_KEY;
-      if (!apiKey) {
-        json(res, { started: false, error: "No API key provided. Set OPENAI_API_KEY or pass llm.apiKey." }, 400);
+      const llmConfig = resolveLlmEnv(body.llm);
+      if (!llmConfig) {
+        json(res, {
+          started: false,
+          error: "No API key provided. Set OPENAI_API_KEY or OPENROUTER_API_KEY, or pass llm.apiKey.",
+        }, 400);
         return;
       }
-
-      const llmConfig: LLMConfig = {
-        baseURL: body.llm?.baseURL ?? process.env.LLM_BASE_URL ?? "https://api.openai.com/v1",
-        apiKey,
-        model: body.llm?.model ?? process.env.LLM_MODEL ?? "gpt-4o-mini",
-      };
 
       let scenario: ScenarioConfig;
 

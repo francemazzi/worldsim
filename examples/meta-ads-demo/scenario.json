@@ -1,0 +1,62 @@
+{
+  "name": "Meta Ads — FitPulse Pro",
+  "description": "100 utenti italiani scrollano sui social. Al tick 3 compare un annuncio Meta per FitPulse Pro, app fitness in abbonamento. La simulazione osserva come segmenti diversi reagiscono e se la conversazione si propaga nei gruppi sociali.",
+  "maxTicks": 20,
+  "tickIntervalMs": 0,
+  "agentCount": 100,
+  "neighborhoodGroups": 5,
+  "maxContacts": 8,
+  "trigger": {
+    "atTick": 3,
+    "announcement": "[ANNUNCIO META — FitPulse Pro] Trasforma la tua routine: FitPulse Pro ti guida con allenamenti personalizzati, tracking calorie e coach AI. Prova gratis 7 giorni, poi 9,99€/mese. Cancelli quando vuoi. #pubblicità #fitness"
+  },
+  "product": {
+    "name": "FitPulse Pro",
+    "category": "SaaS fitness",
+    "priceMonthlyEur": 9.99,
+    "trialDays": 7
+  },
+  "segments": [
+    {
+      "id": "early_adopter",
+      "weight": 0.15,
+      "label": "Early adopter",
+      "personalities": ["innovativa", "entusiasta", "curiosa"],
+      "adAttitude": "Ti piace provare nuove app e tecnologie. Valuti rapidamente se un prodotto vale la pena."
+    },
+    {
+      "id": "privacy_skeptic",
+      "weight": 0.2,
+      "label": "Scettico privacy",
+      "personalities": ["scettica", "cauta", "analitica"],
+      "adAttitude": "Diffidi degli annunci e dei dati che raccolgono. Ti chiedi sempre chi guadagna e cosa c'è dietro."
+    },
+    {
+      "id": "budget_conscious",
+      "weight": 0.25,
+      "label": "Budget-conscious",
+      "personalities": ["pragmatica", "calcolatrice", "cauta"],
+      "adAttitude": "Confronti sempre prezzo e valore. Abbonamenti ricorrenti ti mettono in allarme se non vedi un beneficio chiaro."
+    },
+    {
+      "id": "fitness_enthusiast",
+      "weight": 0.2,
+      "label": "Fitness enthusiast",
+      "personalities": ["attiva", "competitiva", "disciplinata"],
+      "adAttitude": "Ti alleni regolarmente e conosci già app come Strava o MyFitnessPal. Confronti feature e qualità del coaching."
+    },
+    {
+      "id": "passive_scroller",
+      "weight": 0.2,
+      "label": "Apatico scroll",
+      "personalities": ["distratta", "indifferente", "stanca"],
+      "adAttitude": "Scrolli il feed per abitudine, raramente clicchi annunci. Spesso li ignori senza nemmeno leggerli."
+    }
+  ],
+  "engine": {
+    "maxConcurrentAgents": 10,
+    "defaultActiveTickRatio": 0.15,
+    "enableResponseCache": true,
+    "responseCacheTtl": 5
+  }
+}

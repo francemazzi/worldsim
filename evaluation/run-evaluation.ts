@@ -27,6 +27,7 @@ import type { Entity } from "../src/types/EntityTypes.js";
 import type { SenseConfig, AttentionConfig } from "../src/types/PerceptionTypes.js";
 import type { NeedsState } from "../src/types/NeedsTypes.js";
 import { reportGeneratorPlugin } from "../src/plugins/built-in/ReportGeneratorPlugin.js";
+import { resolveLlmEnv } from "../src/llm/resolveLlmEnv.js";
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -37,7 +38,6 @@ const __dirname = dirname(__filename);
 
 const SCENARIOS_DIR = resolve(__dirname, "scenarios");
 const RESULTS_DIR = resolve(__dirname, "results");
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 const SCENARIO_NAMES = [
   "water-rationing",
@@ -54,18 +54,6 @@ const PERCEPTION_SCENARIOS = new Set<ScenarioName>([
   "enclosure-animals",
   "office-floor",
 ]);
-
-function resolveApiKey(): string | undefined {
-  return process.env.OPENAI_API_KEY ?? process.env.OPENROUTER_API_KEY;
-}
-
-function resolveBaseURL(): string {
-  if (process.env.LLM_BASE_URL) return process.env.LLM_BASE_URL;
-  if (process.env.OPENROUTER_API_KEY && !process.env.OPENAI_API_KEY) {
-    return OPENROUTER_BASE_URL;
-  }
-  return "https://api.openai.com/v1";
-}
 
 // ---------------------------------------------------------------------------
 // Types (matching ScenarioLoader.ScenarioConfig shape)
@@ -204,15 +192,16 @@ async function runScenario(
   const memoryStore = new InMemoryMemoryStore();
   const graphStore = new InMemoryGraphStore();
 
+  const llmConfig = resolveLlmEnv();
+  if (!llmConfig) {
+    throw new Error("LLM API key is required (OPENAI_API_KEY or OPENROUTER_API_KEY)");
+  }
+
   const engineConfig: WorldConfig = {
     worldId: scenario.name,
     maxTicks: scenario.maxTicks ?? 30,
     tickIntervalMs: scenario.tickIntervalMs ?? 2000,
-    llm: {
-      baseURL: resolveBaseURL(),
-      apiKey: resolveApiKey()!,
-      model: process.env.LLM_MODEL ?? "gpt-4o-mini",
-    },
+    llm: llmConfig,
     ...(Object.keys(rulesPath).length > 0 ? { rulesPath } : {}),
     memoryStore,
     graphStore,
@@ -328,10 +317,10 @@ export { runScenario, loadScenarioFile, type RunOptions, SCENARIO_NAMES, PERCEPT
 
 async function main(): Promise<void> {
   // Check for API key
-  if (!resolveApiKey()) {
+  if (!resolveLlmEnv()) {
     console.error(
-      "Error: OPENAI_API_KEY or OPENROUTER_API_KEY environment variable is required.\n" +
-        "Usage: OPENROUTER_API_KEY=sk-or-... LLM_MODEL=mistralai/mistral-nemo npx tsx evaluation/run-evaluation.ts",
+      "Error: An LLM API key is required.\n" +
+        "Set OPENAI_API_KEY or OPENROUTER_API_KEY, then run: npx tsx evaluation/run-evaluation.ts",
     );
     process.exit(1);
   }

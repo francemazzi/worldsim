@@ -25,6 +25,11 @@ npm run test:docker:up    # start services
 npm run test:docker:down  # tear down services
 ```
 
+## Documentation
+
+All Markdown files (`README`, `docs/`, `examples/*/README.md`, `evaluation/`) must be written in **English**.
+Scenario runtime content (agent prompts, announcements in JSON) may use any language.
+
 ## Code Style
 
 - TypeScript strict mode is enabled; do not weaken it.

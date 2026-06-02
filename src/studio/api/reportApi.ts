@@ -3,6 +3,7 @@ import { json, readBody } from "../StudioRouter.js";
 import type { SimulationReport, TopicInsight } from "../../types/ReportTypes.js";
 import type { MultiWorldRegistry } from "../MultiWorldRegistry.js";
 import { OpenAICompatAdapter } from "../../llm/OpenAICompatAdapter.js";
+import { resolveLlmEnv } from "../../llm/resolveLlmEnv.js";
 import { generateNarrative } from "../../analysis/narrative.js";
 import {
   exportDataset,
@@ -225,16 +226,11 @@ async function analyzeTopics(report: SimulationReport): Promise<TopicInsight[]> 
 
   if (snippets.length === 0) return [];
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.LLM_MODEL ?? "gpt-4o-mini";
-  if (!apiKey) return fallbackTopics(snippets);
+  const llmConfig = resolveLlmEnv();
+  if (!llmConfig) return fallbackTopics(snippets);
 
   try {
-    const adapter = new OpenAICompatAdapter({
-      apiKey,
-      model,
-      baseURL: process.env.LLM_BASE_URL ?? "https://api.openai.com/v1",
-    });
+    const adapter = new OpenAICompatAdapter(llmConfig);
 
     const system = "Extract exactly 5 simulation topics as JSON array with fields topic,evidence,trend,confidence.";
     const user = `Timeline snippets:\n${snippets.map((s, i) => `${i + 1}. ${s}`).join("\n")}\nReturn JSON only.`;
