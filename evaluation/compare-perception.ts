@@ -21,6 +21,7 @@ import {
   SCENARIO_NAMES,
   PERCEPTION_SCENARIOS,
 } from "./run-evaluation.js";
+import { hasLlmApiKey } from "../src/llm/resolveLlmEnv.js";
 import type { SimulationReport } from "../src/types/ReportTypes.js";
 import { computePerceptionInsights } from "../src/analysis/narrative.js";
 
@@ -37,10 +38,6 @@ function readReport(filename: string): SimulationReport | null {
   } catch {
     return null;
   }
-}
-
-function hasApiKey(): boolean {
-  return Boolean(process.env.OPENAI_API_KEY ?? process.env.OPENROUTER_API_KEY);
 }
 
 interface Row {
@@ -130,7 +127,7 @@ function printTable(rows: Row[]): void {
 }
 
 async function main(): Promise<void> {
-  if (!hasApiKey()) {
+  if (!hasLlmApiKey()) {
     console.error(
       "Error: OPENAI_API_KEY or OPENROUTER_API_KEY environment variable is required.\n" +
         "Usage: OPENROUTER_API_KEY=sk-or-... LLM_MODEL=mistralai/mistral-nemo npx tsx evaluation/compare-perception.ts <scenario>",

@@ -48,6 +48,27 @@ const world = new WorldEngine({ worldId: "demo", llm, /* ... */ });
 
 Supported env vars: `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `OPENROUTER_HTTP_REFERER`, `OPENROUTER_APP_NAME`.
 
+If both `OPENROUTER_API_KEY` and `OPENAI_API_KEY` are set, `resolveLlmEnv()` uses OpenRouter. Pass an explicit `llm` config to `WorldEngine` when you want to force another provider.
+
+### Upgrading from older versions
+
+Legacy simulations remain the default: omitting `interaction` or setting `interaction.mode: "legacy"` keeps the original message routing behavior. The perception layer is opt-in with `interaction.mode: "perception"`.
+
+Supported public imports are:
+
+```typescript
+import { WorldEngine } from "worldsim";
+import { format as formatFederatedAgentId } from "worldsim/federation";
+```
+
+CommonJS remains supported:
+
+```javascript
+const { WorldEngine } = require("worldsim");
+```
+
+Deep imports such as `worldsim/dist/...` or `worldsim/src/...` are not part of the public API and may change between releases.
+
 ## What You Can Simulate
 
 **Community Policy Impact** — 8 villagers face a new water rationing policy. The farmer resists, the mayor defends, the priest mediates, the technologist proposes solutions. Who forms coalitions? Who complies?

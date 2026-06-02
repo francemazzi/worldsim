@@ -95,6 +95,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Demo `npm run demo:federation` (`examples/federation-two-cities/`) showing
   end-to-end async messaging between two worlds with no LLM/Redis required.
 
+### Compatibility notes
+- Legacy mode remains the default. Existing worlds that omit
+  `WorldConfig.interaction` keep the legacy MessageRouter cascade.
+- The perception layer is opt-in via `interaction.mode: "perception"`.
+  When `requirePerception: true`, bootstrap now fails fast if person
+  agents do not have usable senses or required locations.
+- Public package imports are `worldsim` and `worldsim/federation`.
+  Deep imports from `worldsim/dist/...` or `worldsim/src/...` are not
+  supported as a compatibility contract.
+- `resolveLlmEnv()` supports `OPENROUTER_API_KEY`; when both
+  `OPENROUTER_API_KEY` and `OPENAI_API_KEY` are present, OpenRouter is
+  selected unless an explicit LLM config is passed.
+
 ## [1.0.6] - 2026-04-03
 
 ### Added
