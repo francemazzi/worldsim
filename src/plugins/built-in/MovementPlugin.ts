@@ -305,6 +305,7 @@ export class MovementPlugin
   private locationIndex: LocationIndex;
   private history: Map<string, MovementRecord[]> = new Map();
   private maxHistory: number;
+  private defaultRadius: number;
   private homeLocations: Map<string, GeoLocation> = new Map();
   private pendingExternalUpdates: PendingExternalUpdate[] = [];
   private runtime: PolicyRuntime;
@@ -312,7 +313,7 @@ export class MovementPlugin
   constructor(locationIndex: LocationIndex, options?: MovementPluginOptions) {
     this.locationIndex = locationIndex;
     this.maxHistory = options?.maxHistoryPerAgent ?? 50;
-    const defaultRadius = options?.defaultNearbyRadiusKm ?? 5;
+    this.defaultRadius = options?.defaultNearbyRadiusKm ?? 5;
 
     this.runtime = {
       policy: options?.policy ?? defaultMovementPolicy({
@@ -324,13 +325,7 @@ export class MovementPlugin
       agentRegistry: options?.agentRegistry,
     };
 
-    this._tools = buildTools(
-      this.locationIndex,
-      this.homeLocations,
-      this.recordMovement.bind(this),
-      defaultRadius,
-      this.runtime,
-    );
+    this._tools = this.buildToolsForCurrentIndex();
   }
 
   /** Replace the active movement policy at runtime. */
@@ -348,6 +343,12 @@ export class MovementPlugin
     this.runtime.agentRegistry = registry;
   }
 
+  /** Replace the active spatial index and rebuild movement tools around it. */
+  setLocationIndex(locationIndex: LocationIndex): void {
+    this.locationIndex = locationIndex;
+    this._tools = this.buildToolsForCurrentIndex();
+  }
+
   /**
    * ConfigurablePlugin hook: called by the engine after agents are created
    * but before the first tick. Wires this plugin with the live asset store,
@@ -356,6 +357,9 @@ export class MovementPlugin
    * that used to live in WorldBootstrapper with an `instanceof` check.
    */
   onRuntimeReady(ctx: PluginRuntimeContext): void {
+    if (ctx.locationIndex) {
+      this.setLocationIndex(ctx.locationIndex);
+    }
     if (ctx.assetStore) {
       this.setAssetStore(ctx.assetStore);
     }
@@ -423,6 +427,16 @@ export class MovementPlugin
   }
 
   // ── Internal ───────────────────────────────────────────────────────
+
+  private buildToolsForCurrentIndex(): AgentTool[] {
+    return buildTools(
+      this.locationIndex,
+      this.homeLocations,
+      this.recordMovement.bind(this),
+      this.defaultRadius,
+      this.runtime,
+    );
+  }
 
   private recordMovement(
     agentId: string,

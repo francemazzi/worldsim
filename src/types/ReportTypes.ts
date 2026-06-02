@@ -136,12 +136,20 @@ export interface PerceptionTopicSummary {
 
 /** Aggregate metrics for the perception/attention/topic layer. */
 export interface PerceptionMetrics {
-  /** Total stimuli emitted (speech, sound, sight, smell, signal, event). */
+  /**
+   * Stimuli visible to the report generator. When
+   * `stimulusMetricsLimitedByRetention` is true this is the retained-window
+   * count, not a full-run total.
+   */
   totalStimuli: number;
   /** Stimuli classified by kind. */
   stimuliByKind: Record<string, number>;
   /** Stimuli classified by channel. */
   stimuliByChannel: Record<string, number>;
+  /** Number of stimulus ticks retained by the StimulusBus. */
+  retainedStimulusTicks: number;
+  /** True when stimulus counts may omit older ticks evicted by retention. */
+  stimulusMetricsLimitedByRetention: boolean;
   /** Number of distinct topics opened over the run. */
   totalTopics: number;
   /** Average number of stimuli per topic. */

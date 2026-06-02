@@ -27,6 +27,7 @@ import { PerceptionEngine } from "../perception/PerceptionEngine.js";
 import { TopicTracker } from "../perception/TopicTracker.js";
 import { NeedsTracker } from "../needs/NeedsTracker.js";
 import { InMemoryEntityRegistry } from "../entities/InMemoryEntityRegistry.js";
+import { AffordanceResolver } from "../entities/AffordanceResolver.js";
 import { privacyCompliancePlugin } from "../plugins/built-in/PrivacyCompliancePlugin.js";
 import { FederationPlugin } from "../plugins/built-in/FederationPlugin.js";
 import { isPositionProvider } from "../plugins/capabilities/PositionProvider.js";
@@ -57,7 +58,7 @@ export class WorldEngine {
     const locationIndex = new LocationIndex();
     const interaction = config.interaction;
     const perceptionEnabled = interaction?.mode === "perception";
-    const stimulusBus = new StimulusBus(interaction?.stimulusRetentionTicks ?? 1);
+    const stimulusBus = new StimulusBus(interaction?.stimulusRetentionTicks ?? 2);
     const entityRegistry = new InMemoryEntityRegistry();
     const perceptionEngine = new PerceptionEngine({
       locationIndex,
@@ -68,6 +69,7 @@ export class WorldEngine {
       windowTicks: interaction?.topicWindowTicks ?? 5,
     });
     const needsTracker = new NeedsTracker();
+    const affordanceResolver = new AffordanceResolver({ entityRegistry });
     if (interaction?.requirePerception && !perceptionEnabled) {
       throw new Error(
         "WorldConfig.interaction.requirePerception is true but interaction.mode is not 'perception'.",
@@ -107,6 +109,7 @@ export class WorldEngine {
       topicTracker,
       needsTracker,
       entityRegistry,
+      affordanceResolver,
       perceptionEnabled,
     };
 

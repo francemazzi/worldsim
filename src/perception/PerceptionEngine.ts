@@ -34,6 +34,15 @@ interface RegisteredPerceiver {
   senses: SenseConfig[];
 }
 
+export type PerceptionDropReason =
+  | "no_perceivers"
+  | "no_matching_sense"
+  | "no_location"
+  | "no_source_location"
+  | "out_of_range"
+  | "below_floor"
+  | "filtered";
+
 /**
  * Stateless-ish engine that turns the per-tick stimulus stream into a
  * per-perceiver percept stream. Holds a small registry of perceivers (id +
@@ -81,6 +90,10 @@ export class PerceptionEngine {
     return this.perceivers.has(id);
   }
 
+  getPerceiverIds(): string[] {
+    return [...this.perceivers.keys()];
+  }
+
   /**
    * Adds a global filter that runs on every percept *after* attenuation but
    * *before* the result is returned to the caller. Returning `false` drops
@@ -119,6 +132,67 @@ export class PerceptionEngine {
       if (percepts.length > 0) result.set(perceiver.id, percepts);
     }
     return result;
+  }
+
+  /**
+   * Explains why a stimulus did not reach any perceiver. This is used only
+   * for strict-mode diagnostics; normal delivery still goes through
+   * `perceiveFor` / `perceiveAll`.
+   */
+  explainUndelivered(
+    stim: Stimulus,
+    excludePerceiverId?: string | undefined,
+  ): PerceptionDropReason {
+    const perceivers = [...this.perceivers.values()]
+      .filter((p) => p.id !== excludePerceiverId && p.id !== stim.source.id);
+    if (perceivers.length === 0) return "no_perceivers";
+
+    let sawMatchingSense = false;
+    let sawLocationIssue = false;
+    let sawSourceLocationIssue = false;
+    let sawOutOfRange = false;
+    let sawBelowFloor = false;
+
+    for (const perceiver of perceivers) {
+      const senseByChannel = indexSensesByChannel(perceiver.senses);
+      const sense = senseByChannel.get(stim.channel);
+      if (!sense) continue;
+      sawMatchingSense = true;
+
+      const distanceInfo = this.computeDistanceInfo(stim, perceiver.id);
+      if (distanceInfo.reason === "no_location") {
+        sawLocationIssue = true;
+        continue;
+      }
+      if (distanceInfo.reason === "no_source_location") {
+        sawSourceLocationIssue = true;
+        continue;
+      }
+      if (distanceInfo.distance == null) continue;
+
+      const range = effectiveRange(stim, sense);
+      const physicsBypass = isPhysicsBypassChannel(stim.channel);
+      if (!physicsBypass && distanceInfo.distance > range) {
+        sawOutOfRange = true;
+        continue;
+      }
+
+      const sensitivity = sense.sensitivity ?? 1;
+      const attenuation = physicsBypass
+        ? 1
+        : Math.max(0, 1 - distanceInfo.distance / Math.max(range, Number.EPSILON));
+      const perceivedIntensity = clamp01(stim.intensity * sensitivity * attenuation);
+      if (perceivedIntensity < (sense.perceptionFloor ?? 0)) {
+        sawBelowFloor = true;
+      }
+    }
+
+    if (!sawMatchingSense) return "no_matching_sense";
+    if (sawLocationIssue) return "no_location";
+    if (sawSourceLocationIssue) return "no_source_location";
+    if (sawOutOfRange) return "out_of_range";
+    if (sawBelowFloor) return "below_floor";
+    return "filtered";
   }
 
   // ── Internals ────────────────────────────────────────────────────
@@ -182,17 +256,25 @@ export class PerceptionEngine {
   }
 
   private computeDistance(stim: Stimulus, perceiverId: string): number | null {
-    if (isPhysicsBypassChannel(stim.channel)) return 0;
+    const info = this.computeDistanceInfo(stim, perceiverId);
+    return info.distance;
+  }
+
+  private computeDistanceInfo(
+    stim: Stimulus,
+    perceiverId: string,
+  ): { distance: number | null; reason?: "no_location" | "no_source_location" | undefined } {
+    if (isPhysicsBypassChannel(stim.channel)) return { distance: 0 };
     const idx = this.deps.locationIndex;
     // No spatial index → world has no geography. Treat all perceivers as
     // co-located (distance 0) so perception still works in pure-relational
     // simulations.
-    if (!idx) return 0;
+    if (!idx) return { distance: 0 };
     const perceiverLoc = idx.getLocation(perceiverId);
-    if (!perceiverLoc) return Infinity;
+    if (!perceiverLoc) return { distance: Infinity, reason: "no_location" };
     const sourceLoc = this.resolveSourcePosition(stim);
-    if (!sourceLoc) return Infinity;
-    return haversineKm(sourceLoc, perceiverLoc);
+    if (!sourceLoc) return { distance: Infinity, reason: "no_source_location" };
+    return { distance: haversineKm(sourceLoc, perceiverLoc) };
   }
 
   private resolveSourcePosition(stim: Stimulus): GeoLocation | undefined {

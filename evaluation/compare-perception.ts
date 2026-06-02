@@ -8,6 +8,7 @@
  *
  * Usage:
  *   OPENAI_API_KEY=sk-... npx tsx evaluation/compare-perception.ts village-realistic
+ *   OPENROUTER_API_KEY=sk-or-... LLM_MODEL=mistralai/mistral-nemo npx tsx evaluation/compare-perception.ts village-realistic
  *
  * Note: each invocation hits the LLM twice — costs roughly 2× a single
  * scenario run.
@@ -36,6 +37,10 @@ function readReport(filename: string): SimulationReport | null {
   } catch {
     return null;
   }
+}
+
+function hasApiKey(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY ?? process.env.OPENROUTER_API_KEY);
 }
 
 interface Row {
@@ -125,10 +130,10 @@ function printTable(rows: Row[]): void {
 }
 
 async function main(): Promise<void> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!hasApiKey()) {
     console.error(
-      "Error: OPENAI_API_KEY environment variable is required.\n" +
-        "Usage: OPENAI_API_KEY=sk-... npx tsx evaluation/compare-perception.ts <scenario>",
+      "Error: OPENAI_API_KEY or OPENROUTER_API_KEY environment variable is required.\n" +
+        "Usage: OPENROUTER_API_KEY=sk-or-... LLM_MODEL=mistralai/mistral-nemo npx tsx evaluation/compare-perception.ts <scenario>",
     );
     process.exit(1);
   }
@@ -197,8 +202,8 @@ async function main(): Promise<void> {
   console.log(`${"=".repeat(70)}`);
   printTable(buildDeltaTable(legacyReport, perceptionReport));
   console.log(
-    "  Reading the diff: in perception mode you should see fewer total speaks\n" +
-      "  but a higher causalCoherence — agents stay quieter and on topic.",
+    "  Reading the diff: focus on causalCoherence, replyRate and the token/speech deltas.\n" +
+      "  Perception localizes who can react; total speaks may rise or fall by model and scenario.",
   );
 }
 

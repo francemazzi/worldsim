@@ -31,6 +31,10 @@ export class StimulusBus {
     return this._currentTick;
   }
 
+  get retentionWindowTicks(): number {
+    return this.retentionTicks;
+  }
+
   /**
    * Advances the internal clock and evicts stimuli older than the retention
    * window. Called once at the beginning of each tick by the runtime.
@@ -86,6 +90,11 @@ export class StimulusBus {
     let total = 0;
     for (const arr of this.perTick.values()) total += arr.length;
     return total;
+  }
+
+  /** Tick numbers currently retained by the bus, sorted ascending. */
+  getRetainedTicks(): number[] {
+    return [...this.perTick.keys()].sort((a, b) => a - b);
   }
 
   clear(): void {

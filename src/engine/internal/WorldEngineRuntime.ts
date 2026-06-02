@@ -20,6 +20,7 @@ import { PerceptionEngine } from "../../perception/PerceptionEngine.js";
 import { TopicTracker } from "../../perception/TopicTracker.js";
 import { NeedsTracker } from "../../needs/NeedsTracker.js";
 import { InMemoryEntityRegistry } from "../../entities/InMemoryEntityRegistry.js";
+import { AffordanceResolver } from "../../entities/AffordanceResolver.js";
 import type {
   WorldConfig,
   WorldContext,
@@ -66,5 +67,6 @@ export interface WorldEngineRuntime {
   topicTracker: TopicTracker;
   needsTracker: NeedsTracker;
   entityRegistry: InMemoryEntityRegistry;
+  affordanceResolver: AffordanceResolver;
   perceptionEnabled: boolean;
 }

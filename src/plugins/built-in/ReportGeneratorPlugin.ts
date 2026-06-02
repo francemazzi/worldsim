@@ -553,25 +553,24 @@ function buildAgentNodes(
 }
 
 /**
- * Computes aggregate perception/topic metrics by introspecting the
- * `TopicTracker` after the run. Only emits when the perception layer was
- * actually used (i.e. some topics were tracked).
+ * Computes aggregate perception/topic metrics. In perception mode this emits
+ * even when no topic was opened, so entity-only/ambient simulations still
+ * expose stimulus diagnostics.
  */
 function computePerceptionMetrics(
   engine: WorldEngine,
 ): import("../../types/ReportTypes.js").PerceptionMetrics | undefined {
   const tracker = engine.getTopicTracker();
-  if (tracker.size === 0) return undefined;
-
+  const perceptionMode = engine.getConfig().interaction?.mode === "perception";
   const stimulusBus = engine.getStimulusBus();
   const stimuliByKind: Record<string, number> = {};
   const stimuliByChannel: Record<string, number> = {};
   let totalStimuli = 0;
+  const retainedTicks = stimulusBus.getRetainedTicks();
 
-  // Walk every retained tick (typically the last one only). This is a
-  // best-effort sample — long runs rotate older ticks out, but we still
-  // capture the totals through topic membership below.
-  for (let t = 0; t <= engine.getContext().tickCount; t++) {
+  // Walk retained ticks only. Long runs rotate older ticks out; expose that
+  // limitation explicitly in the returned metrics.
+  for (const t of retainedTicks) {
     const stimuli = stimulusBus.getForTick(t);
     for (const s of stimuli) {
       totalStimuli += 1;
@@ -580,31 +579,26 @@ function computePerceptionMetrics(
     }
   }
 
+  if (!perceptionMode && tracker.size === 0 && totalStimuli === 0) {
+    return undefined;
+  }
+
   // Topic-derived metrics: causal coherence + reply rate.
   let speechCount = 0;
   let causalSpeechCount = 0;
   let speechWithReply = 0;
   let totalParticipants = 0;
-  const topicIds = new Set<string>();
   const topicSnapshots: Array<{
     id: string;
     stimulusIds: string[];
     participants: number;
   }> = [];
 
-  // We can't enumerate every topic id from the tracker without an index, so
-  // we iterate by stimulus -> topicOf. Limit to the retention window.
-  const seenTopicByStim = new Map<string, string>();
-  for (let t = 0; t <= engine.getContext().tickCount; t++) {
+  for (const t of retainedTicks) {
     const stimuli = stimulusBus.getForTick(t);
     for (const s of stimuli) {
       if (s.kind !== "speech") continue;
       speechCount += 1;
-      const topicId = tracker.topicOf(s.id);
-      if (topicId) {
-        topicIds.add(topicId);
-        seenTopicByStim.set(s.id, topicId);
-      }
       if (s.causedByStimulusId) causalSpeechCount += 1;
     }
   }
@@ -615,9 +609,8 @@ function computePerceptionMetrics(
     stimuliCount: number;
     participants: string[];
   }> = [];
-  for (const tid of topicIds) {
-    const topic = tracker.getTopic(tid);
-    if (!topic) continue;
+  for (const topic of tracker.listTopics()) {
+    const tid = topic.id;
     topicSnapshots.push({
       id: tid,
       stimulusIds: [...topic.stimulusIds],
@@ -644,6 +637,9 @@ function computePerceptionMetrics(
     totalStimuli,
     stimuliByKind,
     stimuliByChannel,
+    retainedStimulusTicks: retainedTicks.length,
+    stimulusMetricsLimitedByRetention:
+      engine.getContext().tickCount + 1 > stimulusBus.retentionWindowTicks,
     totalTopics,
     avgStimuliPerTopic:
       totalTopics > 0 ? Math.round((totalStimsInTopics / totalTopics) * 100) / 100 : 0,

@@ -127,6 +127,11 @@ export class TopicTracker {
     return out;
   }
 
+  /** Returns every topic currently retained by the tracker. */
+  listTopics(): Topic[] {
+    return [...this.topics.values()];
+  }
+
   /**
    * Returns the most recent open topic the given agent has spoken in within
    * the active window, if any.
@@ -166,6 +171,7 @@ export class TopicTracker {
 
   private openTopic(stim: Stimulus, forcedId?: string): string {
     const id = forcedId ?? nextTopicId();
+    stim.topicId = id;
     const topic: Topic = {
       id,
       rootStimulusId: stim.id,
@@ -182,6 +188,7 @@ export class TopicTracker {
   private append(stim: Stimulus, topicId: string): string {
     const t = this.topics.get(topicId);
     if (!t) return this.openTopic(stim, topicId);
+    stim.topicId = topicId;
     t.stimulusIds.push(stim.id);
     t.participants.add(stim.source.id);
     if (stim.tick > t.lastTick) t.lastTick = stim.tick;

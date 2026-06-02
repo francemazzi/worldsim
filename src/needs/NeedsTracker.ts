@@ -45,6 +45,14 @@ export class NeedsTracker {
   }
 
   /**
+   * Replaces an agent's full needs state. Used by plugin hooks that apply
+   * world effects after the tracker has advanced one tick.
+   */
+  set(agentId: string, needs: NeedsState): void {
+    this.state.set(agentId, cloneNeeds(needs));
+  }
+
+  /**
    * Update the value of a single need. `delta` is added to the current
    * value and the result is clamped to [0, 1].
    */

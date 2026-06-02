@@ -398,7 +398,7 @@ What you get when `mode: "perception"` is on:
 - **`AttentionPolicy`** — multi-factor salience scoring (intensity, novelty, needs/goals match, relationship strength, interests, recency) with a budget and threshold. Below threshold = no forced reply.
 - **`TopicTracker`** — clusters causal chains and co-participation into topics; the agent prompt surfaces the dominant topic so replies stay threaded.
 - **`NeedsTracker`** — drives (hunger, fatigue, fear, social…) with decay/regen per tick. Built-in `humanBasic` and `animalBasic` templates, or pass a custom `NeedsState` per agent.
-- **`EntityRegistry` + `AffordanceResolver`** — non-agent entities (animals, objects, signals) participate in the perception loop and expose affordances (`eat`, `sit`, `ride`, …) only when actually perceived.
+- **`EntityRegistry` + `AffordanceResolver`** — non-agent entities (animals, objects, signals) participate in the perception loop and expose affordances (`eat`, `sit`, `ride`, …) in the prompt only when actually perceived.
 - **New `"perceive"` action** — agents can passively acknowledge a stimulus without speaking. No more chatty agents replying just to fill silence.
 
 How the data lands inside the LLM prompt:
@@ -406,6 +406,7 @@ How the data lands inside the LLM prompt:
 - A `--- PERCEZIONI ---` section lists the *attended* percepts in salience order (with distance, intelligibility and topic id), replacing the legacy "voice" bucket.
 - An optional `--- FILO DISCORSIVO ---` block reminds the agent of the topic they are engaged in.
 - An optional `--- BISOGNI ATTIVI ---` block surfaces active needs above their `activationThreshold`. Critical needs also bypass the idle short-circuit.
+- An optional `--- AZIONI DISPONIBILI ---` block surfaces affordances from perceived entities.
 - The action union widens to include `"perceive"` so the LLM can choose silence.
 
 Strict mode (`disableBroadcastFallback: true`) drops speech that no one hears, just like real life. Default `legacy` mode is bit-for-bit identical to previous releases — nothing changes unless you opt in.

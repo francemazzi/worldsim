@@ -14,6 +14,9 @@ import type { StimulusBus } from "../../perception/StimulusBus.js";
 import type { PerceptionEngine } from "../../perception/PerceptionEngine.js";
 import type { TopicTracker } from "../../perception/TopicTracker.js";
 import type { NeedsTracker } from "../../needs/NeedsTracker.js";
+import type { AffordanceResolver } from "../../entities/AffordanceResolver.js";
+import type { PluginRegistry } from "../../plugins/PluginRegistry.js";
+import type { WorldContext } from "../../types/WorldTypes.js";
 
 /**
  * Persistence / recall-related dependencies. Everything an agent may need
@@ -56,6 +59,11 @@ export interface AgentSocialDeps {
 export interface AgentPerceptionDeps {
   stimulusBus?: StimulusBus | undefined;
   perceptionEngine?: PerceptionEngine | undefined;
+  pluginRegistry?: Pick<
+    PluginRegistry,
+    "runStimulusEmitHooks" | "runPerceptDeliveredHooks"
+  > | undefined;
+  getWorldContext?: (() => WorldContext) | undefined;
   /** When true, fall through to legacy routing if no perceivers found. */
   perceptionFallbackToLegacy?: boolean | undefined;
   /**
@@ -70,6 +78,10 @@ export interface AgentPerceptionDeps {
    * whether to skip the LLM call.
    */
   needsTracker?: NeedsTracker | undefined;
+  /**
+   * Resolves actions exposed by entities the agent currently perceives.
+   */
+  affordanceResolver?: AffordanceResolver | undefined;
 }
 
 export interface AgentTimelineDeps {

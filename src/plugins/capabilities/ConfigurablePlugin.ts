@@ -5,6 +5,7 @@ import type { AssetStore } from "../../types/AssetTypes.js";
 import type { NeedsTracker } from "../../needs/NeedsTracker.js";
 import type { TopicTracker } from "../../perception/TopicTracker.js";
 import type { StimulusBus } from "../../perception/StimulusBus.js";
+import type { LocationIndex } from "../../location/LocationIndex.js";
 
 /**
  * Context handed to plugins that implement {@link ConfigurablePlugin}.
@@ -13,6 +14,7 @@ import type { StimulusBus } from "../../perception/StimulusBus.js";
  */
 export interface PluginRuntimeContext {
   agentRegistry: AgentRegistry;
+  locationIndex?: LocationIndex | undefined;
   assetStore?: AssetStore | undefined;
   config: Readonly<WorldConfig>;
   /**

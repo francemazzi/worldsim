@@ -6,7 +6,7 @@ import { reportGeneratorPlugin } from "../plugins/built-in/ReportGeneratorPlugin
 import { RealWorldToolsPlugin, type RealWorldDataSources } from "../plugins/built-in/RealWorldToolsPlugin.js";
 import { RelationshipPlugin } from "../plugins/built-in/RelationshipPlugin.js";
 import { MovementPlugin } from "../plugins/built-in/MovementPlugin.js";
-import { LocationIndex } from "../location/LocationIndex.js";
+import { NeedsSatisfierPlugin } from "../plugins/built-in/NeedsSatisfierPlugin.js";
 import type { RelationshipTypeDefinition } from "../types/GraphTypes.js";
 import type { LocationConfig } from "../types/LocationTypes.js";
 import type { LLMConfig, InteractionConfig } from "../types/WorldTypes.js";
@@ -123,7 +123,7 @@ export function loadScenario(
   // Register movement plugin if any agent has location
   const hasLocations = scenario.agents.some((a) => a.profile?.location);
   if (hasLocations) {
-    const locationIndex = new LocationIndex();
+    const locationIndex = engine.getLocationIndex();
     const movementPlugin = new MovementPlugin(locationIndex);
 
     for (const agent of scenario.agents) {
@@ -137,6 +137,10 @@ export function loadScenario(
     }
 
     engine.use(movementPlugin);
+  }
+
+  if (scenario.interaction?.mode === "perception") {
+    engine.use(new NeedsSatisfierPlugin());
   }
 
   const report = reportGeneratorPlugin({ engine });

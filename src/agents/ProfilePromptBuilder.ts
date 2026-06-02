@@ -7,6 +7,7 @@ import type { Asset, Household, Venue } from "../types/AssetTypes.js";
 import type { RankedPercept } from "../perception/AttentionPolicy.js";
 import type { Topic } from "../perception/TopicTracker.js";
 import type { NeedsState } from "../types/NeedsTypes.js";
+import type { AvailableAffordance } from "../entities/AffordanceResolver.js";
 import { getPhoneMetadata } from "../messaging/phone/PhoneDirectory.js";
 
 export function buildProfilePrompt(profile: AgentProfile): string {
@@ -389,9 +390,9 @@ export function buildPerceptsPrompt(
         : lang === 0
           ? "(non capisci la lingua)"
           : `(capisci a meta) ${text}`;
-      lines.push(`  - ${speaker}${distance} dice: "${understood}"${topicLabel}`);
+      lines.push(`  - [stimolo: ${stim.id}] ${speaker}${distance} dice: "${understood}"${topicLabel}`);
     } else {
-      lines.push(`  - ${stim.kind} da ${speaker}${distance}: ${text}${topicLabel}`);
+      lines.push(`  - [stimolo: ${stim.id}] ${stim.kind} da ${speaker}${distance}: ${text}${topicLabel}`);
     }
   }
   lines.push("");
@@ -440,6 +441,24 @@ export function buildNeedsPrompt(needs: NeedsState | undefined): string {
     lines.push(`  - ${n.label ?? n.id}: ${intensity} (${(n.value * 100).toFixed(0)}%)`);
   }
   return `--- BISOGNI ATTIVI ---\n${lines.join("\n")}`;
+}
+
+/**
+ * Renders actions exposed by entities the agent currently perceives.
+ */
+export function buildAffordancesPrompt(
+  affordances: AvailableAffordance[],
+): string {
+  if (affordances.length === 0) return "";
+  const lines: string[] = [];
+  for (const item of affordances.slice(0, 12)) {
+    const entityName = item.entity.name ?? item.entity.id;
+    const description = item.affordance.description
+      ? ` — ${item.affordance.description}`
+      : "";
+    lines.push(`  - ${item.affordance.verb} su ${entityName} (${item.entity.id})${description}`);
+  }
+  return `--- AZIONI DISPONIBILI ---\n${lines.join("\n")}`;
 }
 
 function describePerceptText(r: RankedPercept): string {

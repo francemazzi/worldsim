@@ -55,7 +55,7 @@ export class TickOrchestrator {
     // sound, signal sources). Stimuli emitted here are visible to all
     // perceivers from this tick onward.
     if (this.runtime.perceptionEnabled) {
-      this.emitEntityStimuli(tick);
+      await this.emitEntityStimuli(tick);
     }
 
     await this.runtime.pluginRegistry.runHook(
@@ -95,12 +95,15 @@ export class TickOrchestrator {
         // bypass the activity ratio gate so reactions are not silently
         // dropped. Salience-based filtering happens later in the agent.
         if (perceptionEnabled) {
-          const percepts = this.runtime.perceptionEngine.perceiveFor(
-            a.id,
-            this.runtime.stimulusBus,
-            tick,
-          );
-          if (percepts.length > 0) return true;
+          for (const retainedTick of this.runtime.stimulusBus.getRetainedTicks()) {
+            if (retainedTick > tick) continue;
+            const percepts = this.runtime.perceptionEngine.perceiveFor(
+              a.id,
+              this.runtime.stimulusBus,
+              retainedTick,
+            );
+            if (percepts.length > 0) return true;
+          }
         }
 
         // Apply world-level defaultActiveTickRatio for agents without their own schedule
@@ -166,11 +169,21 @@ export class TickOrchestrator {
     // the same thread.
     if (this.runtime.perceptionEnabled) {
       for (const stim of this.runtime.stimulusBus.getForTick(tick)) {
-        this.runtime.topicTracker.ingest(stim);
+        if (stim.kind !== "speech") continue;
+        const topicId = this.runtime.topicTracker.ingest(stim);
+        if (topicId) stim.topicId = topicId;
       }
       // Tick the needs tracker for every active agent (decay/regen).
       for (const agent of activePersonAgents) {
-        this.runtime.needsTracker.tick(agent.id);
+        const needs = this.runtime.needsTracker.tick(agent.id);
+        if (needs) {
+          const transformed = await this.runtime.pluginRegistry.runNeedsTickHooks(
+            agent.id,
+            needs,
+            this.runtime.context,
+          );
+          this.runtime.needsTracker.set(agent.id, transformed);
+        }
       }
     }
 
@@ -244,7 +257,7 @@ export class TickOrchestrator {
    * enabled emitter that fires on the current tick. Cheap when no
    * entities have emitters.
    */
-  private emitEntityStimuli(tick: number): void {
+  private async emitEntityStimuli(tick: number): Promise<void> {
     for (const entity of this.runtime.entityRegistry.values()) {
       if (!entity.emitters || entity.emitters.length === 0) continue;
       for (const emitter of entity.emitters) {
@@ -263,7 +276,12 @@ export class TickOrchestrator {
           ...(emitter.rangeKm != null ? { rangeKm: emitter.rangeKm } : {}),
           ...(entity.position ? { position: entity.position } : {}),
         };
-        this.runtime.stimulusBus.publish(stim);
+        const transformed = await this.runtime.pluginRegistry.runStimulusEmitHooks(
+          stim,
+          this.runtime.context,
+        );
+        if (!transformed) continue;
+        this.runtime.stimulusBus.publish(transformed);
       }
     }
   }

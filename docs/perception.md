@@ -79,7 +79,7 @@ interaction: {
     { channel: "sight", radiusKm: 0.03 },
     { channel: "language", languages: ["it"] },
   ],
-  stimulusRetentionTicks: 1,     // ticks the bus retains a stimulus for
+  stimulusRetentionTicks: 2,     // current + previous tick by default
   topicWindowTicks: 5,           // idle ticks before a topic is closed
   defaultNeedsTemplate: "humanBasic", // "humanBasic" | "animalBasic" | "none"
 }
@@ -161,6 +161,14 @@ engine
   });
 ```
 
+Plugin authors can also use the public hook surface:
+
+- `onStimulusEmit` transforms or cancels a stimulus before it reaches the
+  `StimulusBus`.
+- `onPerceptDelivered` transforms or filters percepts before attention
+  scoring.
+- `onNeedsTick` transforms a needs state after the tracker's tick update.
+
 ## Tuning attention
 
 `AttentionConfig` lives on the agent. The salience score is a weighted
@@ -201,12 +209,21 @@ The `TopicTracker` clusters stimuli using four heuristics, in order:
 Idle topics expire after `topicWindowTicks` ticks. The Studio dashboard
 shows live topics, their participants and stimulus count.
 
-When a `speak` action carries `metadata.topicId`, the
-`MessageRouter` propagates it through to the resulting `Stimulus`, which
-keeps the conversation threaded. `causalCoherence` (in
+When a `speak` action carries `metadata.topicId`, `metadata.inResponseTo`
+or `metadata.intensity`, the `MessageRouter` propagates them through to
+the resulting `Stimulus`. If the LLM omits topic metadata while replying
+to an attended percept, `PersonAgent` infers `topicId` and
+`inResponseTo` from the dominant percept. `causalCoherence` (in
 `PerceptionMetrics`) is the fraction of speech stimuli that have a
 parent — a high value means agents are answering each other instead of
 talking past one another.
+
+## Affordances
+
+Entities may declare affordances such as `eat`, `sit`, `ride`, `open`.
+When an entity is perceived, `AffordanceResolver` exposes those actions
+to the agent prompt under `--- AZIONI DISPONIBILI ---`. The engine only
+surfaces possibilities; plugins still own side effects and validation.
 
 ## Needs and the satisfier loop
 
@@ -269,6 +286,10 @@ when debugging silence or off-topic replies.
 The `ReportGeneratorPlugin` extends `SimulationMetrics` with a
 `perception` block (totals by kind/channel, topic count, `replyRate`,
 `causalCoherence`, average participants per topic). The
+stimulus totals are based on the `StimulusBus` retention window; the
+report includes `retainedStimulusTicks` and
+`stimulusMetricsLimitedByRetention` so downstream readers can distinguish
+full-run topic metrics from retained-window stimulus metrics. The
 `NarrativeAnalyzer` (when enabled) builds a `PerceptionInsights` block
 in the `NarrativeReport` summarising dominant topics, silence ratio and
 critical-need moments — see

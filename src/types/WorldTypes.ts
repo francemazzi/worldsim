@@ -155,9 +155,9 @@ export interface InteractionConfig {
    */
   defaultSenses?: SenseConfig[] | undefined;
   /**
-   * Number of past ticks the perception engine keeps stimuli alive after
-   * emission, to allow for end-of-tick decay and audit. Default `1` (only
-   * the current tick is queryable).
+   * Number of ticks the perception engine keeps stimuli alive after
+   * emission, including the current one. Default `2`, so agents can react
+   * on the next tick even when ticks execute agents concurrently.
    */
   stimulusRetentionTicks?: number | undefined;
   /**

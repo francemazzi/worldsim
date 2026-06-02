@@ -37,6 +37,7 @@ const __dirname = dirname(__filename);
 
 const SCENARIOS_DIR = resolve(__dirname, "scenarios");
 const RESULTS_DIR = resolve(__dirname, "results");
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 const SCENARIO_NAMES = [
   "water-rationing",
@@ -53,6 +54,18 @@ const PERCEPTION_SCENARIOS = new Set<ScenarioName>([
   "enclosure-animals",
   "office-floor",
 ]);
+
+function resolveApiKey(): string | undefined {
+  return process.env.OPENAI_API_KEY ?? process.env.OPENROUTER_API_KEY;
+}
+
+function resolveBaseURL(): string {
+  if (process.env.LLM_BASE_URL) return process.env.LLM_BASE_URL;
+  if (process.env.OPENROUTER_API_KEY && !process.env.OPENAI_API_KEY) {
+    return OPENROUTER_BASE_URL;
+  }
+  return "https://api.openai.com/v1";
+}
 
 // ---------------------------------------------------------------------------
 // Types (matching ScenarioLoader.ScenarioConfig shape)
@@ -196,8 +209,8 @@ async function runScenario(
     maxTicks: scenario.maxTicks ?? 30,
     tickIntervalMs: scenario.tickIntervalMs ?? 2000,
     llm: {
-      baseURL: process.env.LLM_BASE_URL ?? "https://api.openai.com/v1",
-      apiKey: process.env.OPENAI_API_KEY!,
+      baseURL: resolveBaseURL(),
+      apiKey: resolveApiKey()!,
       model: process.env.LLM_MODEL ?? "gpt-4o-mini",
     },
     ...(Object.keys(rulesPath).length > 0 ? { rulesPath } : {}),
@@ -315,10 +328,10 @@ export { runScenario, loadScenarioFile, type RunOptions, SCENARIO_NAMES, PERCEPT
 
 async function main(): Promise<void> {
   // Check for API key
-  if (!process.env.OPENAI_API_KEY) {
+  if (!resolveApiKey()) {
     console.error(
-      "Error: OPENAI_API_KEY environment variable is required.\n" +
-        "Usage: OPENAI_API_KEY=sk-... npx tsx evaluation/run-evaluation.ts",
+      "Error: OPENAI_API_KEY or OPENROUTER_API_KEY environment variable is required.\n" +
+        "Usage: OPENROUTER_API_KEY=sk-or-... LLM_MODEL=mistralai/mistral-nemo npx tsx evaluation/run-evaluation.ts",
     );
     process.exit(1);
   }
@@ -355,7 +368,9 @@ async function main(): Promise<void> {
   console.log(`${"=".repeat(70)}\n`);
 }
 
-main().catch((err) => {
-  console.error("Fatal error:", err);
-  process.exit(1);
-});
+if (process.argv[1] && resolve(process.argv[1]) === __filename) {
+  main().catch((err) => {
+    console.error("Fatal error:", err);
+    process.exit(1);
+  });
+}

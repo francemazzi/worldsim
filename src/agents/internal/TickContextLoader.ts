@@ -118,13 +118,16 @@ export class TickContextLoader {
     // senses or a critical need is firing.
     if (this.deps.perceptionEngine && this.deps.stimulusBus) {
       const floor = this.deps.perceptionFloor ?? DEFAULT_PERCEPTION_FLOOR;
-      const percepts = this.deps.perceptionEngine.perceiveFor(
-        this.agentId,
-        this.deps.stimulusBus,
-        tick,
-      );
-      for (const p of percepts) {
-        if (p.perceivedIntensity >= floor) return false;
+      for (const retainedTick of this.deps.stimulusBus.getRetainedTicks()) {
+        if (retainedTick > tick) continue;
+        const percepts = this.deps.perceptionEngine.perceiveFor(
+          this.agentId,
+          this.deps.stimulusBus,
+          retainedTick,
+        );
+        for (const p of percepts) {
+          if (p.perceivedIntensity >= floor) return false;
+        }
       }
     }
 

@@ -12,6 +12,7 @@ import {
   buildPerceptsPrompt,
   buildTopicContextPrompt,
   buildNeedsPrompt,
+  buildAffordancesPrompt,
 } from "./ProfilePromptBuilder.js";
 import { AttentionPolicy } from "../perception/AttentionPolicy.js";
 import type { RankedPercept } from "../perception/AttentionPolicy.js";
@@ -20,6 +21,8 @@ import type { TopicTracker } from "../perception/TopicTracker.js";
 import type { StimulusBus } from "../perception/StimulusBus.js";
 import type { PerceptionEngine } from "../perception/PerceptionEngine.js";
 import type { NeedsTracker } from "../needs/NeedsTracker.js";
+import type { AffordanceResolver } from "../entities/AffordanceResolver.js";
+import type { PluginRegistry } from "../plugins/PluginRegistry.js";
 import type { MessageBus } from "../messaging/MessageBus.js";
 import type { Message } from "../messaging/Message.js";
 import type { LLMAdapter } from "../llm/LLMAdapter.js";
@@ -28,6 +31,7 @@ import type { WorldContext } from "../types/WorldTypes.js";
 import type { RulesContext } from "../types/RulesTypes.js";
 import type { AgentTool } from "../types/PluginTypes.js";
 import type { RelationshipUpsert } from "../types/GraphTypes.js";
+import type { TimelineMetadata } from "../types/TimelineTypes.js";
 
 export class PersonAgent extends BaseAgent {
   private iterationsPerTick: number;
@@ -38,7 +42,10 @@ export class PersonAgent extends BaseAgent {
   private perceptionEngine?: PerceptionEngine | undefined;
   private topicTracker?: TopicTracker | undefined;
   private needsTracker?: NeedsTracker | undefined;
+  private affordanceResolver?: AffordanceResolver | undefined;
   private attentionPolicy?: AttentionPolicy | undefined;
+  private pluginRegistry?: Pick<PluginRegistry, "runPerceptDeliveredHooks"> | undefined;
+  private getWorldContext?: (() => WorldContext) | undefined;
   private recentPerceivedStimulusIds: string[] = [];
 
   constructor(
@@ -58,6 +65,9 @@ export class PersonAgent extends BaseAgent {
       defaultBroadcastRadius: options?.defaultBroadcastRadius,
       stimulusBus: options?.stimulusBus,
       perceptionEngine: options?.perceptionEngine,
+      topicTracker: options?.topicTracker,
+      pluginRegistry: options?.pluginRegistry,
+      getWorldContext: options?.getWorldContext,
       perceptionFallbackToLegacy: options?.perceptionFallbackToLegacy,
     });
 
@@ -65,6 +75,9 @@ export class PersonAgent extends BaseAgent {
     this.perceptionEngine = options?.perceptionEngine;
     this.topicTracker = options?.topicTracker;
     this.needsTracker = options?.needsTracker;
+    this.affordanceResolver = options?.affordanceResolver;
+    this.pluginRegistry = options?.pluginRegistry;
+    this.getWorldContext = options?.getWorldContext;
 
     if (this.perceptionEngine && this.stimulusBus) {
       this.attentionPolicy = new AttentionPolicy();
@@ -380,7 +393,7 @@ export class PersonAgent extends BaseAgent {
       && this.attentionPolicy != null;
 
     const rankedPercepts = perceptionActive
-      ? this.computeAttendedPercepts(ctx.tickCount, tickContext)
+      ? await this.computeAttendedPercepts(ctx.tickCount, tickContext)
       : [];
 
     const dominantTopic = perceptionActive
@@ -460,6 +473,15 @@ export class PersonAgent extends BaseAgent {
       ? `\n6. Se nessun percetto merita una reazione, scegli "perceive" o "observe" invece di parlare a vuoto.`
       : "";
 
+    const metadataSchema = perceptionActive
+      ? `,
+  "metadata": {
+    "topicId": "id del filo se stai rispondendo a un percetto",
+    "inResponseTo": "id dello stimolo a cui rispondi",
+    "intensity": numero 0-1 opzionale per quanto forte/parlato e udibile sei
+  }`
+      : "";
+
     messages.push({
       role: "user",
       content: `Tick ${ctx.tickCount}, iterazione ${iterationIndex + 1}/${this.iterationsPerTick}. Energia: ${energy}/100.${energyWarning}${toolSection}
@@ -488,7 +510,7 @@ REGOLE DI RISPOSTA:
     "mood": "umore attuale (OBBLIGATORIO)",
     "energy": numero 0-100 (OBBLIGATORIO, diminuisce con attivita),
     "goals": ["obiettivi aggiornati"]
-  }
+  }${metadataSchema}
 }`,
     });
 
@@ -512,6 +534,7 @@ REGOLE DI RISPOSTA:
     const lastMsg = result.messages[result.messages.length - 1];
     const parsed = parseAgentAction(lastMsg?.content);
     let { actionType, payload } = parsed;
+    const metadata = this.buildActionMetadata(parsed.metadata, rankedPercepts);
 
     if (parsed.stateUpdate) {
       this.updateInternalState(parsed.stateUpdate);
@@ -540,6 +563,7 @@ REGOLE DI RISPOSTA:
       actionType,
       payload,
       tick: ctx.tickCount,
+      ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
     };
   }
 
@@ -549,19 +573,23 @@ REGOLE DI RISPOSTA:
    * to. Updates the rolling novelty window so percepts seen this tick are
    * marked as "non-novel" on the next call.
    */
-  private computeAttendedPercepts(
+  private async computeAttendedPercepts(
     tick: number,
     tickContext: TickContext,
-  ): RankedPercept[] {
+  ): Promise<RankedPercept[]> {
     if (!this.perceptionEngine || !this.stimulusBus || !this.attentionPolicy) {
       return [];
     }
 
-    const raw = this.perceptionEngine.perceiveFor(
-      this.id,
-      this.stimulusBus,
-      tick,
-    );
+    let raw = this.perceiveRetained(tick);
+    const worldCtx = this.getWorldContext?.();
+    if (this.pluginRegistry && worldCtx) {
+      raw = await this.pluginRegistry.runPerceptDeliveredHooks(
+        this.id,
+        raw,
+        worldCtx,
+      );
+    }
     if (raw.length === 0) return [];
 
     const ranked = this.attentionPolicy.process(raw, {
@@ -585,6 +613,22 @@ REGOLE DI RISPOSTA:
     }
 
     return ranked;
+  }
+
+  private perceiveRetained(tick: number): import("../types/PerceptionTypes.js").Percept[] {
+    if (!this.perceptionEngine || !this.stimulusBus) return [];
+    const retainedTicks = this.stimulusBus
+      .getRetainedTicks()
+      .filter((retainedTick) => retainedTick <= tick);
+    const out: import("../types/PerceptionTypes.js").Percept[] = [];
+    for (const retainedTick of retainedTicks) {
+      out.push(...this.perceptionEngine.perceiveFor(
+        this.id,
+        this.stimulusBus,
+        retainedTick,
+      ));
+    }
+    return out;
   }
 
   /**
@@ -654,6 +698,14 @@ REGOLE DI RISPOSTA:
       extra.push(buildTopicContextPrompt(dominantTopic, this.id));
     }
 
+    if (this.affordanceResolver && rankedPercepts.length > 0) {
+      const affordances = this.affordanceResolver.fromPercepts(
+        rankedPercepts.map((r) => r.percept),
+      );
+      const affordancesSection = buildAffordancesPrompt(affordances);
+      if (affordancesSection) extra.push(affordancesSection);
+    }
+
     if (this.needsTracker) {
       const needs = this.needsTracker.get(this.id);
       const needsSection = buildNeedsPrompt(needs);
@@ -662,6 +714,23 @@ REGOLE DI RISPOSTA:
 
     if (extra.length === 0) return base;
     return `${base}\n\n${extra.join("\n\n")}`;
+  }
+
+  private buildActionMetadata(
+    parsedMetadata: TimelineMetadata | undefined,
+    rankedPercepts: RankedPercept[],
+  ): TimelineMetadata {
+    const metadata: TimelineMetadata = { ...(parsedMetadata ?? {}) };
+    const topStimulus = rankedPercepts[0]?.percept.stimulus;
+    if (topStimulus) {
+      if (metadata.topicId == null && topStimulus.topicId) {
+        metadata.topicId = topStimulus.topicId;
+      }
+      if (metadata.inResponseTo == null) {
+        metadata.inResponseTo = topStimulus.id;
+      }
+    }
+    return metadata;
   }
 }
 
