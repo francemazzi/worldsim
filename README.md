@@ -6,9 +6,37 @@
 
 **Simulate how communities react to new rules, events, or policies — in TypeScript, in 5 minutes.**
 
-WorldSim is an embeddable multi-agent simulation engine for Node.js. Define agents with distinct personalities, drop in a policy change, and watch coalitions form, conflicts emerge, and consensus build — all powered by LLM reasoning loops.
+WorldSim is an embeddable multi-agent simulation engine for Node.js. You define a world, add agents with personalities and goals, optionally load rules or a crisis trigger, then let the engine advance tick by tick while agents reason, talk, use tools, build relationships and produce a report.
+
+Use it when you want to test questions like:
+
+- How does a village react to water rationing?
+- How does a marketplace respond to a price shock?
+- How does a rumor spread through social groups?
+- What changes when agents only hear or see what is physically near them?
+
+## How WorldSim Works
+
+At runtime WorldSim is a loop around five ideas:
+
+| Concept | What it means |
+| --- | --- |
+| **World** | The container for time, agents, rules, plugins, stores and reports. |
+| **Ticks** | Discrete simulation steps. A tick can represent a minute, an hour, a day or any turn in your scenario. |
+| **Agents** | LLM-driven actors with personality, mood, energy, memory, goals and optional tools. |
+| **Rules** | JSON/PDF instructions evaluated by governance agents to warn, block or allow actions. |
+| **Plugins** | Extension points for logging, reports, Studio, phones, movement, perception, custom tools and domain logic. |
+
+The default interaction model is simple and backward-compatible: agent speech is routed through conversations, neighborhoods, proximity and finally broadcast. For more realistic worlds you can opt into the perception layer, where speech and entity events become stimuli that agents must physically perceive before they can react.
+
+| Mode | Use it when | Behavior |
+| --- | --- | --- |
+| `legacy` (default) | You want classic social simulations and maximum compatibility. | Messages flow through the legacy router and can fall back to broadcast. |
+| `perception` | Location, senses, attention and causal threading matter. | Agents only react to perceived stimuli; strict mode can drop unheard speech. |
 
 ## Quick Start
+
+### Run the demo
 
 ```bash
 npm install worldsim
@@ -23,13 +51,55 @@ OPENAI_API_KEY=sk-... docker compose up
 # Open http://localhost:4400
 ```
 
+### Minimal TypeScript world
+
+```typescript
+import {
+  WorldEngine,
+  ConsoleLoggerPlugin,
+  InMemoryMemoryStore,
+  InMemoryGraphStore,
+  resolveLlmEnv,
+} from "worldsim";
+
+const llm = resolveLlmEnv();
+if (!llm) throw new Error("Set OPENAI_API_KEY or OPENROUTER_API_KEY");
+
+const world = new WorldEngine({
+  worldId: "my-village",
+  maxTicks: 20,
+  llm,
+  memoryStore: new InMemoryMemoryStore(),
+  graphStore: new InMemoryGraphStore(),
+});
+
+world.use(ConsoleLoggerPlugin);
+
+world.addAgent({
+  id: "maria",
+  role: "person",
+  name: "Maria Rossi",
+  iterationsPerTick: 2,
+  profile: {
+    name: "Maria Rossi",
+    personality: ["practical", "stubborn"],
+    goals: ["Save the harvest"],
+  },
+  systemPrompt: "You are Maria, a farmer worried about water rationing.",
+});
+
+await world.start();
+```
+
+That is the smallest useful loop: create a world, add at least one person agent, run ticks, inspect logs or attach report/Studio plugins.
+
 ### OpenRouter
 
 WorldSim uses an OpenAI-compatible LLM adapter. To run via [OpenRouter](https://openrouter.ai/):
 
 ```bash
 export OPENROUTER_API_KEY=sk-or-v1-...
-export LLM_MODEL=anthropic/claude-3.5-sonnet
+export LLM_MODEL=mistralai/mistral-nemo
 export OPENROUTER_APP_NAME=worldsim
 export OPENROUTER_HTTP_REFERER=https://github.com/francemazzi/worldsim
 npx worldsim demo
@@ -69,7 +139,19 @@ const { WorldEngine } = require("worldsim");
 
 Deep imports such as `worldsim/dist/...` or `worldsim/src/...` are not part of the public API and may change between releases.
 
-## What You Can Simulate
+## What To Build First
+
+Start from one of these paths:
+
+| Goal | Start here |
+| --- | --- |
+| Watch a ready-made scenario | `npx worldsim demo` or `npx worldsim studio` |
+| Build your own policy simulation | Copy `evaluation/scenarios/water-rationing/` |
+| Test realistic location/senses behavior | Read [Realistic simulation primitives](#realistic-simulation-primitives) and copy `evaluation/scenarios/village-realistic/` |
+| Compare legacy vs perception | `npm run eval:compare-perception` |
+| Integrate WorldSim in an app | Use `WorldEngine`, stores, plugins and the generated `SimulationReport` |
+
+## Example Scenarios
 
 **Community Policy Impact** — 8 villagers face a new water rationing policy. The farmer resists, the mayor defends, the priest mediates, the technologist proposes solutions. Who forms coalitions? Who complies?
 
@@ -78,37 +160,6 @@ Deep imports such as `worldsim/dist/...` or `worldsim/src/...` are not part of t
 **Information Cascades** — 12 agents in 4 social groups. A rumor starts with one person. Watch it spread (or not) through the social graph, distorted by each personality along the way.
 
 See [`evaluation/`](evaluation/) for repeatable scenarios with expected behaviors and quality criteria.
-
-## Code Example
-
-```typescript
-import { WorldEngine, ConsoleLoggerPlugin, InMemoryMemoryStore, InMemoryGraphStore } from "worldsim";
-
-const world = new WorldEngine({
-  worldId: "my-village",
-  maxTicks: 20,
-  llm: {
-    baseURL: "https://api.openai.com/v1",
-    apiKey: process.env.OPENAI_API_KEY!,
-    model: "gpt-4o-mini",
-  },
-  memoryStore: new InMemoryMemoryStore(),
-  graphStore: new InMemoryGraphStore(),
-});
-
-world.use(ConsoleLoggerPlugin);
-
-world.addAgent({
-  id: "maria", role: "person", name: "Maria Rossi",
-  iterationsPerTick: 2,
-  profile: { name: "Maria Rossi", personality: ["practical", "stubborn"], goals: ["Save the harvest"] },
-  systemPrompt: "You are Maria, a farmer worried about water rationing.",
-});
-
-// Add more agents...
-
-await world.start();
-```
 
 ## Studio Dashboard
 
@@ -152,16 +203,21 @@ Agent Details view (profile, internal state, and memory timeline):
 
 ## Architecture
 
+WorldSim is designed to be embedded in your app, not run as a black box. You create the engine, register plugins, add agents, then decide whether to run headless, stream to Studio or export reports.
+
 ```mermaid
 flowchart LR
-  WorldEngine --> RulesLoader
-  WorldEngine --> PluginRegistry
-  WorldEngine --> PersonAgent
-  WorldEngine --> ControlAgent
-  PersonAgent --> LLM
+  Scenario[Scenario / host app] --> WorldEngine
+  WorldEngine --> TickLoop[Tick loop]
+  TickLoop --> PluginRegistry
+  TickLoop --> PersonAgent
+  TickLoop --> ControlAgent
+  PersonAgent --> LLM[OpenAI-compatible LLM]
   ControlAgent --> LLM
   PersonAgent -.-> MemoryStore
   PersonAgent -.-> GraphStore
+  PluginRegistry --> Report[SimulationReport]
+  PluginRegistry --> Studio[Studio dashboard]
 ```
 
 - **WorldEngine** orchestrates ticks, agents, plugins, and lifecycle
@@ -169,6 +225,8 @@ flowchart LR
 - **ControlAgent** — governance agent that monitors rules and can pause/stop violators
 - **Plugin system** — hooks on every world event + registerable tools for agents
 - **Rules engine** — load from JSON or PDF, with priorities and enforcement levels
+- **Stores** — in-memory by default, replaceable with Redis, Neo4j, PostgreSQL or your own adapters
+- **Reports/Studio** — optional consumers of the same timeline and metrics
 
 ## How Simulation Time Works — Ticks
 
@@ -255,7 +313,7 @@ world.on("tick", (tick) => {
 });
 ```
 
-Because the tick loop is the single clock of the simulation, scheduling "at tick N do X" is trivial — no cron, no timers, no race conditions. You can inject policy changes, simulated crises (a price shock, a rumor, a blackout) or agent lifecycle events deterministically at specific ticks, and the same scenario will replay identically if you fix the LLM seed.
+Because the tick loop is the single clock of the simulation, scheduling "at tick N do X" is trivial — no cron, no timers, no race conditions. You can inject policy changes, simulated crises (a price shock, a rumor, a blackout) or agent lifecycle events deterministically at specific ticks. The host-driven timeline stays stable; the exact LLM text can still vary by model, provider and temperature.
 
 ### Pause, resume, stop
 
@@ -408,6 +466,17 @@ This way worldsim stays neutral and the *package installer* decides what a "gath
 
 WorldSim ships an opt-in stack of physics-aware primitives that make agent interactions look like real life: **agents only know what their senses pick up**, **salience drives whether they react**, and a topic tracker keeps replies coherent on the same thread. Activation is one switch on `WorldConfig`:
 
+In plain English:
+
+1. An agent speaks, an entity emits a sound/smell/signal, or the world produces an event.
+2. That becomes a `Stimulus` on the `StimulusBus`.
+3. The `PerceptionEngine` checks who can perceive it based on channel, distance, language and filters.
+4. `AttentionPolicy` decides what is important enough to show to the LLM.
+5. `TopicTracker` links replies to the same conversation thread.
+6. Needs and affordances influence what the agent notices and which actions are available.
+
+Use `perception` mode when location, range, sensory limits or physical context matter. Keep `legacy` mode when you want a classic social simulation where everyone can eventually hear public conversation.
+
 ```typescript
 const world = new WorldEngine({
   /* ...standard config... */
@@ -437,6 +506,16 @@ world.addEntity({
 });
 ```
 
+Important flags:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `mode` | `"legacy"` | Set to `"perception"` to enable the perception stack. |
+| `defaultSenses` | none | Senses assigned to agents that do not define their own. |
+| `disableBroadcastFallback` | `false` | When `true`, speech nobody perceives is dropped instead of broadcast. |
+| `requirePerception` | `false` | When `true`, bootstrap fails if person agents lack usable senses or required locations. |
+| `stimulusRetentionTicks` | `2` | How many ticks of stimuli remain available for reactions. |
+
 What you get when `mode: "perception"` is on:
 
 - **`Stimulus` + `StimulusBus`** — every `speak`, every entity emitter (a fountain's smell, a dog's bark, a radio signal) becomes a tick-bounded fact on the bus.
@@ -455,7 +534,7 @@ How the data lands inside the LLM prompt:
 - An optional `--- AZIONI DISPONIBILI ---` block surfaces affordances from perceived entities.
 - The action union widens to include `"perceive"` so the LLM can choose silence.
 
-Strict mode (`disableBroadcastFallback: true`) drops speech that no one hears, just like real life. Default `legacy` mode is bit-for-bit identical to previous releases — nothing changes unless you opt in.
+Strict mode (`disableBroadcastFallback: true`) drops speech that no one hears, just like real life. Default `legacy` mode keeps the original routing behavior — nothing changes unless you opt in.
 
 The Studio dashboard ships a dedicated **Perception** page that reads `/api/perception/{status, stimuli, topics, percepts/:id, needs/:id}` so you can debug, tick by tick, what each agent actually heard, which topics are open, and how their needs evolve.
 
@@ -553,21 +632,20 @@ import {
   InMemoryMemoryStore,
   InMemoryGraphStore,
   studioPlugin,
+  reportGeneratorPlugin,
+  resolveLlmEnv,
 } from "worldsim";
-import { reportGeneratorPlugin } from "worldsim/plugins";
 import { readFileSync } from "node:fs";
 
 const scenario = JSON.parse(readFileSync("scenario.json", "utf-8"));
+const llm = resolveLlmEnv();
+if (!llm) throw new Error("Set OPENAI_API_KEY or OPENROUTER_API_KEY");
 
 const world = new WorldEngine({
   worldId: scenario.name,
   maxTicks: scenario.maxTicks,
   tickIntervalMs: scenario.tickIntervalMs,
-  llm: {
-    baseURL: "https://api.openai.com/v1",
-    apiKey: process.env.OPENAI_API_KEY!,
-    model: "gpt-4o-mini",
-  },
+  llm,
   rulesPath: { json: ["rules/community-rules.json"] },
   memoryStore: new InMemoryMemoryStore(),
   graphStore: new InMemoryGraphStore(),
