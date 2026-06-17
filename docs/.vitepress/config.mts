@@ -14,7 +14,6 @@ export default defineConfig({
     ["link", { rel: "icon", href: "/worldsim/worldsim_img.webp", type: "image/webp" }],
   ],
   themeConfig: {
-    logo: "/worldsim_img.webp",
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
       { text: "Concepts", link: "/architecture" },

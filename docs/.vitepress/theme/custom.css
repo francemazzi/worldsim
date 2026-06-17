@@ -1,0 +1,17 @@
+.VPHome .simulation-hero-visual {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 959px) {
+  .VPHome .image-container {
+    width: min(100%, 360px);
+    height: 280px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .VPHome .image-bg {
+    animation: none;
+  }
+}

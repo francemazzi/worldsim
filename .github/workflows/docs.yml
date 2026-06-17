@@ -32,7 +32,7 @@ jobs:
           node-version: "22"
 
       - name: Install VitePress
-        run: npm install vitepress@1.6.4 --no-package-lock --legacy-peer-deps --no-save
+        run: npm install vitepress@1.6.4 three@0.176.0 --no-package-lock --legacy-peer-deps --no-save
 
       - name: Build documentation
         run: npx vitepress build docs

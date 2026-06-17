@@ -5,9 +5,6 @@ hero:
   name: WorldSim
   text: Multi-agent community simulation
   tagline: Simulate how communities react to new rules, events, or policies — in TypeScript, in 5 minutes.
-  image:
-    src: /worldsim_img.webp
-    alt: WorldSim
   actions:
     - theme: brand
       text: Quick Start

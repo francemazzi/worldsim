@@ -78,10 +78,10 @@
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "drizzle-orm": "^0.45.2",
     "ioredis": "^5.10.1",
     "neo4j-driver": "^6.0.1",
-    "pg": "^8.20.0",
-    "drizzle-orm": "^0.45.2"
+    "pg": "^8.20.0"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
@@ -116,6 +116,7 @@
     "pg": "^8.20.0",
     "promptfoo": "^0.121.3",
     "socket.io-client": "^4.8.3",
+    "three": "^0.176.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.2",
     "vitepress": "^1.6.3",
