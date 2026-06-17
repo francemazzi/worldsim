@@ -43,6 +43,9 @@
     "eval:compare-perception": "npx tsx evaluation/compare-perception.ts village-realistic",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "prepublishOnly": "npm run build && npm run test"
   },
   "keywords": [
@@ -115,6 +118,7 @@
     "socket.io-client": "^4.8.3",
     "tsup": "^8.5.1",
     "typescript": "^6.0.2",
+    "vitepress": "^1.6.3",
     "vitest": "^4.1.2"
   }
 }

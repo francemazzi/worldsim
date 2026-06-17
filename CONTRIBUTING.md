@@ -5,7 +5,7 @@ Thank you for your interest in contributing to WorldSim.
 ## Development Setup
 
 ```bash
-git clone https://github.com/your-org/worldsim.git
+git clone https://github.com/francemazzi/worldsim.git
 cd worldsim
 npm install
 npm run build
@@ -29,6 +29,18 @@ npm run test:docker:down  # tear down services
 
 All Markdown files (`README`, `docs/`, `examples/*/README.md`, `evaluation/`) must be written in **English**.
 Scenario runtime content (agent prompts, announcements in JSON) may use any language.
+
+The documentation site is built with [VitePress](https://vitepress.dev/) and deployed to GitHub Pages at [https://francemazzi.github.io/worldsim/](https://francemazzi.github.io/worldsim/).
+
+### Local preview
+
+```bash
+npm run docs:dev      # start dev server at http://localhost:5173/worldsim/
+npm run docs:build    # production build (required before merging docs changes)
+npm run docs:preview  # preview the production build locally
+```
+
+When you change files under `docs/`, run `npm run docs:build` to verify the site builds without errors before opening a PR.
 
 ## Code Style
 
