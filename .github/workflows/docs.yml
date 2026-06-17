@@ -30,13 +30,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install VitePress
+        run: npm install vitepress@1.6.4 --no-package-lock --legacy-peer-deps --no-save
 
       - name: Build documentation
-        run: npm run docs:build
+        run: npx vitepress build docs
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
