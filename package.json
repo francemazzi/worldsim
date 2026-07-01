@@ -26,6 +26,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "dotenv -e .env -- vitest run --config vitest.integration.config.ts",
+    "test:integration:emergence": "dotenv -e .env -- vitest run --config vitest.integration.config.ts tests/integration/emergence-cross-vendor.integration.test.ts",
     "test:prompts": "dotenv -e .env -- promptfoo eval --config promptfoo/pdf-extraction/promptfooconfig.yaml && dotenv -e .env -- promptfoo eval --config promptfoo/control-agent/promptfooconfig.yaml && dotenv -e .env -- promptfoo eval --config promptfoo/person-agent/promptfooconfig.yaml && dotenv -e .env -- promptfoo eval --config promptfoo/person-enhanced/promptfooconfig.yaml",
     "test:docker:up": "docker compose -f docker-compose.test.yml up -d",
     "test:docker:down": "docker compose -f docker-compose.test.yml down",

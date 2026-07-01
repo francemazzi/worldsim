@@ -84,6 +84,27 @@ Supported env vars: `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `LLM_BASE_URL`, `LLM
 
 If both `OPENROUTER_API_KEY` and `OPENAI_API_KEY` are set, `resolveLlmEnv()` uses OpenRouter. Pass an explicit `llm` config to `WorldEngine` when you want to force another provider.
 
+## Emergence-style cross-vendor integration test
+
+A scaled-down reproduction of the [Emergence World](https://arxiv.org/abs/2606.08367) cross-LLM study runs three parallel micro-worlds (homogeneous model A, homogeneous model B, mixed population) via OpenRouter.
+
+Copy [`.env.example`](https://github.com/francemazzi/worldsim/blob/main/.env.example) to `.env`, set `OPENROUTER_API_KEY`, then:
+
+```bash
+npm run test:integration:emergence
+```
+
+Optional env vars:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `EMERGENCE_MODEL_A` | `google/gemini-2.0-flash-001` | Model for homogeneous A / half of mixed |
+| `EMERGENCE_MODEL_B` | `anthropic/claude-3.5-haiku` | Model for homogeneous B / other half of mixed |
+| `EMERGENCE_MAX_TICKS` | `8` | Simulation length |
+| `EMERGENCE_MAX_CONCURRENT` | `2` | Parallel agent cap (rate-limit friendly) |
+
+Without `OPENROUTER_API_KEY` the test suite is skipped automatically.
+
 ## What To Build First
 
 | Goal | Start here |
