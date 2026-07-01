@@ -85,7 +85,7 @@ export class AttentionPolicy {
         recency: scoreRecency(p, ctx.currentTick),
       };
 
-      const score = combine(breakdown);
+      const score = combine(breakdown, cfg.weights);
       ranked.push({ percept: p, score, breakdown });
     }
 
@@ -198,19 +198,32 @@ function scoreRecency(p: Percept, currentTick: number): number {
   return 1 - delta / 5;
 }
 
-function combine(b: SalienceBreakdown): number {
-  // Weighted average — the weights deliberately add to 1 so the score is
-  // interpretable as a probability-ish [0,1]. Tunable via AttentionConfig in
-  // the future.
+function combine(
+  b: SalienceBreakdown,
+  weights?: Partial<SalienceBreakdown> | undefined,
+): number {
+  const w = {
+    intensity: weights?.intensity ?? 0.25,
+    novelty: weights?.novelty ?? 0.10,
+    needRelevance: weights?.needRelevance ?? 0.20,
+    goalRelevance: weights?.goalRelevance ?? 0.15,
+    interestMatch: weights?.interestMatch ?? 0.20,
+    relationshipBoost: weights?.relationshipBoost ?? 0.05,
+    recency: weights?.recency ?? 0.05,
+  };
+  const sumW =
+    w.intensity + w.novelty + w.needRelevance + w.goalRelevance +
+    w.interestMatch + w.relationshipBoost + w.recency;
+  const norm = sumW > 0 ? sumW : 1;
   const sum =
-    0.25 * b.intensity +
-    0.10 * b.novelty +
-    0.20 * b.needRelevance +
-    0.15 * b.goalRelevance +
-    0.20 * b.interestMatch +
-    0.05 * clamp01(b.relationshipBoost) +
-    0.05 * b.recency;
-  return clamp01(sum);
+    w.intensity * b.intensity +
+    w.novelty * b.novelty +
+    w.needRelevance * b.needRelevance +
+    w.goalRelevance * b.goalRelevance +
+    w.interestMatch * b.interestMatch +
+    w.relationshipBoost * clamp01(b.relationshipBoost) +
+    w.recency * b.recency;
+  return clamp01(sum / norm);
 }
 
 function collectTags(p: Percept): Set<string> {

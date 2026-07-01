@@ -423,6 +423,12 @@ export function buildTopicContextPrompt(
   return `--- FILO DISCORSIVO ---\n${lines.join("\n")}`;
 }
 
+export function buildDynamicGoalsPrompt(goals: string[]): string {
+  if (goals.length === 0) return "";
+  const lines = goals.map((g) => `  - ${g}`);
+  return `--- OBIETTIVI DA BISOGNI ---\n${lines.join("\n")}\n(Questi obiettivi derivano dai tuoi bisogni attivi; agisci per soddisfarli.)`;
+}
+
 /**
  * Renders the agent's needs as an internal-state section. Only active
  * needs (above their `activationThreshold`) are surfaced; satisfied needs

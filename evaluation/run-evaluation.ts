@@ -28,6 +28,7 @@ import type { SenseConfig, AttentionConfig } from "../src/types/PerceptionTypes.
 import type { NeedsState } from "../src/types/NeedsTypes.js";
 import { reportGeneratorPlugin } from "../src/plugins/built-in/ReportGeneratorPlugin.js";
 import { resolveLlmEnv } from "../src/llm/resolveLlmEnv.js";
+import type { SimulationReport } from "../src/types/ReportTypes.js";
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -54,6 +55,47 @@ const PERCEPTION_SCENARIOS = new Set<ScenarioName>([
   "enclosure-animals",
   "office-floor",
 ]);
+
+interface PerceptionCheckResult {
+  passed: boolean;
+  warnings: string[];
+}
+
+function checkPerceptionRealism(
+  scenarioName: ScenarioName,
+  report: SimulationReport,
+): PerceptionCheckResult {
+  const warnings: string[] = [];
+  const p = report.metrics.perception;
+  if (!p) {
+    return { passed: false, warnings: ["No perception metrics in report"] };
+  }
+
+  if (p.causalCoherence < 0.5 && p.totalTopics > 0) {
+    warnings.push(
+      `causalCoherence ${p.causalCoherence.toFixed(2)} below 0.5 threshold`,
+    );
+  }
+  if (p.replyRate <= 0 && report.metrics.totalSpeaks > 2) {
+    warnings.push(`replyRate ${p.replyRate.toFixed(2)} — no in-thread replies detected`);
+  }
+
+  if (scenarioName === "village-realistic") {
+    const anna = report.agents.find((a) => a.agentId === "anna");
+    const lucia = report.agents.find((a) => a.agentId === "lucia");
+    for (const [label, agent] of [["Anna", anna], ["Lucia", lucia]] as const) {
+      if (!agent) continue;
+      const silent = (agent.actions.perceive ?? 0) + agent.actions.observe;
+      if (silent <= agent.actions.speak) {
+        warnings.push(
+          `${label}: expected perceive+observe >> speak (got ${silent} vs ${agent.actions.speak} speaks)`,
+        );
+      }
+    }
+  }
+
+  return { passed: warnings.length === 0, warnings };
+}
 
 // ---------------------------------------------------------------------------
 // Types (matching ScenarioLoader.ScenarioConfig shape)
@@ -287,9 +329,24 @@ async function runScenario(
       console.log();
       console.log(`  Perception layer:`);
       console.log(`    Total stimuli:        ${p.totalStimuli}`);
+      if (p.cumulativeTotalStimuli != null) {
+        console.log(`    Cumulative stimuli:   ${p.cumulativeTotalStimuli}`);
+      }
       console.log(`    Topics opened:        ${p.totalTopics}`);
       console.log(`    Causal coherence:     ${(p.causalCoherence * 100).toFixed(1)}%`);
       console.log(`    Reply rate:           ${(p.replyRate * 100).toFixed(1)}%`);
+    }
+
+    if (PERCEPTION_SCENARIOS.has(scenarioName)) {
+      const check = checkPerceptionRealism(scenarioName, reportData);
+      if (check.passed) {
+        console.log(`\n  Perception realism checks: PASSED`);
+      } else {
+        console.log(`\n  Perception realism checks: WARNINGS`);
+        for (const w of check.warnings) {
+          console.log(`    - ${w}`);
+        }
+      }
     }
     if (!options.silent) {
       console.log();

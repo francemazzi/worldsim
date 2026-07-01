@@ -25,6 +25,11 @@ export class PluginRegistry {
     this.plugins.push(plugin);
   }
 
+  /** Returns a snapshot of all registered plugins. */
+  getAll(): readonly WorldSimPlugin[] {
+    return [...this.plugins];
+  }
+
   async runHook<K extends HookName>(
     hookName: K,
     ...args: Parameters<NonNullable<WorldSimPlugin[K]>>

@@ -26,6 +26,8 @@ export interface PerceptionEngineDeps {
    */
   defaultSenses?: SenseConfig[] | undefined;
   resolveEntityPosition?: EntityPositionResolver | undefined;
+  /** Distance attenuation model. Default: `"linear"`. */
+  attenuationModel?: "linear" | "inverseSquare" | undefined;
 }
 
 interface RegisteredPerceiver {
@@ -221,7 +223,11 @@ export class PerceptionEngine {
       const sensitivity = sense.sensitivity ?? 1;
       const attenuation = physicsBypass
         ? 1
-        : Math.max(0, 1 - distance / Math.max(range, Number.EPSILON));
+        : computeAttenuation(
+            distance,
+            range,
+            this.deps.attenuationModel ?? "linear",
+          );
       const perceivedIntensity = clamp01(stim.intensity * sensitivity * attenuation);
 
       const floor = sense.perceptionFloor ?? 0;
@@ -330,6 +336,20 @@ function resolveSourcePosition(
     return entityResolver?.(source.id);
   }
   return undefined;
+}
+
+function computeAttenuation(
+  distanceKm: number,
+  rangeKm: number,
+  model: "linear" | "inverseSquare",
+): number {
+  const range = Math.max(rangeKm, Number.EPSILON);
+  if (model === "inverseSquare") {
+    const d = Math.max(distanceKm, 0.001);
+    const ratio = range / d;
+    return clamp01(ratio * ratio);
+  }
+  return Math.max(0, 1 - distanceKm / range);
 }
 
 function clamp01(value: number): number {

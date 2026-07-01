@@ -66,8 +66,13 @@ export class LocationIndex {
     this.locations.delete(agentId);
   }
 
-  getLocation(agentId: string): GeoLocation | undefined {
+  get(agentId: string): GeoLocation | undefined {
     return this.locations.get(agentId);
+  }
+
+  /** @deprecated Use {@link get} instead. */
+  getLocation(agentId: string): GeoLocation | undefined {
+    return this.get(agentId);
   }
 
   /**
@@ -113,7 +118,7 @@ export class LocationIndex {
       for (const id of cellAgents) {
         if (id === excludeId) continue;
         const loc = this.locations.get(id)!;
-        const dist = haversineDistance(origin, loc);
+        const dist = haversineKm(origin, loc);
         if (dist <= radiusKm) {
           results.push({ agentId: id, distance: dist });
         }
@@ -158,7 +163,7 @@ export class LocationIndex {
  * using the Haversine formula.
  * TODO: maybe we need to refactor this using leaflet or library with map and evaluation correct real radius
  */
-function haversineDistance(a: GeoLocation, b: GeoLocation): number {
+export function haversineKm(a: GeoLocation, b: GeoLocation): number {
   const R = 6371; // Earth's radius in km
   const dLat = toRad(b.latitude - a.latitude);
   const dLon = toRad(b.longitude - a.longitude);

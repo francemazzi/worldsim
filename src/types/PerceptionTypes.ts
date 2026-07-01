@@ -125,4 +125,17 @@ export interface AttentionConfig {
    * Default `0.5`.
    */
   distractibility?: number | undefined;
+  /**
+   * Optional salience component weights. Unspecified components use the
+   * engine defaults. Values are normalized to sum to 1 before combining.
+   */
+  weights?: Partial<{
+    intensity: number;
+    novelty: number;
+    needRelevance: number;
+    goalRelevance: number;
+    interestMatch: number;
+    relationshipBoost: number;
+    recency: number;
+  }> | undefined;
 }

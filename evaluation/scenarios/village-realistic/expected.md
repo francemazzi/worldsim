@@ -5,8 +5,8 @@
 - Marco e Pietro, entrambi al bar (~stessa coordinata), si sentono e
   possono conversare. Le loro risposte restano sullo stesso `topicId`.
 - Lucia, in piazza (a oltre 50m dal bar), non sente Marco e Pietro
-  parlare. Quando ha fame o ha bisogno di compagnia, può andare verso
-  il bar (movimento futuro) o restare in silenzio.
+  parlare. Quando ha fame o ha bisogno di compagnia, il prompt può
+  suggerire destinazioni utili (affordances/entity) se percepibili.
 - Anna, a casa, non sente nulla dal bar/piazza. Se nessuno entra a casa
   sua, lavora in silenzio (`actionType: "perceive"` o `"observe"`).
 - Marco interessato a "pesce/mare/barca" (interesse esplicito): se

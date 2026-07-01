@@ -100,17 +100,13 @@ interaction: {
 ```
 
 **Perception with default needs.** Apply `humanBasic` needs to every
-agent that does not declare its own:
+agent that does not declare its own. `NeedsSatisfierPlugin` is
+auto-registered at bootstrap unless `autoNeedsSatisfier: false`:
 
 ```ts
-interaction: {
-  mode: "perception",
-  defaultNeedsTemplate: "humanBasic",
-  defaultSenses: [
-    { channel: "sound", radiusKm: 0.05 },
-    { channel: "language", languages: ["it"] },
-  ],
-}
+import { realisticInteractionPreset } from "worldsim";
+
+interaction: realisticInteractionPreset(),
 ```
 
 ## Authoring custom senses
@@ -289,7 +285,9 @@ The `ReportGeneratorPlugin` extends `SimulationMetrics` with a
 stimulus totals are based on the `StimulusBus` retention window; the
 report includes `retainedStimulusTicks` and
 `stimulusMetricsLimitedByRetention` so downstream readers can distinguish
-full-run topic metrics from retained-window stimulus metrics. The
+full-run topic metrics from retained-window stimulus metrics. When the
+report generator plugin is active, `cumulativeTotalStimuli` and
+`cumulativeStimuliByKind` provide monotonic full-run counts. The
 `NarrativeAnalyzer` (when enabled) builds a `PerceptionInsights` block
 in the `NarrativeReport` summarising dominant topics, silence ratio and
 critical-need moments — see

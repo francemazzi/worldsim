@@ -9,11 +9,28 @@ import { isConfigurablePlugin } from "../../plugins/capabilities/ConfigurablePlu
 import type { WorldEngineRuntime } from "./WorldEngineRuntime.js";
 import type { AgentConfig } from "../../types/AgentTypes.js";
 import type { SenseConfig } from "../../types/PerceptionTypes.js";
+import {
+  autoRegisterNeedsSatisfierIfNeeded,
+  validateNeedsLoop,
+} from "./needsLoop.js";
+import { createVenueLineOfSightFilter } from "../../perception/VenueLineOfSightProvider.js";
 
 export class WorldBootstrapper {
   constructor(private runtime: WorldEngineRuntime) {}
 
   async bootstrap(): Promise<void> {
+    autoRegisterNeedsSatisfierIfNeeded(
+      this.runtime.config,
+      this.runtime.pendingAgentConfigs,
+      this.runtime.pluginRegistry,
+    );
+    validateNeedsLoop(
+      this.runtime.config,
+      this.runtime.pendingAgentConfigs,
+      this.runtime.pluginRegistry,
+    );
+    this.wireVenueLineOfSight();
+
     const rulesLoader = new RulesLoader(this.runtime.llmPool.getWorldAdapter());
     this.runtime.rulesContext = this.runtime.config.rulesPath
       ? await rulesLoader.load(this.runtime.config.rulesPath)
@@ -200,8 +217,20 @@ export class WorldBootstrapper {
         needsTracker: this.runtime.needsTracker,
         topicTracker: this.runtime.topicTracker,
         stimulusBus: this.runtime.stimulusBus,
+        activityScheduler: this.runtime.activityScheduler,
       });
     }
+  }
+
+  private wireVenueLineOfSight(): void {
+    if (!this.runtime.perceptionEnabled) return;
+    const shared = this.runtime.config.interaction?.sharedVenueLabels;
+    if (!shared || shared.length === 0) return;
+    const filter = createVenueLineOfSightFilter(
+      this.runtime.locationIndex,
+      shared,
+    );
+    this.runtime.perceptionEngine.addFilter(filter);
   }
 
   private validatePerceptionRequirements(): void {

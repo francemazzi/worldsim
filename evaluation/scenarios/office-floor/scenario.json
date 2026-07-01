@@ -7,6 +7,8 @@
     "mode": "perception",
     "disableBroadcastFallback": true,
     "topicWindowTicks": 6,
+    "defaultNeedsTemplate": "humanBasic",
+    "sharedVenueLabels": ["corridoio", "open-space", "atrio"],
     "defaultSenses": [
       { "channel": "sound", "radiusKm": 0.008 },
       { "channel": "sight", "radiusKm": 0.015 },
@@ -55,7 +57,10 @@
         "goals": ["Finire la feature"],
         "location": { "current": { "latitude": 0.0001, "longitude": 0.0001, "label": "open-space" } }
       },
-      "attention": { "interests": ["bug", "deploy", "code"] }
+      "attention": { "interests": ["bug", "deploy", "code"] },
+      "schedule": {
+        "sleepCycle": { "activeFrom": 8, "activeTo": 20, "period": 24 }
+      }
     },
     {
       "id": "dev2",

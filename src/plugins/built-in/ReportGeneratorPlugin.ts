@@ -76,6 +76,9 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
   const graphSnapshots: GraphSnapshot[] = [];
   const violationsByTick = new Map<number, number>();
   let policyTrigger: PolicyTrigger | null = null;
+  let cumulativeTotalStimuli = 0;
+  const cumulativeStimuliByKind: Record<string, number> = {};
+  const cumulativeStimuliByChannel: Record<string, number> = {};
 
   function ensureCollector(agentId: string): AgentCollector {
     let c = collectors.get(agentId);
@@ -259,7 +262,11 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       averageEnergyByTick,
     };
 
-    const perceptionMetrics = computePerceptionMetrics(options.engine);
+    const perceptionMetrics = computePerceptionMetrics(options.engine, {
+      cumulativeTotalStimuli,
+      cumulativeStimuliByKind: { ...cumulativeStimuliByKind },
+      cumulativeStimuliByChannel: { ...cumulativeStimuliByChannel },
+    });
     if (perceptionMetrics) metrics.perception = perceptionMetrics;
 
     const baseReport: SimulationReport = {
@@ -350,6 +357,9 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
       graphSnapshots.length = 0;
       violationsByTick.clear();
       policyTrigger = null;
+      cumulativeTotalStimuli = 0;
+      Object.keys(cumulativeStimuliByKind).forEach((k) => delete cumulativeStimuliByKind[k]);
+      Object.keys(cumulativeStimuliByChannel).forEach((k) => delete cumulativeStimuliByChannel[k]);
 
       const statuses = options.engine.getAgentStatuses();
       for (const id of Object.keys(statuses)) {
@@ -359,6 +369,12 @@ export function reportGeneratorPlugin(options: ReportGeneratorOptions) {
 
     async onWorldTick(tick: number, _ctx: WorldContext): Promise<void> {
       snapshotAgents(tick);
+      const stimuli = options.engine.getStimulusBus().getForTick(tick);
+      for (const s of stimuli) {
+        cumulativeTotalStimuli += 1;
+        cumulativeStimuliByKind[s.kind] = (cumulativeStimuliByKind[s.kind] ?? 0) + 1;
+        cumulativeStimuliByChannel[s.channel] = (cumulativeStimuliByChannel[s.channel] ?? 0) + 1;
+      }
       if (tick === 1 || tick % snapshotInterval === 0) {
         await captureGraphSnapshot(tick);
       }
@@ -559,6 +575,11 @@ function buildAgentNodes(
  */
 function computePerceptionMetrics(
   engine: WorldEngine,
+  cumulative?: {
+    cumulativeTotalStimuli: number;
+    cumulativeStimuliByKind: Record<string, number>;
+    cumulativeStimuliByChannel: Record<string, number>;
+  },
 ): import("../../types/ReportTypes.js").PerceptionMetrics | undefined {
   const tracker = engine.getTopicTracker();
   const perceptionMode = engine.getConfig().interaction?.mode === "perception";
@@ -640,6 +661,13 @@ function computePerceptionMetrics(
     retainedStimulusTicks: retainedTicks.length,
     stimulusMetricsLimitedByRetention:
       engine.getContext().tickCount + 1 > stimulusBus.retentionWindowTicks,
+    ...(cumulative && cumulative.cumulativeTotalStimuli > 0
+      ? {
+          cumulativeTotalStimuli: cumulative.cumulativeTotalStimuli,
+          cumulativeStimuliByKind: cumulative.cumulativeStimuliByKind,
+          cumulativeStimuliByChannel: cumulative.cumulativeStimuliByChannel,
+        }
+      : {}),
     totalTopics,
     avgStimuliPerTopic:
       totalTopics > 0 ? Math.round((totalStimsInTopics / totalTopics) * 100) / 100 : 0,

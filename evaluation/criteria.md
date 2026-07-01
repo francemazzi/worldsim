@@ -71,3 +71,24 @@ Distinct story arcs emerge from agent interactions. The simulation should produc
 | 3 | Some narrative threads but no cohesive overall arc |
 | 2 | Repetitive exchanges with occasional interesting moments |
 | 1 | No discernible narrative -- random or circular conversation |
+
+---
+
+## 6. Perceptual Realism
+
+Agents behave as if limited by their senses, proximity, and internal drives. Speech does not reach distant agents; silent agents stay silent when nothing is perceived; needs decay and recover through coherent actions; conversation threads stay on-topic.
+
+| Score | Description |
+|---|---|
+| 5 | Perfect proximity gating, appropriate silence, balanced needs, high causal coherence (≥0.5) |
+| 4 | Minor leaks (1 agent hears too far) but overall spatial/social realism holds |
+| 3 | Mixed: some agents react without proximity justification |
+| 2 | Frequent broadcast-like behavior or needs monotonically critical |
+| 1 | All agents hear everything; no perceptual or needs realism |
+
+**Automated thresholds** (perception scenarios):
+
+- `metrics.perception.causalCoherence` ≥ 0.5 for co-located dialogue clusters
+- Distant agents: `actions.perceive + actions.observe` >> `actions.speak`
+- Needs values should not remain at critical for all agents after tick 10
+- `metrics.perception.replyRate` > 0 when co-located agents exist

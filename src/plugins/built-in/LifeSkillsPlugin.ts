@@ -1242,18 +1242,119 @@ const academicTools: AgentTool[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  cooking (placeholder — no tools specified in prompt, but category  */
-/*  exists in the type)                                                */
+/*  cooking                                                            */
 /* ------------------------------------------------------------------ */
 
-const cookingTools: AgentTool[] = [];
+const cookingTools: AgentTool[] = [
+  {
+    name: "cook_meal",
+    description:
+      "Prepara un pasto usando ingredienti disponibili. Riduce la fame e consuma energia.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dish: { type: "string", description: "Nome del piatto da preparare" },
+        ingredients: {
+          type: "array",
+          items: { type: "string" },
+          description: "Ingredienti usati",
+        },
+      },
+      required: ["dish"],
+    },
+    async execute(input: unknown, ctx: WorldContext) {
+      const { dish, ingredients } = input as { dish: string; ingredients?: string[] };
+      const quality = pick("buono", "ottimo", "discreto", "eccellente");
+      return {
+        dish,
+        quality,
+        ingredients: ingredients ?? [],
+        energyCost: randInt(8, 15),
+        description: `Hai preparato ${dish} (${quality}).`,
+        tick: ctx.tickCount,
+      };
+    },
+  },
+  {
+    name: "eat_meal",
+    description: "Consuma un pasto preparato o disponibile. Soddisfa la fame.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        meal: { type: "string", description: "Pasto consumato" },
+      },
+      required: ["meal"],
+    },
+    async execute(input: unknown, ctx: WorldContext) {
+      const { meal } = input as { meal: string };
+      return {
+        meal,
+        satiation: randFloat(0.2, 0.4),
+        description: `Hai mangiato ${meal}.`,
+        tick: ctx.tickCount,
+      };
+    },
+  },
+];
 
 /* ------------------------------------------------------------------ */
-/*  crafting (placeholder — no tools specified in prompt, but category */
-/*  exists in the type)                                                */
+/*  crafting                                                           */
 /* ------------------------------------------------------------------ */
 
-const craftingTools: AgentTool[] = [];
+const craftingTools: AgentTool[] = [
+  {
+    name: "craft_item",
+    description:
+      "Crea un oggetto artigianale usando materiali. Consuma energia e tempo.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        item: { type: "string", description: "Oggetto da creare" },
+        materials: {
+          type: "array",
+          items: { type: "string" },
+          description: "Materiali usati",
+        },
+      },
+      required: ["item"],
+    },
+    async execute(input: unknown, ctx: WorldContext) {
+      const { item, materials } = input as { item: string; materials?: string[] };
+      const success = Math.random() > 0.15;
+      return {
+        item,
+        success,
+        materials: materials ?? [],
+        energyCost: randInt(10, 20),
+        description: success
+          ? `Hai creato ${item} con successo.`
+          : `Tentativo di creare ${item} parzialmente riuscito.`,
+        tick: ctx.tickCount,
+      };
+    },
+  },
+  {
+    name: "repair_item",
+    description: "Ripara un oggetto danneggiato.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        item: { type: "string", description: "Oggetto da riparare" },
+      },
+      required: ["item"],
+    },
+    async execute(input: unknown, ctx: WorldContext) {
+      const { item } = input as { item: string };
+      return {
+        item,
+        repaired: true,
+        energyCost: randInt(5, 12),
+        description: `Hai riparato ${item}.`,
+        tick: ctx.tickCount,
+      };
+    },
+  },
+];
 
 /* ------------------------------------------------------------------ */
 /*  Skill-tools map                                                    */

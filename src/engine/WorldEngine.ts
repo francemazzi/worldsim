@@ -64,6 +64,7 @@ export class WorldEngine {
       locationIndex,
       resolveEntityPosition: (id) => entityRegistry.get(id)?.position,
       ...(interaction?.defaultSenses ? { defaultSenses: interaction.defaultSenses } : {}),
+      ...(interaction?.attenuationModel ? { attenuationModel: interaction.attenuationModel } : {}),
     });
     const topicTracker = new TopicTracker({
       windowTicks: interaction?.topicWindowTicks ?? 5,

@@ -13,7 +13,12 @@ import {
   buildTopicContextPrompt,
   buildNeedsPrompt,
   buildAffordancesPrompt,
+  buildDynamicGoalsPrompt,
 } from "./ProfilePromptBuilder.js";
+import {
+  computeNeedDestinationHints,
+  buildNeedDestinationsPrompt,
+} from "../needs/NeedsDestinationHints.js";
 import { AttentionPolicy } from "../perception/AttentionPolicy.js";
 import type { RankedPercept } from "../perception/AttentionPolicy.js";
 import type { Topic } from "../perception/TopicTracker.js";
@@ -452,13 +457,28 @@ export class PersonAgent extends BaseAgent {
       toolSection = `\nI TUOI STRUMENTI (usali attivamente, non limitarti a parlare!):\n${toolList}\nPer usarli, il sistema li chiamera automaticamente se li menzioni nel contesto.`;
     }
 
-    // Energy-based warning
-    const energy = this.internalState.energy;
+    // Energy-based warning (aligned with fatigue need when tracked)
+    let energy = this.internalState.energy;
     let energyWarning = "";
-    if (energy < 20) {
-      energyWarning = `\n⚠️ Energia CRITICA (${energy}/100). DEVI riposare: usa "finish" o "observe".`;
-    } else if (energy < 40) {
-      energyWarning = `\n⚠️ Energia bassa (${energy}/100). Considera "observe" o "finish" invece di azioni faticose.`;
+    const fatigueNeed = this.needsTracker?.get(this.id)?.needs.find((n) => n.id === "fatigue");
+    const fatigueActive = fatigueNeed != null
+      && fatigueNeed.value >= (fatigueNeed.activationThreshold ?? 0.5);
+    if (fatigueActive) {
+      const fatiguePct = Math.round(fatigueNeed!.value * 100);
+      if (fatigueNeed!.value >= (fatigueNeed!.criticalThreshold ?? 0.9)) {
+        energyWarning = `\n⚠️ Stanchezza CRITICA (${fatiguePct}%). DEVI riposare: usa "finish", "observe" o interact con riposo/sleep.`;
+      } else {
+        energyWarning = `\n⚠️ Sei stanco (${fatiguePct}%). Considera riposo invece di azioni faticose.`;
+      }
+      if (energy > 50) {
+        energy = Math.max(20, 100 - Math.round(fatigueNeed!.value * 80));
+      }
+    } else {
+      if (energy < 20) {
+        energyWarning = `\n⚠️ Energia CRITICA (${energy}/100). DEVI riposare: usa "finish" o "observe".`;
+      } else if (energy < 40) {
+        energyWarning = `\n⚠️ Energia bassa (${energy}/100). Considera "observe" o "finish" invece di azioni faticose.`;
+      }
     }
 
     const actionTypeUnion = perceptionActive
@@ -710,6 +730,27 @@ REGOLE DI RISPOSTA:
       const needs = this.needsTracker.get(this.id);
       const needsSection = buildNeedsPrompt(needs);
       if (needsSection) extra.push(needsSection);
+
+      const dynamicGoals = this.needsTracker.dynamicGoals(this.id);
+      const goalsSection = buildDynamicGoalsPrompt(dynamicGoals);
+      if (goalsSection) extra.push(goalsSection);
+    }
+
+    if (
+      this.needsTracker
+      && this.affordanceResolver
+      && this.locationIndex
+      && rankedPercepts.length > 0
+    ) {
+      const rawPercepts = rankedPercepts.map((r) => r.percept);
+      const hints = computeNeedDestinationHints(this.id, {
+        needsTracker: this.needsTracker,
+        affordanceResolver: this.affordanceResolver,
+        locationIndex: this.locationIndex,
+        percepts: rawPercepts,
+      });
+      const destSection = buildNeedDestinationsPrompt(hints);
+      if (destSection) extra.push(destSection);
     }
 
     if (extra.length === 0) return base;

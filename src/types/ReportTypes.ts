@@ -150,6 +150,15 @@ export interface PerceptionMetrics {
   retainedStimulusTicks: number;
   /** True when stimulus counts may omit older ticks evicted by retention. */
   stimulusMetricsLimitedByRetention: boolean;
+  /**
+   * Full-run cumulative stimulus count (monotonic, not limited by retention).
+   * Present when the report generator tracked ticks during the run.
+   */
+  cumulativeTotalStimuli?: number | undefined;
+  /** Full-run cumulative stimuli by kind. */
+  cumulativeStimuliByKind?: Record<string, number> | undefined;
+  /** Full-run cumulative stimuli by channel. */
+  cumulativeStimuliByChannel?: Record<string, number> | undefined;
   /** Number of distinct topics opened over the run. */
   totalTopics: number;
   /** Average number of stimuli per topic. */

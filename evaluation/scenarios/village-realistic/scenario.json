@@ -7,6 +7,7 @@
     "mode": "perception",
     "disableBroadcastFallback": true,
     "topicWindowTicks": 5,
+    "defaultNeedsTemplate": "humanBasic",
     "defaultSenses": [
       { "channel": "sound", "radiusKm": 0.05 },
       { "channel": "sight", "radiusKm": 0.03 },
@@ -52,6 +53,9 @@
       "attention": {
         "interests": ["pesce", "mare", "barca"],
         "threshold": 0.15
+      },
+      "schedule": {
+        "sleepCycle": { "activeFrom": 7, "activeTo": 23, "period": 24 }
       },
       "needs": {
         "needs": [
