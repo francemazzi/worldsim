@@ -30,6 +30,7 @@ import { InMemoryEntityRegistry } from "../entities/InMemoryEntityRegistry.js";
 import { AffordanceResolver } from "../entities/AffordanceResolver.js";
 import { privacyCompliancePlugin } from "../plugins/built-in/PrivacyCompliancePlugin.js";
 import { FederationPlugin } from "../plugins/built-in/FederationPlugin.js";
+import { autoRegisterNeedsSatisfierIfNeeded } from "./internal/needsLoop.js";
 import { isPositionProvider } from "../plugins/capabilities/PositionProvider.js";
 import { FederationBus } from "../federation/FederationBus.js";
 import type { Conversation } from "../types/ConversationTypes.js";
@@ -326,6 +327,20 @@ export class WorldEngine {
 
   getPlugin(name: string): WorldSimPlugin | undefined {
     return this.runtime.pluginRegistry.getPlugin(name);
+  }
+
+  /**
+   * Ensures {@link NeedsSatisfierPlugin} is registered when perception mode
+   * is on and agents have needs. Safe to call after {@link addAgent}; idempotent
+   * with bootstrap auto-wiring.
+   */
+  ensureNeedsSatisfier(): this {
+    autoRegisterNeedsSatisfierIfNeeded(
+      this.runtime.config,
+      this.runtime.pendingAgentConfigs,
+      this.runtime.pluginRegistry,
+    );
+    return this;
   }
 
   getRulesContext(): RulesContext | null {

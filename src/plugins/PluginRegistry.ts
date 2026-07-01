@@ -25,6 +25,22 @@ export class PluginRegistry {
     this.plugins.push(plugin);
   }
 
+  /**
+   * Registers a plugin only when no plugin with the same name exists yet.
+   * Returns true when the plugin was added.
+   */
+  registerIfAbsent(plugin: WorldSimPlugin): boolean {
+    if (this.plugins.some((p) => p.name === plugin.name)) {
+      return false;
+    }
+    this.plugins.push(plugin);
+    return true;
+  }
+
+  hasPlugin(name: string): boolean {
+    return this.plugins.some((p) => p.name === name);
+  }
+
   /** Returns a snapshot of all registered plugins. */
   getAll(): readonly WorldSimPlugin[] {
     return [...this.plugins];

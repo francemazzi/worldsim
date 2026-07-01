@@ -17,7 +17,6 @@ import {
   ConsoleLoggerPlugin,
   InMemoryMemoryStore,
   InMemoryGraphStore,
-  NeedsSatisfierPlugin,
 } from "worldsim";
 import type {
   InteractionConfig,
@@ -257,12 +256,6 @@ async function runScenario(
   const report = reportGeneratorPlugin({ engine });
   engine.use(report.plugin);
 
-  // Auto-attach the satisfier plugin in perception mode so needs decay is
-  // counterbalanced when agents act on the matching keywords.
-  if (interaction?.mode === "perception") {
-    engine.use(new NeedsSatisfierPlugin());
-  }
-
   // Seed entities (perception scenarios typically declare a few)
   if (Array.isArray(scenario.entities)) {
     for (const entity of scenario.entities) {
@@ -274,6 +267,8 @@ async function runScenario(
   for (const agent of scenario.agents) {
     engine.addAgent(agent);
   }
+
+  engine.ensureNeedsSatisfier();
 
   // Set up trigger if defined
   if (scenario.trigger) {

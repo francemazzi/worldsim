@@ -56,8 +56,6 @@ describe("Needs feedback loop with NeedsSatisfierPlugin", () => {
       interaction: { mode: "perception" },
     });
 
-    engine.use(new NeedsSatisfierPlugin());
-
     engine.addAgent({
       id: "alice",
       role: "person",

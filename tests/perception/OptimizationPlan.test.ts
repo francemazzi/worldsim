@@ -411,7 +411,7 @@ describe("Perception optimization plan", () => {
     });
   });
 
-  it("registers NeedsSatisfierPlugin from ScenarioLoader in perception mode", () => {
+  it("auto-registers NeedsSatisfierPlugin via ensureNeedsSatisfier in perception mode", () => {
     const result = loadScenario(
       {
         name: "needs-loader",
@@ -419,13 +419,26 @@ describe("Perception optimization plan", () => {
         tickIntervalMs: 0,
         interaction: {
           mode: "perception",
+          defaultNeedsTemplate: "humanBasic",
           defaultSenses: [{ channel: "sound", radiusKm: 0.05 }],
         },
-        agents: [],
+        agents: [
+          {
+            id: "a1",
+            role: "person",
+            name: "A",
+            profile: {
+              name: "A",
+              personality: ["quiet"],
+              goals: ["rest"],
+            },
+          },
+        ],
       },
       llmConfig(),
     );
 
+    result.engine.ensureNeedsSatisfier();
     expect(result.engine.getPlugin("needs-satisfier")).toBeTruthy();
   });
 });

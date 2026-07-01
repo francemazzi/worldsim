@@ -40,7 +40,7 @@ export function autoRegisterNeedsSatisfierIfNeeded(
   if (interaction.autoNeedsSatisfier === false) return;
   if (!worldHasNeedsAgents(interaction, pendingAgents)) return;
   if (hasNeedsSatisfierPlugin(registry)) return;
-  registry.register(new NeedsSatisfierPlugin());
+  registry.registerIfAbsent(new NeedsSatisfierPlugin());
 }
 
 /**

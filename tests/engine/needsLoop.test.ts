@@ -72,4 +72,11 @@ describe("needsLoop auto-wiring", () => {
     autoRegisterNeedsSatisfierIfNeeded(perceptionConfig, agents, registry);
     expect(registry.getAll().filter((p) => p.name === "needs-satisfier")).toHaveLength(1);
   });
+
+  it("uses registerIfAbsent without throwing on repeated calls", () => {
+    const registry = new PluginRegistry();
+    autoRegisterNeedsSatisfierIfNeeded(perceptionConfig, agents, registry);
+    autoRegisterNeedsSatisfierIfNeeded(perceptionConfig, agents, registry);
+    expect(registry.getAll().filter((p) => p.name === "needs-satisfier")).toHaveLength(1);
+  });
 });
