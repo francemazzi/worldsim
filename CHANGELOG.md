@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-07-02
+
+### Added
+- Emergence World-inspired cross-vendor integration test (`npm run test:integration:emergence`) with OpenRouter-gated harness and AWI-lite metrics.
+- README example chart (M2 safety proxy) with committed SVG/JSON assets and `npm run emergence:chart` / `emergence:chart:render` scripts.
+- VitePress documentation site at [francemazzi.github.io/worldsim](https://francemazzi.github.io/worldsim/).
+- `.github/CODEOWNERS` for main branch ruleset compliance.
+
+### Changed
+- Default Emergence OpenRouter models updated to `google/gemini-2.5-flash` and `anthropic/claude-3-haiku`.
+- README slimmed down; detailed guides moved to VitePress.
+
+### Fixed
+- VitePress docs images served from `docs/public/`.
+- Isolated VitePress install in docs CI workflow.
+
+## [1.4.1] - 2026-06-03
+
+### Changed
+- README onboarding clarifications.
+
+## [1.4.0] - 2026-05-06
+
 ### Added
 - **Realistic simulation primitives** — opt-in perception layer that turns
   agent interactions into a physics-aware pipeline. Activated via the new
