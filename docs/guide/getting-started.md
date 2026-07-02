@@ -105,7 +105,7 @@ Optional env vars:
 
 Without `OPENROUTER_API_KEY` the test suite is skipped automatically.
 
-To regenerate the README example chart (writes `docs/public/emergence-m2-example.json` and `.svg`):
+To regenerate the README example chart (writes `docs/public/emergence-m2-example.json`, `.svg`, and `.png`):
 
 ```bash
 npm run emergence:chart          # live OpenRouter run

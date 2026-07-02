@@ -56,7 +56,7 @@ WorldSim can run scaled-down cross-LLM studies inspired by the [Emergence World]
 
 The chart below plots **cumulative governance blocks** (an M2 safety proxy) over 8 simulation ticks. Identical starting conditions produce divergent enforcement trajectories across model vendors — the same qualitative pattern Emergence World reports in Figure 4 (M2: Safety & Public Order).
 
-![Cumulative governance blocks across three model conditions](docs/public/emergence-m2-example.svg)
+![Cumulative governance blocks across three model conditions](docs/public/emergence-m2-example.png)
 
 > Inspired by Figure 4 (M2: Safety & Public Order) in *Emergence World: A Platform for Evaluating Long-Horizon Multi-Agent Autonomy* (Kokku et al., [arXiv:2606.08367](https://arxiv.org/abs/2606.08367), Emergence AI, 2026).
 
@@ -64,8 +64,8 @@ This is an **illustrative micro-replica** (4 person agents, 8 ticks, single run)
 
 ```bash
 npm run test:integration:emergence   # full integration suite (requires OPENROUTER_API_KEY)
-npm run emergence:chart              # regenerate docs/public/emergence-m2-example.{json,svg}
-npm run emergence:chart:render       # render SVG from committed JSON (no API key)
+npm run emergence:chart              # regenerate docs/public/emergence-m2-example.{json,svg,png}
+npm run emergence:chart:render       # render SVG/PNG from committed JSON (no API key)
 ```
 
 See the [Getting Started guide](https://francemazzi.github.io/worldsim/guide/getting-started#emergence-style-cross-vendor-integration-test) for environment variables and setup.
