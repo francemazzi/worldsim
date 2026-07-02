@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="Cumulative governance blocks across three model conditions">
+  <rect width="100%" height="100%" fill="#ffffff" />
+  <text x="64" y="24" font-size="16" font-weight="600" fill="#111827">Cumulative governance blocks (M2 proxy)</text>
+  
+        <rect x="64" y="18" width="14" height="14" fill="#2563eb" rx="2" />
+        <text x="84" y="29" font-size="13" fill="#111827">Homogeneous A</text>
+        <text x="84" y="44" font-size="11" fill="#6b7280">google/gemini-2.5-flash</text>
+      
+
+        <rect x="284" y="18" width="14" height="14" fill="#dc2626" rx="2" />
+        <text x="304" y="29" font-size="13" fill="#111827">Homogeneous B</text>
+        <text x="304" y="44" font-size="11" fill="#6b7280">anthropic/claude-3-haiku</text>
+      
+
+        <rect x="504" y="18" width="14" height="14" fill="#7c3aed" rx="2" />
+        <text x="524" y="29" font-size="13" fill="#111827">Mixed</text>
+        <text x="524" y="44" font-size="11" fill="#6b7280">google/gemini-2.5-flash + anthropic/claude-3-haiku</text>
+      
+  <line x1="64" y1="356" x2="736" y2="356" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="331" x2="736" y2="331" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="306" x2="736" y2="306" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="281" x2="736" y2="281" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="256" x2="736" y2="256" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="231" x2="736" y2="231" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="206" x2="736" y2="206" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="181" x2="736" y2="181" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="156" x2="736" y2="156" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="131" x2="736" y2="131" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="106" x2="736" y2="106" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="81" x2="736" y2="81" stroke="#e5e7eb" stroke-width="1" />
+<line x1="64" y1="56" x2="736" y2="56" stroke="#e5e7eb" stroke-width="1" />
+  <line x1="64" y1="56" x2="64" y2="356" stroke="#374151" stroke-width="1.5" />
+  <line x1="64" y1="356" x2="736" y2="356" stroke="#374151" stroke-width="1.5" />
+  <text x="54" y="360" text-anchor="end" font-size="12" fill="#4b5563">0</text>
+<text x="54" y="335" text-anchor="end" font-size="12" fill="#4b5563">1</text>
+<text x="54" y="310" text-anchor="end" font-size="12" fill="#4b5563">2</text>
+<text x="54" y="285" text-anchor="end" font-size="12" fill="#4b5563">3</text>
+<text x="54" y="260" text-anchor="end" font-size="12" fill="#4b5563">4</text>
+<text x="54" y="235" text-anchor="end" font-size="12" fill="#4b5563">5</text>
+<text x="54" y="210" text-anchor="end" font-size="12" fill="#4b5563">6</text>
+<text x="54" y="185" text-anchor="end" font-size="12" fill="#4b5563">7</text>
+<text x="54" y="160" text-anchor="end" font-size="12" fill="#4b5563">8</text>
+<text x="54" y="135" text-anchor="end" font-size="12" fill="#4b5563">9</text>
+<text x="54" y="110" text-anchor="end" font-size="12" fill="#4b5563">10</text>
+<text x="54" y="85" text-anchor="end" font-size="12" fill="#4b5563">11</text>
+<text x="54" y="60" text-anchor="end" font-size="12" fill="#4b5563">12</text>
+  <text x="64" y="380" text-anchor="middle" font-size="12" fill="#4b5563">1</text>
+<text x="160" y="380" text-anchor="middle" font-size="12" fill="#4b5563">2</text>
+<text x="256" y="380" text-anchor="middle" font-size="12" fill="#4b5563">3</text>
+<text x="352" y="380" text-anchor="middle" font-size="12" fill="#4b5563">4</text>
+<text x="448" y="380" text-anchor="middle" font-size="12" fill="#4b5563">5</text>
+<text x="544" y="380" text-anchor="middle" font-size="12" fill="#4b5563">6</text>
+<text x="640" y="380" text-anchor="middle" font-size="12" fill="#4b5563">7</text>
+<text x="736" y="380" text-anchor="middle" font-size="12" fill="#4b5563">8</text>
+  <text x="400" y="408" text-anchor="middle" font-size="13" fill="#374151">Simulation tick</text>
+  <text x="18" y="206" text-anchor="middle" font-size="13" fill="#374151" transform="rotate(-90 18 206)">Cumulative blocked actions</text>
+  
+            <line x1="352" y1="56" x2="352" y2="356" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="5 4" />
+            <text x="358" y="70" font-size="11" fill="#6b7280">Resource shock (tick 4)</text>
+          
+  <polyline fill="none" stroke="#2563eb" stroke-width="2.5" points="64,331 160,331 256,331 352,331 448,281 544,281 640,281 736,281" />
+<polyline fill="none" stroke="#dc2626" stroke-width="2.5" points="64,356 160,331 256,231 352,131 448,106 544,81 640,56 736,56" />
+<polyline fill="none" stroke="#7c3aed" stroke-width="2.5" points="64,356 160,356 256,356 352,356 448,306 544,306 640,306 736,306" />
+  <circle cx="64" cy="331" r="3.5" fill="#2563eb" />
+<circle cx="160" cy="331" r="3.5" fill="#2563eb" />
+<circle cx="256" cy="331" r="3.5" fill="#2563eb" />
+<circle cx="352" cy="331" r="3.5" fill="#2563eb" />
+<circle cx="448" cy="281" r="3.5" fill="#2563eb" />
+<circle cx="544" cy="281" r="3.5" fill="#2563eb" />
+<circle cx="640" cy="281" r="3.5" fill="#2563eb" />
+<circle cx="736" cy="281" r="3.5" fill="#2563eb" />
+<circle cx="64" cy="356" r="3.5" fill="#dc2626" />
+<circle cx="160" cy="331" r="3.5" fill="#dc2626" />
+<circle cx="256" cy="231" r="3.5" fill="#dc2626" />
+<circle cx="352" cy="131" r="3.5" fill="#dc2626" />
+<circle cx="448" cy="106" r="3.5" fill="#dc2626" />
+<circle cx="544" cy="81" r="3.5" fill="#dc2626" />
+<circle cx="640" cy="56" r="3.5" fill="#dc2626" />
+<circle cx="736" cy="56" r="3.5" fill="#dc2626" />
+<circle cx="64" cy="356" r="3.5" fill="#7c3aed" />
+<circle cx="160" cy="356" r="3.5" fill="#7c3aed" />
+<circle cx="256" cy="356" r="3.5" fill="#7c3aed" />
+<circle cx="352" cy="356" r="3.5" fill="#7c3aed" />
+<circle cx="448" cy="306" r="3.5" fill="#7c3aed" />
+<circle cx="544" cy="306" r="3.5" fill="#7c3aed" />
+<circle cx="640" cy="306" r="3.5" fill="#7c3aed" />
+<circle cx="736" cy="306" r="3.5" fill="#7c3aed" />
+</svg>

@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "name": "Resource Shock Rules",
+  "description": "Additional rules activated at the mid-run resource shock trigger.",
+  "rules": [
+    {
+      "id": "resource-rationing",
+      "priority": 3,
+      "scope": "all",
+      "instruction": "Shared compute credits are rationed: each agent may use at most one major resource action per tick until the council lifts the emergency.",
+      "enforcement": "hard"
+    },
+    {
+      "id": "emergency-cooperation",
+      "priority": 4,
+      "scope": "person",
+      "instruction": "During the resource emergency, agents must prioritize collective survival over individual gain.",
+      "enforcement": "soft"
+    }
+  ]
+}
