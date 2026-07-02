@@ -54,6 +54,10 @@ npx worldsim studio
 
 WorldSim can run scaled-down cross-LLM studies inspired by the [Emergence World](https://arxiv.org/abs/2606.08367) platform. The integration test `npm run test:integration:emergence` spins up three micro-worlds (homogeneous model A, homogeneous model B, mixed population) under identical constitutional rules and a mid-run resource shock.
 
+![How the Emergence micro-study works](docs/public/emergence-study-overview.png)
+
+Each world uses the same scenario, constitutional rules, and resource shock — only the LLM assignment changes. Person agents reason tick by tick; a governance monitor evaluates actions as allowed, warned, or blocked.
+
 The chart below plots **cumulative governance blocks** (an M2 safety proxy) over 8 simulation ticks. Identical starting conditions produce divergent enforcement trajectories across model vendors — the same qualitative pattern Emergence World reports in Figure 4 (M2: Safety & Public Order).
 
 ![Cumulative governance blocks across three model conditions](docs/public/emergence-m2-example.png)
@@ -64,8 +68,8 @@ This is an **illustrative micro-replica** (4 person agents, 8 ticks, single run)
 
 ```bash
 npm run test:integration:emergence   # full integration suite (requires OPENROUTER_API_KEY)
-npm run emergence:chart              # regenerate docs/public/emergence-m2-example.{json,svg,png}
-npm run emergence:chart:render       # render SVG/PNG from committed JSON (no API key)
+npm run emergence:chart              # regenerate docs/public/emergence-*.{json,svg,png}
+npm run emergence:chart:render       # render study overview + M2 chart from committed JSON (no API key)
 ```
 
 See the [Getting Started guide](https://francemazzi.github.io/worldsim/guide/getting-started#emergence-style-cross-vendor-integration-test) for environment variables and setup.

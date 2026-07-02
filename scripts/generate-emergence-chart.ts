@@ -11,6 +11,7 @@ import {
   type EmergenceChartData,
   type EmergenceCondition,
 } from "../tests/integration/helpers/emergenceStudyHarness.js";
+import { renderEmergenceStudyOverviewSvg } from "./emergence-study-overview.js";
 
 config({ path: ".env" });
 
@@ -19,6 +20,8 @@ const ROOT = join(__dirname, "..");
 const DEFAULT_JSON = join(ROOT, "docs/public/emergence-m2-example.json");
 const DEFAULT_SVG = join(ROOT, "docs/public/emergence-m2-example.svg");
 const DEFAULT_PNG = join(ROOT, "docs/public/emergence-m2-example.png");
+const DEFAULT_OVERVIEW_SVG = join(ROOT, "docs/public/emergence-study-overview.svg");
+const DEFAULT_OVERVIEW_PNG = join(ROOT, "docs/public/emergence-study-overview.png");
 
 const SERIES_COLORS: Record<string, string> = {
   homogeneous_a: "#2563eb",
@@ -156,21 +159,30 @@ function writeChartAssets(
   jsonPath: string,
   svgPath: string,
   pngPath: string,
+  overviewSvgPath: string,
+  overviewPngPath: string,
 ): void {
   mkdirSync(dirname(jsonPath), { recursive: true });
   writeFileSync(jsonPath, `${JSON.stringify(data, null, 2)}\n`, "utf-8");
   const svg = renderEmergenceChartSvg(data);
   writeFileSync(svgPath, svg, "utf-8");
   writeFileSync(pngPath, renderEmergenceChartPng(svg));
+  const overviewSvg = renderEmergenceStudyOverviewSvg(data);
+  writeFileSync(overviewSvgPath, overviewSvg, "utf-8");
+  writeFileSync(overviewPngPath, renderEmergenceChartPng(overviewSvg));
   console.log(`Wrote ${jsonPath}`);
   console.log(`Wrote ${svgPath}`);
   console.log(`Wrote ${pngPath}`);
+  console.log(`Wrote ${overviewSvgPath}`);
+  console.log(`Wrote ${overviewPngPath}`);
 }
 
 async function runLiveStudy(
   jsonPath: string,
   svgPath: string,
   pngPath: string,
+  overviewSvgPath: string,
+  overviewPngPath: string,
 ): Promise<void> {
   if (!process.env.OPENROUTER_API_KEY) {
     throw new Error("OPENROUTER_API_KEY is required for --run");
@@ -193,14 +205,22 @@ async function runLiveStudy(
     triggerTick: scenario.trigger?.atTick ?? null,
   });
 
-  writeChartAssets(data, jsonPath, svgPath, pngPath);
+  writeChartAssets(data, jsonPath, svgPath, pngPath, overviewSvgPath, overviewPngPath);
 }
 
-function renderFromJson(jsonPath: string, svgPath: string, pngPath: string): void {
+function renderFromJson(
+  jsonPath: string,
+  svgPath: string,
+  pngPath: string,
+  overviewSvgPath: string,
+  overviewPngPath: string,
+): void {
   const raw = readFileSync(jsonPath, "utf-8");
   const data = JSON.parse(raw) as EmergenceChartData;
-  writeChartAssets(data, jsonPath, svgPath, pngPath);
-  console.log(`Rendered ${svgPath} and ${pngPath} from ${jsonPath}`);
+  writeChartAssets(data, jsonPath, svgPath, pngPath, overviewSvgPath, overviewPngPath);
+  console.log(
+    `Rendered ${svgPath}, ${pngPath}, ${overviewSvgPath}, and ${overviewPngPath} from ${jsonPath}`,
+  );
 }
 
 function parseArgs(argv: string[]): {
@@ -208,6 +228,8 @@ function parseArgs(argv: string[]): {
   jsonPath: string;
   svgPath: string;
   pngPath: string;
+  overviewSvgPath: string;
+  overviewPngPath: string;
 } {
   const run = argv.includes("--run");
   const fromIndex = argv.indexOf("--from");
@@ -225,19 +247,36 @@ function parseArgs(argv: string[]): {
     pngIndex >= 0 && argv[pngIndex + 1]
       ? argv[pngIndex + 1]!
       : DEFAULT_PNG;
+  const overviewSvgIndex = argv.indexOf("--overview-svg");
+  const overviewSvgPath =
+    overviewSvgIndex >= 0 && argv[overviewSvgIndex + 1]
+      ? argv[overviewSvgIndex + 1]!
+      : DEFAULT_OVERVIEW_SVG;
+  const overviewPngIndex = argv.indexOf("--overview-png");
+  const overviewPngPath =
+    overviewPngIndex >= 0 && argv[overviewPngIndex + 1]
+      ? argv[overviewPngIndex + 1]!
+      : DEFAULT_OVERVIEW_PNG;
 
-  return { run, jsonPath, svgPath, pngPath };
+  return { run, jsonPath, svgPath, pngPath, overviewSvgPath, overviewPngPath };
 }
 
 async function main(): Promise<void> {
-  const { run, jsonPath, svgPath, pngPath } = parseArgs(process.argv.slice(2));
+  const {
+    run,
+    jsonPath,
+    svgPath,
+    pngPath,
+    overviewSvgPath,
+    overviewPngPath,
+  } = parseArgs(process.argv.slice(2));
 
   if (run) {
-    await runLiveStudy(jsonPath, svgPath, pngPath);
+    await runLiveStudy(jsonPath, svgPath, pngPath, overviewSvgPath, overviewPngPath);
     return;
   }
 
-  renderFromJson(jsonPath, svgPath, pngPath);
+  renderFromJson(jsonPath, svgPath, pngPath, overviewSvgPath, overviewPngPath);
 }
 
 main().catch((error) => {
