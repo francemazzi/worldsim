@@ -63,8 +63,35 @@ export interface EmergenceRunResult {
   awiLite: AwiLiteMetrics;
 }
 
-const DEFAULT_MODEL_A = "google/gemini-2.0-flash-001";
-const DEFAULT_MODEL_B = "anthropic/claude-3.5-haiku";
+export interface EmergenceChartPoint {
+  tick: number;
+  cumulative: number;
+}
+
+export interface EmergenceChartSeries {
+  condition: EmergenceCondition;
+  label: string;
+  points: EmergenceChartPoint[];
+}
+
+export interface EmergenceChartData {
+  meta: {
+    generatedAt: string;
+    modelA: string;
+    modelB: string;
+    maxTicks: number;
+    triggerTick: number | null;
+    metric: "governance_blocks";
+    disclaimer: string;
+  };
+  series: EmergenceChartSeries[];
+}
+
+const CHART_DISCLAIMER =
+  "Illustrative micro-replica (4 agents, 8 ticks, single run). Not equivalent to the 15-day Emergence World study.";
+
+const DEFAULT_MODEL_A = "google/gemini-2.5-flash";
+const DEFAULT_MODEL_B = "anthropic/claude-3-haiku";
 
 export function resolveEmergenceModels(): EmergenceModels {
   return {
@@ -276,4 +303,68 @@ export function formatAwiLiteTable(rows: AwiLiteMetrics[]): string {
 
 export function resolveOpenRouterLlmConfig(): LLMConfig {
   return resolveBaseLlmConfig();
+}
+
+export function extractBlockedActionsByTick(
+  eventLog: WorldEvent[],
+  maxTicks: number,
+): number[] {
+  const byTick = Array.from({ length: maxTicks }, () => 0);
+  for (const event of eventLog) {
+    if (event.type !== "action:blocked") continue;
+    if (event.tick < 1 || event.tick > maxTicks) continue;
+    byTick[event.tick - 1] += 1;
+  }
+  return byTick;
+}
+
+export function toCumulativeSeries(byTick: number[]): number[] {
+  let running = 0;
+  return byTick.map((count) => {
+    running += count;
+    return running;
+  });
+}
+
+export function buildEmergenceChartSeries(
+  result: EmergenceRunResult,
+  models: EmergenceModels = resolveEmergenceModels(),
+): EmergenceChartSeries {
+  const maxTicks = result.report.summary.totalTicks;
+  const byTick = extractBlockedActionsByTick(result.eventLog, maxTicks);
+  const cumulative = toCumulativeSeries(byTick);
+
+  return {
+    condition: result.condition,
+    label: modelLabelForCondition(result.condition, models),
+    points: cumulative.map((value, index) => ({
+      tick: index + 1,
+      cumulative: value,
+    })),
+  };
+}
+
+export function buildEmergenceChartData(
+  results: EmergenceRunResult[],
+  options?: {
+    models?: EmergenceModels;
+    triggerTick?: number | null;
+    generatedAt?: string;
+  },
+): EmergenceChartData {
+  const models = options?.models ?? resolveEmergenceModels();
+  const maxTicks = results[0]?.report.summary.totalTicks ?? models.maxTicks;
+
+  return {
+    meta: {
+      generatedAt: options?.generatedAt ?? new Date().toISOString(),
+      modelA: models.modelA,
+      modelB: models.modelB,
+      maxTicks,
+      triggerTick: options?.triggerTick ?? loadMicroScenario().trigger?.atTick ?? null,
+      metric: "governance_blocks",
+      disclaimer: CHART_DISCLAIMER,
+    },
+    series: results.map((result) => buildEmergenceChartSeries(result, models)),
+  };
 }

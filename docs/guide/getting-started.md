@@ -98,12 +98,19 @@ Optional env vars:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `EMERGENCE_MODEL_A` | `google/gemini-2.0-flash-001` | Model for homogeneous A / half of mixed |
-| `EMERGENCE_MODEL_B` | `anthropic/claude-3.5-haiku` | Model for homogeneous B / other half of mixed |
+| `EMERGENCE_MODEL_A` | `google/gemini-2.5-flash` | Model for homogeneous A / half of mixed |
+| `EMERGENCE_MODEL_B` | `anthropic/claude-3-haiku` | Model for homogeneous B / other half of mixed |
 | `EMERGENCE_MAX_TICKS` | `8` | Simulation length |
 | `EMERGENCE_MAX_CONCURRENT` | `2` | Parallel agent cap (rate-limit friendly) |
 
 Without `OPENROUTER_API_KEY` the test suite is skipped automatically.
+
+To regenerate the README example chart (writes `docs/public/emergence-m2-example.json` and `.svg`):
+
+```bash
+npm run emergence:chart          # live OpenRouter run
+npm run emergence:chart:render   # render SVG from committed JSON only
+```
 
 ## What To Build First
 

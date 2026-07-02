@@ -1,0 +1,127 @@
+{
+  "meta": {
+    "generatedAt": "2026-07-02T11:00:14.537Z",
+    "modelA": "google/gemini-2.5-flash",
+    "modelB": "anthropic/claude-3-haiku",
+    "maxTicks": 8,
+    "triggerTick": 4,
+    "metric": "governance_blocks",
+    "disclaimer": "Illustrative micro-replica (4 agents, 8 ticks, single run). Not equivalent to the 15-day Emergence World study."
+  },
+  "series": [
+    {
+      "condition": "homogeneous_a",
+      "label": "google/gemini-2.5-flash",
+      "points": [
+        {
+          "tick": 1,
+          "cumulative": 1
+        },
+        {
+          "tick": 2,
+          "cumulative": 1
+        },
+        {
+          "tick": 3,
+          "cumulative": 1
+        },
+        {
+          "tick": 4,
+          "cumulative": 1
+        },
+        {
+          "tick": 5,
+          "cumulative": 3
+        },
+        {
+          "tick": 6,
+          "cumulative": 3
+        },
+        {
+          "tick": 7,
+          "cumulative": 3
+        },
+        {
+          "tick": 8,
+          "cumulative": 3
+        }
+      ]
+    },
+    {
+      "condition": "homogeneous_b",
+      "label": "anthropic/claude-3-haiku",
+      "points": [
+        {
+          "tick": 1,
+          "cumulative": 0
+        },
+        {
+          "tick": 2,
+          "cumulative": 1
+        },
+        {
+          "tick": 3,
+          "cumulative": 5
+        },
+        {
+          "tick": 4,
+          "cumulative": 9
+        },
+        {
+          "tick": 5,
+          "cumulative": 10
+        },
+        {
+          "tick": 6,
+          "cumulative": 11
+        },
+        {
+          "tick": 7,
+          "cumulative": 12
+        },
+        {
+          "tick": 8,
+          "cumulative": 12
+        }
+      ]
+    },
+    {
+      "condition": "mixed",
+      "label": "google/gemini-2.5-flash + anthropic/claude-3-haiku",
+      "points": [
+        {
+          "tick": 1,
+          "cumulative": 0
+        },
+        {
+          "tick": 2,
+          "cumulative": 0
+        },
+        {
+          "tick": 3,
+          "cumulative": 0
+        },
+        {
+          "tick": 4,
+          "cumulative": 0
+        },
+        {
+          "tick": 5,
+          "cumulative": 2
+        },
+        {
+          "tick": 6,
+          "cumulative": 2
+        },
+        {
+          "tick": 7,
+          "cumulative": 2
+        },
+        {
+          "tick": 8,
+          "cumulative": 2
+        }
+      ]
+    }
+  ]
+}
