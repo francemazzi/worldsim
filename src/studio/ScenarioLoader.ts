@@ -6,7 +6,6 @@ import { reportGeneratorPlugin } from "../plugins/built-in/ReportGeneratorPlugin
 import { RealWorldToolsPlugin, type RealWorldDataSources } from "../plugins/built-in/RealWorldToolsPlugin.js";
 import { RelationshipPlugin } from "../plugins/built-in/RelationshipPlugin.js";
 import { MovementPlugin } from "../plugins/built-in/MovementPlugin.js";
-import { NeedsSatisfierPlugin } from "../plugins/built-in/NeedsSatisfierPlugin.js";
 import type { RelationshipTypeDefinition } from "../types/GraphTypes.js";
 import type { LocationConfig } from "../types/LocationTypes.js";
 import type { LLMConfig, InteractionConfig } from "../types/WorldTypes.js";
@@ -139,16 +138,14 @@ export function loadScenario(
     engine.use(movementPlugin);
   }
 
-  if (scenario.interaction?.mode === "perception") {
-    engine.use(new NeedsSatisfierPlugin());
-  }
-
   const report = reportGeneratorPlugin({ engine });
   engine.use(report.plugin);
 
   for (const agent of scenario.agents) {
     engine.addAgent(agent);
   }
+
+  engine.ensureNeedsSatisfier();
 
   // Seed initial relationships as validated (strength 0.8, status "validated")
   if (scenario.initialRelationships && scenario.initialRelationships.length > 0) {

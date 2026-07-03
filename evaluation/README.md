@@ -33,9 +33,9 @@ Each scenario follows a consistent structure:
 | `office-floor` | 6 | 30 | Open space + meeting rooms reproduced through geography only |
 
 These scenarios opt in to the [perception layer](../docs/perception.md):
-each `speak` becomes a stimulus filtered by senses and distance. They
-also auto-attach the `NeedsSatisfierPlugin` so decay is balanced by
-in-scenario actions.
+each `speak` becomes a stimulus filtered by senses and distance. The
+engine auto-registers `NeedsSatisfierPlugin` at bootstrap (or via
+`engine.ensureNeedsSatisfier()`) so decay is balanced by in-scenario actions.
 
 ## Running
 
