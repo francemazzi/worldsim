@@ -54,13 +54,13 @@ npx worldsim studio
 
 WorldSim can run scaled-down cross-LLM studies inspired by the [Emergence World](https://arxiv.org/abs/2606.08367) platform. The integration test `npm run test:integration:emergence` spins up three micro-worlds (homogeneous model A, homogeneous model B, mixed population) under identical constitutional rules and a mid-run resource shock.
 
-![How the Emergence micro-study works](docs/public/emergence-study-overview.png)
+![How the Emergence micro-study works](https://raw.githubusercontent.com/francemazzi/worldsim/main/docs/public/emergence-study-overview.png)
 
 Each world uses the same scenario, constitutional rules, and resource shock — only the LLM assignment changes. Person agents reason tick by tick; a governance monitor evaluates actions as allowed, warned, or blocked.
 
 The chart below plots **cumulative governance blocks** (an M2 safety proxy) over 8 simulation ticks. Identical starting conditions produce divergent enforcement trajectories across model vendors — the same qualitative pattern Emergence World reports in Figure 4 (M2: Safety & Public Order).
 
-![Cumulative governance blocks across three model conditions](docs/public/emergence-m2-example.png)
+![Cumulative governance blocks across three model conditions](https://raw.githubusercontent.com/francemazzi/worldsim/main/docs/public/emergence-m2-example.png)
 
 > Inspired by Figure 4 (M2: Safety & Public Order) in *Emergence World: A Platform for Evaluating Long-Horizon Multi-Agent Autonomy* (Kokku et al., [arXiv:2606.08367](https://arxiv.org/abs/2606.08367), Emergence AI, 2026).
 
