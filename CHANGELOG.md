@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.4.5] - 2026-07-08
+
+### Fixed
+
+- README Emergence images use GitHub raw URLs so they render on npmjs.com.
+
 ## [1.4.4] - 2026-07-02
 
 ### Added
