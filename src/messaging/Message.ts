@@ -40,6 +40,17 @@ export interface FederationMessageMetadata {
   federationCorrelationId?: string;
 }
 
+/**
+ * Metadata carried from an agent action into the routed message.
+ * Integrators may add opaque correlation fields; WorldSim preserves them
+ * without assigning application-specific semantics.
+ */
+export type MessageMetadata =
+  & Record<string, unknown>
+  & PhoneMessageMetadata
+  & FederationMessageMetadata
+  & TimelineMetadata;
+
 export interface Message {
   id: string;
   from: string;
@@ -47,9 +58,28 @@ export interface Message {
   type: MessageType;
   content: string;
   tick: number;
-  metadata?:
-    | (Record<string, unknown>
-        & PhoneMessageMetadata
-        & FederationMessageMetadata
-        & TimelineMetadata);
+  metadata?: MessageMetadata | undefined;
+}
+
+export type MessageRouteKind =
+  | "conversation"
+  | "neighborhood"
+  | "proximity"
+  | "perception"
+  | "broadcast"
+  | "dropped";
+
+/**
+ * Immutable routing outcome emitted after WorldSim has delivered (or dropped)
+ * a message. Broadcasts use `"*"` because their effective audience is resolved
+ * by subscribers rather than enumerated by the router.
+ */
+export interface MessageDeliveryReceipt {
+  messageId: string;
+  from: string;
+  recipients: readonly string[] | "*";
+  route: MessageRouteKind;
+  tick: number;
+  metadata?: MessageMetadata | undefined;
+  reason?: string | undefined;
 }

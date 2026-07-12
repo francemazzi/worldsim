@@ -25,6 +25,10 @@ interface WorldSimPlugin {
     oldStatus: AgentStatus,
     newStatus: AgentStatus,
   ): Promise<void>;
+  onMessageRouted?(
+    receipt: MessageDeliveryReceipt,
+    ctx: WorldContext,
+  ): Promise<void>;
 
   tools?: AgentTool[];
 }
@@ -43,6 +47,7 @@ All hooks are optional. Implement only the ones you need.
 | `onRulesLoaded` | After all rule files are parsed. Use to inspect or augment rules. | No |
 | `onWorldStop` | When the engine stops. Receives the full event log. | No |
 | `onAgentStatusChange` | On any agent lifecycle transition (start, pause, resume, stop). | No |
+| `onMessageRouted` | After speech is delivered or deliberately dropped. Receives the final route and audience. | No |
 
 ### Registering a plugin
 
@@ -110,6 +115,71 @@ async onAgentActionsBatch(actions, ctx) {
   })));
 }
 ```
+
+---
+
+## Observing message delivery
+
+`onAgentAction` observes what an agent attempted to do. `onMessageRouted`
+observes the final delivery outcome after conversation, neighborhood,
+proximity, perception, and fallback routing have been resolved.
+
+```ts
+import type {
+  MessageDeliveryReceipt,
+  WorldSimPlugin,
+} from "worldsim";
+
+export function createDeliveryStore(
+  save: (receipt: MessageDeliveryReceipt) => Promise<void>,
+): WorldSimPlugin {
+  return {
+    name: "delivery-store",
+    version: "1.0.0",
+    parallel: true,
+    async onMessageRouted(receipt) {
+      await save(receipt);
+    },
+  };
+}
+```
+
+A receipt contains:
+
+- `messageId`, `from`, and `tick`
+- `route`: `conversation`, `neighborhood`, `proximity`, `perception`,
+  `broadcast`, or `dropped`
+- `recipients`: the exact agent IDs for directed/group delivery, `"*"` for
+  broadcasts, or an empty array for dropped messages
+- the final routing metadata (`conversationId`, `threadId`, `audienceKey`,
+  perception IDs, and opaque integrator metadata)
+- `reason` when routing drops a message
+
+Delivery hooks are observational. Their return values are ignored, and an
+observer error is logged without rolling back or duplicating delivery.
+
+### Correlation metadata
+
+Use `AgentAction.metadata.custom` for application-specific correlation:
+
+```ts
+const action: AgentAction = {
+  agentId: "agent-1",
+  actionType: "speak",
+  payload: { text: "Can we meet next week?" },
+  tick: 12,
+  metadata: {
+    custom: {
+      workflowId: "workflow-42",
+      outcomeId: "availability-confirmed",
+    },
+  },
+};
+```
+
+WorldSim preserves `custom` but does not interpret it. Do not place secrets,
+credentials, or unnecessary personal data in message metadata: delivery
+observers and persistence plugins can receive it.
 
 ---
 

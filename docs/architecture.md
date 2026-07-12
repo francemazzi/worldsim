@@ -93,6 +93,7 @@ Plugins implement the `WorldSimPlugin` interface defined in [`../src/types/Plugi
 | `onRulesLoaded` | `(rules) => Promise<void>` | After rules parsing completes |
 | `onWorldStop` | `(ctx, events) => Promise<void>` | When the engine stops |
 | `onAgentStatusChange` | `(event, oldStatus, newStatus) => Promise<void>` | On any agent lifecycle transition |
+| `onMessageRouted` | `(receipt, ctx) => Promise<void>` | After a message is delivered or deliberately dropped |
 
 ### Tool registration
 
@@ -153,6 +154,42 @@ Source: [`../src/types/RulesTypes.ts`](../src/types/RulesTypes.ts), [`../src/rul
 ### Proximity-based messaging
 
 When `defaultBroadcastRadius` is configured (in km), agents without explicit recipients use spatial proximity instead of global broadcast. Agents without a location fall back to broadcast. The `LocationIndex` tracks agent positions for distance calculations.
+
+### Routing outcomes and fallback policy
+
+`MessageRouter` resolves speech through a single ordered cascade:
+
+1. perception, when enabled
+2. active conversation
+3. configured neighborhood
+4. spatial proximity
+5. the configured unroutable policy
+
+The legacy-compatible fallback is `broadcast`. Integrators that require a
+closed audience can select a public policy instead of patching router
+internals:
+
+```ts
+const engine = new WorldEngine({
+  worldId: "private-world",
+  llm,
+  messageRouting: {
+    unroutablePolicy: "drop", // "broadcast" | "drop" | "error"
+  },
+});
+```
+
+Every final outcome creates a `MessageDeliveryReceipt`. Registered
+`onMessageRouted` plugin hooks receive exact directed recipients, the route
+kind, final thread/audience metadata, and a reason for dropped messages.
+Broadcast receipts use `"*"` because subscribers, rather than the router,
+resolve their effective audience.
+
+Perception has its own physical-delivery policy:
+`interaction.disableBroadcastFallback`. When strict perception cannot deliver
+a stimulus, the receipt is `dropped`; when legacy fallback is explicitly
+enabled, the router continues through the cascade and emits only the final
+route receipt.
 
 ---
 
