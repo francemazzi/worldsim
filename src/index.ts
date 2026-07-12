@@ -35,7 +35,15 @@ export type {
   PhoneMetadata,
   CreatePhoneAssetInput,
 } from "./messaging/phone/PhoneDirectory.js";
-export type { Message, MessageType, PhoneMessageMetadata } from "./messaging/Message.js";
+export type {
+  Message,
+  MessageType,
+  MessageMetadata,
+  PhoneMessageMetadata,
+  FederationMessageMetadata,
+  MessageRouteKind,
+  MessageDeliveryReceipt,
+} from "./messaging/Message.js";
 export { ChatPlugin } from "./plugins/built-in/ChatPlugin.js";
 export type { ChatPluginOptions } from "./plugins/built-in/ChatPlugin.js";
 export { privacyCompliancePlugin } from "./plugins/built-in/PrivacyCompliancePlugin.js";
@@ -65,6 +73,8 @@ export type {
   WorldStatus,
   WorldEvent,
   LLMConfig,
+  MessageRoutingConfig,
+  UnroutableMessagePolicy,
 } from "./types/WorldTypes.js";
 export type {
   PrivacyConsentMode,

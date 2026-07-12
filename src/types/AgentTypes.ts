@@ -149,5 +149,10 @@ export interface AgentAction {
     | "perceive";
   payload: unknown;
   tick: number;
+  /**
+   * Timeline fields plus opaque integrator correlation metadata under
+   * `custom`. Nested keys are forwarded to routed messages and delivery
+   * observers unchanged.
+   */
   metadata?: TimelineMetadata | undefined;
 }

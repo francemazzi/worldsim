@@ -10,6 +10,7 @@ import type { CrossWorldEnvelope } from "../federation/types.js";
 import type { Stimulus } from "./StimulusTypes.js";
 import type { Percept } from "./PerceptionTypes.js";
 import type { NeedsState } from "./NeedsTypes.js";
+import type { MessageDeliveryReceipt } from "../messaging/Message.js";
 
 export type CrossWorldMessageDirection = "inbound" | "outbound";
 
@@ -39,6 +40,15 @@ export interface WorldSimPlugin {
     event: AgentControlEvent,
     oldStatus: AgentStatus,
     newStatus: AgentStatus,
+  ) => Promise<void>) | undefined;
+  /**
+   * Observes the final routing outcome after a message has been delivered or
+   * deliberately dropped. The receipt is informational and cannot mutate or
+   * duplicate delivery.
+   */
+  onMessageRouted?: ((
+    receipt: MessageDeliveryReceipt,
+    ctx: WorldContext,
   ) => Promise<void>) | undefined;
   /**
    * Fires for every cross-world envelope the local FederationBus handles.

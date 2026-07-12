@@ -16,7 +16,10 @@ import type { TopicTracker } from "../../perception/TopicTracker.js";
 import type { NeedsTracker } from "../../needs/NeedsTracker.js";
 import type { AffordanceResolver } from "../../entities/AffordanceResolver.js";
 import type { PluginRegistry } from "../../plugins/PluginRegistry.js";
-import type { WorldContext } from "../../types/WorldTypes.js";
+import type {
+  UnroutableMessagePolicy,
+  WorldContext,
+} from "../../types/WorldTypes.js";
 
 /**
  * Persistence / recall-related dependencies. Everything an agent may need
@@ -49,6 +52,8 @@ export interface AgentSocialDeps {
   locationIndex?: LocationIndex | undefined;
   /** Radius in km for proximity-based messaging. 0 = no proximity fallback. */
   defaultBroadcastRadius?: number | undefined;
+  /** Policy applied when no legacy routing audience can be resolved. */
+  unroutableMessagePolicy?: UnroutableMessagePolicy | undefined;
 }
 
 /**
@@ -61,7 +66,9 @@ export interface AgentPerceptionDeps {
   perceptionEngine?: PerceptionEngine | undefined;
   pluginRegistry?: Pick<
     PluginRegistry,
-    "runStimulusEmitHooks" | "runPerceptDeliveredHooks"
+    | "runStimulusEmitHooks"
+    | "runPerceptDeliveredHooks"
+    | "runMessageRoutedHooks"
   > | undefined;
   getWorldContext?: (() => WorldContext) | undefined;
   /** When true, fall through to legacy routing if no perceivers found. */

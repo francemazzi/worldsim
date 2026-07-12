@@ -37,11 +37,18 @@ describe("MessageRouter — perception mode", () => {
       perceptionEngine: engine,
     });
 
-    await router.publish("alice", speakAction("alice", 1), 1, false);
+    const receipt = await router.publish(
+      "alice",
+      speakAction("alice", 1),
+      1,
+      false,
+    );
 
     expect(bus.getMessages("bob", 1)).toHaveLength(1);
     expect(bus.getMessages("dan", 1)).toHaveLength(0);
     expect(stimBus.getForTick(1)).toHaveLength(1);
+    expect(receipt.route).toBe("perception");
+    expect(receipt.recipients).toEqual(["bob"]);
   });
 
   it("strict perception mode drops speech when no one perceives", async () => {
@@ -63,10 +70,19 @@ describe("MessageRouter — perception mode", () => {
       perceptionFallbackToLegacy: false,
     });
 
-    await router.publish("alice", speakAction("alice", 1), 1, false);
+    const receipt = await router.publish(
+      "alice",
+      speakAction("alice", 1),
+      1,
+      false,
+    );
 
     expect(bus.getMessages("dan", 1)).toHaveLength(0);
     expect(stimBus.getForTick(1)).toHaveLength(1);
+    expect(receipt).toMatchObject({
+      route: "dropped",
+      recipients: [],
+    });
   });
 
   it("optionally falls back to legacy cascade when no perceiver is hit", async () => {
@@ -89,8 +105,14 @@ describe("MessageRouter — perception mode", () => {
       defaultBroadcastRadius: 1,
     });
 
-    await router.publish("alice", speakAction("alice", 1), 1, false);
+    const receipt = await router.publish(
+      "alice",
+      speakAction("alice", 1),
+      1,
+      false,
+    );
 
     expect(bus.getMessages("bob", 1).length).toBeGreaterThan(0);
+    expect(receipt.route).toBe("proximity");
   });
 });

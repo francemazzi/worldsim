@@ -10,6 +10,11 @@ export interface TimelineStamp {
 }
 
 export interface TimelineMetadata extends Partial<TimelineStamp> {
+  /**
+   * Namespaced integrator metadata preserved across actions, messages, and
+   * delivery receipts. WorldSim treats every nested key as opaque.
+   */
+  custom?: Record<string, unknown> | undefined;
   /** Messages or events observed before producing this event. */
   observedMessageIds?: string[] | undefined;
   /** Start of the agent's simulated thinking window within the tick. */
