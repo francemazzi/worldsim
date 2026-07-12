@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-13
+
+### Added
+
+- Public `MessageDeliveryReceipt` routing outcomes and the observational
+  `onMessageRouted` plugin hook.
+- Configurable `messageRouting.unroutablePolicy` with backward-compatible
+  `broadcast`, closed-world `drop`, and strict `error` modes.
+- Namespaced `AgentAction.metadata.custom` fields for opaque integrator
+  correlation metadata.
+
 ## [1.4.5] - 2026-07-08
 
 ### Fixed
