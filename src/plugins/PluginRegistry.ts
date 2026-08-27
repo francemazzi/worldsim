@@ -4,6 +4,7 @@ import type { WorldContext } from "../types/WorldTypes.js";
 import type { Percept } from "../types/PerceptionTypes.js";
 import type { NeedsState } from "../types/NeedsTypes.js";
 import type { Stimulus } from "../types/StimulusTypes.js";
+import type { MessageDeliveryReceipt } from "../messaging/Message.js";
 
 type HookName = keyof {
   [K in keyof WorldSimPlugin as WorldSimPlugin[K] extends
@@ -153,6 +154,17 @@ export class PluginRegistry {
       }
     }
     return current;
+  }
+
+  /**
+   * Notifies delivery observers after routing has completed. Observer failures
+   * are isolated by runHook and never roll back or duplicate a message.
+   */
+  async runMessageRoutedHooks(
+    receipt: MessageDeliveryReceipt,
+    ctx: WorldContext,
+  ): Promise<void> {
+    await this.runHook("onMessageRouted", receipt, ctx);
   }
 
   /**

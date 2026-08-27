@@ -1,6 +1,11 @@
 import { createMessageId } from "../../messaging/MessageBus.js";
 import type { MessageBus } from "../../messaging/MessageBus.js";
-import type { Message } from "../../messaging/Message.js";
+import type {
+  Message,
+  MessageDeliveryReceipt,
+  MessageMetadata,
+  MessageRouteKind,
+} from "../../messaging/Message.js";
 import type { AgentAction } from "../../types/AgentTypes.js";
 import type { GraphStore } from "../../types/GraphTypes.js";
 import type { NeighborhoodManager } from "../../graph/NeighborhoodManager.js";
@@ -12,7 +17,10 @@ import type { PerceptionEngine } from "../../perception/PerceptionEngine.js";
 import type { Stimulus } from "../../types/StimulusTypes.js";
 import type { TopicTracker } from "../../perception/TopicTracker.js";
 import type { PluginRegistry } from "../../plugins/PluginRegistry.js";
-import type { WorldContext } from "../../types/WorldTypes.js";
+import type {
+  UnroutableMessagePolicy,
+  WorldContext,
+} from "../../types/WorldTypes.js";
 
 export interface MessageRouterDeps {
   conversationManager?: ConversationManager | undefined;
@@ -25,7 +33,9 @@ export interface MessageRouterDeps {
   topicTracker?: TopicTracker | undefined;
   pluginRegistry?: Pick<
     PluginRegistry,
-    "runStimulusEmitHooks" | "runPerceptDeliveredHooks"
+    | "runStimulusEmitHooks"
+    | "runPerceptDeliveredHooks"
+    | "runMessageRoutedHooks"
   > | undefined;
   getWorldContext?: (() => WorldContext) | undefined;
   /**
@@ -34,12 +44,14 @@ export interface MessageRouterDeps {
    * default) the speech simply doesn't reach anyone.
    */
   perceptionFallbackToLegacy?: boolean | undefined;
+  /** Legacy routing behavior when no audience can be resolved. */
+  unroutableMessagePolicy?: UnroutableMessagePolicy | undefined;
 }
 
 type PerceptionPublishResult =
-  | { status: "reached" }
+  | { status: "reached"; receipt: MessageDeliveryReceipt }
   | { status: "unreached"; reason: string }
-  | { status: "cancelled" };
+  | { status: "cancelled"; reason: string };
 
 /**
  * Publishes an agent's action to the most relevant audience.
@@ -70,29 +82,30 @@ export class MessageRouter {
     action: AgentAction,
     tick: number,
     hasNeighborhoodConfig: boolean,
-  ): Promise<void> {
-    const actionMetadata = action.metadata as
-      | (Record<string, unknown> & Message["metadata"])
-      | undefined;
+  ): Promise<MessageDeliveryReceipt> {
+    const actionMetadata = action.metadata;
     const msg: Omit<Message, "to"> = {
       id: createMessageId(),
       from: agentId,
       type: "speak" as const,
       content: JSON.stringify(action.payload),
       tick,
-      ...(actionMetadata ? { metadata: actionMetadata } : {}),
+      ...(actionMetadata ? { metadata: { ...actionMetadata } } : {}),
     };
 
     // Phase 1: perception path takes precedence when wired.
     if (this.deps.stimulusBus && this.deps.perceptionEngine) {
       const result = await this.publishViaPerception(agentId, action, msg, tick);
-      if (result.status === "reached" || result.status === "cancelled") return;
+      if (result.status === "reached") return result.receipt;
+      if (result.status === "cancelled") {
+        return this.recordDropped(msg, result.reason);
+      }
       if (!this.deps.perceptionFallbackToLegacy) {
         // Strict realistic mode: speech evaporates if no one perceives it.
         console.warn(
           `[MessageRouter] Perception dropped speech from "${agentId}" at tick ${tick}: ${result.reason}.`,
         );
-        return;
+        return this.recordDropped(msg, result.reason);
       }
       // else fall through to legacy cascade.
     }
@@ -101,19 +114,11 @@ export class MessageRouter {
       const conv = this.deps.conversationManager.getConversationForAgent(agentId);
       if (conv) {
         const recipients = conv.participantIds.filter((id) => id !== agentId);
-        this.bus.publishToGroup(
-          {
-            ...msg,
-            metadata: {
-              ...(msg.metadata ?? {}),
-              conversationId: conv.id,
-              threadId: `conversation:${conv.id}`,
-              audienceKey: audienceKey(conv.participantIds),
-            },
-          },
-          recipients,
-        );
-        return;
+        return this.deliverToGroup(msg, recipients, "conversation", {
+          conversationId: conv.id,
+          threadId: `conversation:${conv.id}`,
+          audienceKey: audienceKey(conv.participantIds),
+        });
       }
     }
 
@@ -127,18 +132,10 @@ export class MessageRouter {
         this.deps.graphStore,
       );
       if (neighbors.length > 0) {
-        this.bus.publishToGroup(
-          {
-            ...msg,
-            metadata: {
-              ...(msg.metadata ?? {}),
-              threadId: `neighborhood:${audienceKey([agentId, ...neighbors])}`,
-              audienceKey: audienceKey([agentId, ...neighbors]),
-            },
-          },
-          neighbors,
-        );
-        return;
+        return this.deliverToGroup(msg, neighbors, "neighborhood", {
+          threadId: `neighborhood:${audienceKey([agentId, ...neighbors])}`,
+          audienceKey: audienceKey([agentId, ...neighbors]),
+        });
       }
     }
 
@@ -153,26 +150,64 @@ export class MessageRouter {
       );
       if (nearby.length > 0) {
         const recipients = nearby.map((n) => n.agentId);
-        this.bus.publishToGroup(
-          {
-            ...msg,
-            metadata: {
-              ...(msg.metadata ?? {}),
-              threadId: `proximity:${audienceKey([agentId, ...recipients])}`,
-              audienceKey: audienceKey([agentId, ...recipients]),
-            },
-          },
-          recipients,
-        );
-        return;
+        return this.deliverToGroup(msg, recipients, "proximity", {
+          threadId: `proximity:${audienceKey([agentId, ...recipients])}`,
+          audienceKey: audienceKey([agentId, ...recipients]),
+        });
       }
+    }
+
+    const policy = this.deps.unroutableMessagePolicy ?? "broadcast";
+    if (policy === "drop") {
+      console.warn(
+        `[MessageRouter] Dropped unroutable speech from "${agentId}" at tick ${tick}.`,
+      );
+      return this.recordDropped(msg, "no_routing_audience");
+    }
+    if (policy === "error") {
+      const receipt = await this.recordDropped(msg, "no_routing_audience");
+      throw new Error(
+        `[MessageRouter] No routing audience for agent "${agentId}" at tick ${tick} ` +
+          `(message ${receipt.messageId}).`,
+      );
     }
 
     console.warn(
       `[MessageRouter] Agent "${agentId}" falling back to broadcast at tick ${tick}. ` +
         `Consider configuring neighborhood, location, or broadcastRadius.`,
     );
-    this.bus.publish({
+    return this.deliverBroadcast(msg);
+  }
+
+  private async deliverToGroup(
+    msg: Omit<Message, "to">,
+    recipientIds: string[],
+    route: Exclude<MessageRouteKind, "broadcast" | "dropped">,
+    routeMetadata: Partial<MessageMetadata> = {},
+  ): Promise<MessageDeliveryReceipt> {
+    const recipients = [...new Set(recipientIds)];
+    const routedMessage: Omit<Message, "to"> = {
+      ...msg,
+      metadata: {
+        ...(msg.metadata ?? {}),
+        ...routeMetadata,
+      },
+    };
+    this.bus.publishToGroup(routedMessage, recipients);
+    return this.emitReceipt({
+      messageId: msg.id,
+      from: msg.from,
+      recipients,
+      route,
+      tick: msg.tick,
+      metadata: routedMessage.metadata,
+    });
+  }
+
+  private async deliverBroadcast(
+    msg: Omit<Message, "to">,
+  ): Promise<MessageDeliveryReceipt> {
+    const routedMessage: Message = {
       ...msg,
       to: "*",
       metadata: {
@@ -180,7 +215,41 @@ export class MessageRouter {
         threadId: "broadcast:*",
         audienceKey: "*",
       },
+    };
+    this.bus.publish(routedMessage);
+    return this.emitReceipt({
+      messageId: msg.id,
+      from: msg.from,
+      recipients: "*",
+      route: "broadcast",
+      tick: msg.tick,
+      metadata: routedMessage.metadata,
     });
+  }
+
+  private async recordDropped(
+    msg: Omit<Message, "to">,
+    reason: string,
+  ): Promise<MessageDeliveryReceipt> {
+    return this.emitReceipt({
+      messageId: msg.id,
+      from: msg.from,
+      recipients: [],
+      route: "dropped",
+      tick: msg.tick,
+      ...(msg.metadata ? { metadata: msg.metadata } : {}),
+      reason,
+    });
+  }
+
+  private async emitReceipt(
+    receipt: MessageDeliveryReceipt,
+  ): Promise<MessageDeliveryReceipt> {
+    const worldCtx = this.deps.getWorldContext?.();
+    if (this.deps.pluginRegistry && worldCtx) {
+      await this.deps.pluginRegistry.runMessageRoutedHooks(receipt, worldCtx);
+    }
+    return receipt;
   }
 
   /**
@@ -225,7 +294,9 @@ export class MessageRouter {
         stim,
         worldCtx,
       );
-      if (!transformed) return { status: "cancelled" };
+      if (!transformed) {
+        return { status: "cancelled", reason: "stimulus_cancelled" };
+      }
       stim = transformed;
     }
 
@@ -257,21 +328,23 @@ export class MessageRouter {
       };
     }
 
-    this.bus.publishToGroup(
-      {
-        ...msg,
-        metadata: {
-          ...(msg.metadata ?? {}),
-          stimulusId: stim.id,
-          ...(stim.topicId ? { topicId: stim.topicId } : {}),
-          ...(stim.causedByStimulusId ? { inResponseTo: stim.causedByStimulusId } : {}),
-          threadId: stim.topicId ? `perception:${stim.topicId}` : `perception:${stim.id}`,
-          audienceKey: audienceKey([agentId, ...recipients]),
-        },
-      },
+    const receipt = await this.deliverToGroup(
+      msg,
       recipients,
+      "perception",
+      {
+        stimulusId: stim.id,
+        ...(stim.topicId ? { topicId: stim.topicId } : {}),
+        ...(stim.causedByStimulusId
+          ? { inResponseTo: stim.causedByStimulusId }
+          : {}),
+        threadId: stim.topicId
+          ? `perception:${stim.topicId}`
+          : `perception:${stim.id}`,
+        audienceKey: audienceKey([agentId, ...recipients]),
+      },
     );
-    return { status: "reached" };
+    return { status: "reached", receipt };
   }
 }
 

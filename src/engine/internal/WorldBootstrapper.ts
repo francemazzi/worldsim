@@ -89,13 +89,15 @@ export class WorldBootstrapper {
         conversationManager: this.runtime.conversationManager,
         locationIndex: this.runtime.locationIndex,
         defaultBroadcastRadius: this.runtime.config.defaultBroadcastRadius,
+        unroutableMessagePolicy:
+          this.runtime.config.messageRouting?.unroutablePolicy,
+        pluginRegistry: this.runtime.pluginRegistry,
+        getWorldContext: () => this.runtime.context,
         timeline: this.runtime.timeline,
         ...(perceptionEnabled
           ? {
               stimulusBus: this.runtime.stimulusBus,
               perceptionEngine: this.runtime.perceptionEngine,
-              pluginRegistry: this.runtime.pluginRegistry,
-              getWorldContext: () => this.runtime.context,
               perceptionFallbackToLegacy:
                 interaction?.disableBroadcastFallback === false,
               topicTracker: this.runtime.topicTracker,

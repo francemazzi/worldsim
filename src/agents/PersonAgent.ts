@@ -68,6 +68,7 @@ export class PersonAgent extends BaseAgent {
       graphStore: options?.graphStore,
       locationIndex: options?.locationIndex,
       defaultBroadcastRadius: options?.defaultBroadcastRadius,
+      unroutableMessagePolicy: options?.unroutableMessagePolicy,
       stimulusBus: options?.stimulusBus,
       perceptionEngine: options?.perceptionEngine,
       topicTracker: options?.topicTracker,

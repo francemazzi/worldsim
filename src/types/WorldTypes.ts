@@ -19,6 +19,17 @@ export interface WorldContext {
   metadata: Record<string, unknown>;
 }
 
+export type UnroutableMessagePolicy = "broadcast" | "drop" | "error";
+
+export interface MessageRoutingConfig {
+  /**
+   * Behavior when the legacy cascade cannot find a conversation,
+   * neighborhood, or proximity audience. Default: `"broadcast"` for
+   * backward compatibility.
+   */
+  unroutablePolicy?: UnroutableMessagePolicy | undefined;
+}
+
 export interface WorldConfig {
   worldId?: string | undefined;
   maxTicks?: number | undefined;
@@ -63,6 +74,12 @@ export interface WorldConfig {
    * to global broadcast. Default: 0 (broadcast, backward-compatible).
    */
   defaultBroadcastRadius?: number | undefined;
+  /**
+   * Application-neutral message routing behavior. This does not affect
+   * perception-mode delivery, whose fallback is configured under
+   * `interaction`.
+   */
+  messageRouting?: MessageRoutingConfig | undefined;
   /**
    * Fraction of non-safe actions evaluated by ControlAgent per tick (0.0-1.0).
    * Actions not sampled are auto-approved. Default: 1.0 (evaluate all).

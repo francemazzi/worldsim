@@ -50,6 +50,30 @@ npx worldsim studio
 | **Real-time streaming** | Socket.IO events for live dashboards |
 | **Simulation reports** | Auto-generated analysis with mood heatmaps and action metrics |
 
+## Cross-vendor divergence (Emergence World-inspired)
+
+WorldSim can run scaled-down cross-LLM studies inspired by the [Emergence World](https://arxiv.org/abs/2606.08367) platform. The integration test `npm run test:integration:emergence` spins up three micro-worlds (homogeneous model A, homogeneous model B, mixed population) under identical constitutional rules and a mid-run resource shock.
+
+![How the Emergence micro-study works](https://raw.githubusercontent.com/francemazzi/worldsim/main/docs/public/emergence-study-overview.png)
+
+Each world uses the same scenario, constitutional rules, and resource shock — only the LLM assignment changes. Person agents reason tick by tick; a governance monitor evaluates actions as allowed, warned, or blocked.
+
+The chart below plots **cumulative governance blocks** (an M2 safety proxy) over 8 simulation ticks. Identical starting conditions produce divergent enforcement trajectories across model vendors — the same qualitative pattern Emergence World reports in Figure 4 (M2: Safety & Public Order).
+
+![Cumulative governance blocks across three model conditions](https://raw.githubusercontent.com/francemazzi/worldsim/main/docs/public/emergence-m2-example.png)
+
+> Inspired by Figure 4 (M2: Safety & Public Order) in *Emergence World: A Platform for Evaluating Long-Horizon Multi-Agent Autonomy* (Kokku et al., [arXiv:2606.08367](https://arxiv.org/abs/2606.08367), Emergence AI, 2026).
+
+This is an **illustrative micro-replica** (4 person agents, 8 ticks, single run). It is not equivalent to the original 15-day study with 10 agents and five parallel worlds. To reproduce or regenerate the chart:
+
+```bash
+npm run test:integration:emergence   # full integration suite (requires OPENROUTER_API_KEY)
+npm run emergence:chart              # regenerate docs/public/emergence-*.{json,svg,png}
+npm run emergence:chart:render       # render study overview + M2 chart from committed JSON (no API key)
+```
+
+See the [Getting Started guide](https://francemazzi.github.io/worldsim/guide/getting-started#emergence-style-cross-vendor-integration-test) for environment variables and setup.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, PR guidelines, and how to propose new scenarios.

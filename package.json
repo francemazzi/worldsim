@@ -1,6 +1,6 @@
 {
   "name": "worldsim",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Simulate how communities react to new rules, events, or policies — multi-agent simulation engine for TypeScript",
   "bin": {
     "worldsim": "./dist/cli/bin.js"
@@ -26,6 +26,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "dotenv -e .env -- vitest run --config vitest.integration.config.ts",
+    "test:integration:emergence": "dotenv -e .env -- vitest run --config vitest.integration.config.ts tests/integration/emergence-cross-vendor.integration.test.ts",
+    "emergence:chart": "dotenv -e .env -- tsx scripts/generate-emergence-chart.ts --run",
+    "emergence:chart:render": "tsx scripts/generate-emergence-chart.ts",
     "test:prompts": "dotenv -e .env -- promptfoo eval --config promptfoo/pdf-extraction/promptfooconfig.yaml && dotenv -e .env -- promptfoo eval --config promptfoo/control-agent/promptfooconfig.yaml && dotenv -e .env -- promptfoo eval --config promptfoo/person-agent/promptfooconfig.yaml && dotenv -e .env -- promptfoo eval --config promptfoo/person-enhanced/promptfooconfig.yaml",
     "test:docker:up": "docker compose -f docker-compose.test.yml up -d",
     "test:docker:down": "docker compose -f docker-compose.test.yml down",
@@ -102,6 +105,7 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/ioredis": "^4.28.10",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.20.0",

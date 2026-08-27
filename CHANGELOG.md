@@ -6,7 +6,64 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-13
+
 ### Added
+
+- Public `MessageDeliveryReceipt` routing outcomes and the observational
+  `onMessageRouted` plugin hook.
+- Configurable `messageRouting.unroutablePolicy` with backward-compatible
+  `broadcast`, closed-world `drop`, and strict `error` modes.
+- Namespaced `AgentAction.metadata.custom` fields for opaque integrator
+  correlation metadata.
+
+## [1.4.5] - 2026-07-08
+
+### Fixed
+
+- README Emergence images use GitHub raw URLs so they render on npmjs.com.
+
+## [1.4.4] - 2026-07-02
+
+### Added
+
+- Emergence micro-study overview diagram for the README (`docs/public/emergence-study-overview.png`).
+- PNG rendering for Emergence chart assets via `@resvg/resvg-js`.
+
+### Fixed
+
+- Emergence M2 chart title and legend overlapping in the generated SVG.
+- README Emergence example image uses PNG so it displays on GitHub.
+
+## [1.4.3] - 2026-07-02
+
+### Added
+
+- Emergence World-inspired cross-vendor integration test (`npm run test:integration:emergence`) with OpenRouter-gated harness and AWI-lite metrics.
+- README example chart (M2 safety proxy) with committed SVG/JSON assets and `npm run emergence:chart` / `emergence:chart:render` scripts.
+- VitePress documentation site at [francemazzi.github.io/worldsim](https://francemazzi.github.io/worldsim/).
+- `.github/CODEOWNERS` for main branch ruleset compliance.
+
+### Changed
+
+- Default Emergence OpenRouter models updated to `google/gemini-2.5-flash` and `anthropic/claude-3-haiku`.
+- README slimmed down; detailed guides moved to VitePress.
+
+### Fixed
+
+- VitePress docs images served from `docs/public/`.
+- Isolated VitePress install in docs CI workflow.
+
+## [1.4.1] - 2026-06-03
+
+### Changed
+
+- README onboarding clarifications.
+
+## [1.4.0] - 2026-05-06
+
+### Added
+
 - **Realistic simulation primitives** — opt-in perception layer that turns
   agent interactions into a physics-aware pipeline. Activated via the new
   `WorldConfig.interaction` block (`mode: "perception"`):
@@ -96,6 +153,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   end-to-end async messaging between two worlds with no LLM/Redis required.
 
 ### Compatibility notes
+
 - Legacy mode remains the default. Existing worlds that omit
   `WorldConfig.interaction` keep the legacy MessageRouter cascade.
 - The perception layer is opt-in via `interaction.mode: "perception"`.
@@ -111,6 +169,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [1.0.6] - 2026-04-03
 
 ### Added
+
 - Studio dashboard with real-time agent visualization.
 - CLI for managing simulations, agents, and reports.
 - Report generation with Markdown and JSON output.
@@ -121,6 +180,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [1.0.0] - 2026-01-15
 
 ### Added
+
 - WorldEngine core simulation loop.
 - PersonAgent with LLM-driven personality, memory, and social dynamics.
 - ControlAgent for orchestrating multi-agent conversations.

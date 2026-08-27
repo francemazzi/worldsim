@@ -158,4 +158,46 @@ describe("PluginRegistry", () => {
     expect(reg.registerIfAbsent(makePlugin("needs-satisfier"))).toBe(false);
     expect(reg.getAll()).toHaveLength(1);
   });
+
+  it("runMessageRoutedHooks() notifies all observers and isolates failures", async () => {
+    const reg = new PluginRegistry();
+    const calls: string[] = [];
+    reg.register(
+      makePlugin("failing-recorder", {
+        onMessageRouted: async () => {
+          calls.push("failing");
+          throw new Error("storage unavailable");
+        },
+      }),
+    );
+    reg.register(
+      makePlugin("working-recorder", {
+        parallel: true,
+        onMessageRouted: async (receipt) => {
+          calls.push(`${receipt.route}:${receipt.messageId}`);
+        },
+      }),
+    );
+
+    await expect(
+      reg.runMessageRoutedHooks(
+        {
+          messageId: "msg-1",
+          from: "alice",
+          recipients: ["bob"],
+          route: "conversation",
+          tick: 1,
+        },
+        {
+          worldId: "w1",
+          tickCount: 1,
+          startedAt: new Date(),
+          metadata: {},
+        },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(calls).toContain("failing");
+    expect(calls).toContain("conversation:msg-1");
+  });
 });
