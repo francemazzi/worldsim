@@ -189,6 +189,25 @@ export interface InteractionConfig {
    * (agents have no needs unless they declare them).
    */
   defaultNeedsTemplate?: NeedsTemplate | undefined;
+  /**
+   * When `true` (default in perception mode when agents have needs), the
+   * engine auto-registers {@link NeedsSatisfierPlugin} at bootstrap so
+   * decaying needs can be satisfied by agent actions. Set `false` to keep
+   * needs as narrative pressure only (values drift toward critical).
+   */
+  autoNeedsSatisfier?: boolean | undefined;
+  /**
+   * When `true`, bootstrap throws if perception mode is on, agents have
+   * needs, and no {@link NeedsSatisfierPlugin} is registered (including
+   * via `autoNeedsSatisfier`).
+   */
+  requireNeedsLoop?: boolean | undefined;
+  /**
+   * Venue labels treated as shared spaces where cross-room occlusion does
+   * not apply (e.g. corridors, piazza). Used by the built-in venue
+   * line-of-sight filter when enabled.
+   */
+  sharedVenueLabels?: string[] | undefined;
 }
 
 export interface LLMConfig {

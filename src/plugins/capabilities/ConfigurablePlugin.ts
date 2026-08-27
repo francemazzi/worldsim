@@ -6,6 +6,7 @@ import type { NeedsTracker } from "../../needs/NeedsTracker.js";
 import type { TopicTracker } from "../../perception/TopicTracker.js";
 import type { StimulusBus } from "../../perception/StimulusBus.js";
 import type { LocationIndex } from "../../location/LocationIndex.js";
+import type { ActivityScheduler } from "../../scheduling/ActivityScheduler.js";
 
 /**
  * Context handed to plugins that implement {@link ConfigurablePlugin}.
@@ -25,6 +26,7 @@ export interface PluginRuntimeContext {
   needsTracker?: NeedsTracker | undefined;
   topicTracker?: TopicTracker | undefined;
   stimulusBus?: StimulusBus | undefined;
+  activityScheduler?: ActivityScheduler | undefined;
 }
 
 /**

@@ -132,8 +132,8 @@ export class TickContextLoader {
     }
 
     if (this.deps.needsTracker) {
-      const critical = this.deps.needsTracker.criticalNeeds(this.agentId);
-      if (critical.length > 0) return false;
+      const active = this.deps.needsTracker.activeNeeds(this.agentId);
+      if (active.length > 0) return false;
     }
 
     return true;

@@ -101,7 +101,7 @@ describe("Needs feedback loop with NeedsSatisfierPlugin", () => {
       },
       memoryStore: new InMemoryMemoryStore(),
       graphStore: new InMemoryGraphStore(),
-      interaction: { mode: "perception" },
+      interaction: { mode: "perception", autoNeedsSatisfier: false },
     });
 
     engine.addAgent({
