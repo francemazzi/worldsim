@@ -5,7 +5,7 @@
  *   - 4 agents distributed across 3 locations (piazza, bar, casa)
  *   - 2 entities passively emitting stimuli (a bell, a fountain)
  *   - perception mode + default `humanBasic` needs template
- *   - `NeedsSatisfierPlugin` closes the decay/regen loop
+ *   - NeedsSatisfierPlugin auto-registers at bootstrap (see autoNeedsSatisfier)
  *   - studio dashboard exposes perception telemetry on http://localhost:4400
  *
  * Usage:
@@ -22,7 +22,6 @@ import {
   InMemoryMemoryStore,
   InMemoryGraphStore,
   studioPlugin,
-  NeedsSatisfierPlugin,
 } from "worldsim";
 import { reportGeneratorPlugin } from "../../src/plugins/built-in/ReportGeneratorPlugin.js";
 import { readFileSync } from "node:fs";
@@ -63,8 +62,6 @@ const world = new WorldEngine({
 });
 
 world.use(ConsoleLoggerPlugin);
-
-world.use(new NeedsSatisfierPlugin());
 
 const report = reportGeneratorPlugin({ engine: world });
 world.use(report.plugin);

@@ -5,6 +5,7 @@ import { BatchExecutor } from "./BatchExecutor.js";
 import { CircularBuffer } from "./CircularBuffer.js";
 import { IntraTickTimeline } from "./IntraTickTimeline.js";
 import { WorldBootstrapper } from "./internal/WorldBootstrapper.js";
+import { autoRegisterNeedsSatisfierIfNeeded } from "./internal/needsLoop.js";
 import { ControlEventApplier } from "./internal/ControlEventApplier.js";
 import { TickOrchestrator } from "./internal/TickOrchestrator.js";
 import { WorldLifecycle } from "./internal/WorldLifecycle.js";
@@ -325,6 +326,20 @@ export class WorldEngine {
 
   getPlugin(name: string): WorldSimPlugin | undefined {
     return this.runtime.pluginRegistry.getPlugin(name);
+  }
+
+  /**
+   * Ensures {@link NeedsSatisfierPlugin} is registered when perception mode
+   * is on and agents have needs. Safe to call after {@link addAgent}; idempotent
+   * with bootstrap auto-wiring.
+   */
+  ensureNeedsSatisfier(): this {
+    autoRegisterNeedsSatisfierIfNeeded(
+      this.runtime.config,
+      this.runtime.pendingAgentConfigs,
+      this.runtime.pluginRegistry,
+    );
+    return this;
   }
 
   getRulesContext(): RulesContext | null {

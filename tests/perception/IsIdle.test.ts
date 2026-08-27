@@ -107,7 +107,7 @@ describe("TickContextLoader.isIdle — perception integration", () => {
     expect(loader.isIdle(1, tiredState())).toBe(false);
   });
 
-  it("stays idle when needs are merely active but not critical", () => {
+  it("is not idle when needs are active but not yet critical", () => {
     const bus = new MessageBus();
     bus.newTick(1);
 
@@ -127,6 +127,6 @@ describe("TickContextLoader.isIdle — perception integration", () => {
       needsTracker: needs,
     });
 
-    expect(loader.isIdle(1, tiredState())).toBe(true);
+    expect(loader.isIdle(1, tiredState())).toBe(false);
   });
 });

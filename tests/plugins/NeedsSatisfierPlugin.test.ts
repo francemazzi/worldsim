@@ -141,7 +141,11 @@ describe("NeedsSatisfierPlugin", () => {
       match: (a: AgentAction) => a.actionType === "speak",
       apply: (_a: AgentAction, satisfy: (id: string, amt: number) => void) => satisfy("hunger", 0.5),
     };
-    const plugin = new NeedsSatisfierPlugin({ rules: [customRule], defaultRules: false });
+    const plugin = new NeedsSatisfierPlugin({
+      rules: [customRule],
+      defaultRules: false,
+      structuredRules: false,
+    });
     plugin.onRuntimeReady({ agentRegistry: registry, config: {} as never, needsTracker: needs, topicTracker: topics });
 
     expect(plugin.getRules()).toHaveLength(1);

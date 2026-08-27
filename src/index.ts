@@ -48,7 +48,7 @@ export { ChatPlugin } from "./plugins/built-in/ChatPlugin.js";
 export type { ChatPluginOptions } from "./plugins/built-in/ChatPlugin.js";
 export { privacyCompliancePlugin } from "./plugins/built-in/PrivacyCompliancePlugin.js";
 export type { PrivacyCompliancePluginOptions } from "./plugins/built-in/PrivacyCompliancePlugin.js";
-export { NeedsSatisfierPlugin, defaultNeedsSatisfyRules } from "./plugins/built-in/NeedsSatisfierPlugin.js";
+export { NeedsSatisfierPlugin, defaultNeedsSatisfyRules, structuredNeedsSatisfyRules } from "./plugins/built-in/NeedsSatisfierPlugin.js";
 export type {
   NeedsSatisfierPluginOptions,
   NeedsSatisfyRule,
@@ -295,6 +295,13 @@ export type {
   AffordanceMap,
 } from "./types/AffordanceTypes.js";
 export type { InteractionConfig } from "./types/WorldTypes.js";
+export {
+  realisticInteractionPreset,
+  animalInteractionPreset,
+  officeInteractionPreset,
+} from "./interaction/realisticInteractionPreset.js";
+export { createVenueLineOfSightFilter } from "./perception/VenueLineOfSightProvider.js";
+export type { VenueLineOfSightOptions } from "./perception/VenueLineOfSightProvider.js";
 export { StimulusBus, createStimulusId } from "./perception/StimulusBus.js";
 export { PerceptionEngine } from "./perception/PerceptionEngine.js";
 export type {

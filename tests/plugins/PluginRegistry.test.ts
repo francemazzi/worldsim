@@ -192,4 +192,12 @@ describe("PluginRegistry", () => {
     expect(calls).toContain("failing");
     expect(calls).toContain("conversation:msg-1");
   });
+
+  it("registerIfAbsent adds plugin only once", () => {
+    const reg = new PluginRegistry();
+    expect(reg.registerIfAbsent(makePlugin("needs-satisfier"))).toBe(true);
+    expect(reg.hasPlugin("needs-satisfier")).toBe(true);
+    expect(reg.registerIfAbsent(makePlugin("needs-satisfier"))).toBe(false);
+    expect(reg.getAll()).toHaveLength(1);
+  });
 });
